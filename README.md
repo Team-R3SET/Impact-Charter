@@ -1,7 +1,9 @@
 # Impact-Charter
-##Purpose
-## Mission
+## Purpose
+### Mission
 ### Vision
-Values
-Risks
-##Context
+### Values
+
+## Context
+### Stakeholders
+### Risks
