@@ -1,7 +1,7 @@
 # Impact-Charter
 ##Purpose
-Mission
-Vision
+## Mission
+### Vision
 Values
 Risks
 ##Context
