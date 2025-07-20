@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PlusCircle, FileText } from "lucide-react"
+import { PlusCircle, FileText, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export default function HomePage() {
@@ -35,7 +35,11 @@ export default function HomePage() {
         }),
       })
 
-      if (!res.ok) throw new Error("Failed to create business plan")
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to create business plan")
+      }
+
       const { plan } = await res.json()
 
       toast({
@@ -43,17 +47,24 @@ export default function HomePage() {
         description: "Business plan created successfully!",
       })
 
+      // Use router.push with the plan ID
       router.push(`/plan/${plan.id}?name=${encodeURIComponent(plan.planName)}`)
     } catch (err) {
       console.error("Failed to create business plan:", err)
       toast({
         title: "Error",
-        description: "Unable to create plan. Please try again.",
+        description: err instanceof Error ? err.message : "Unable to create plan. Please try again.",
         variant: "destructive",
       })
     } finally {
       setIsCreating(false)
     }
+  }
+
+  // Quick demo button for testing
+  const handleQuickDemo = () => {
+    const demoId = `demo-${Date.now()}`
+    router.push(`/plan/${demoId}?name=${encodeURIComponent("Demo Business Plan")}`)
   }
 
   return (
@@ -86,6 +97,11 @@ export default function HomePage() {
             <Button onClick={handleCreatePlan} disabled={!planName.trim() || isCreating} className="w-full">
               {isCreating ? "Creating..." : "Create Business Plan"}
             </Button>
+
+            {/* Quick demo button for testing */}
+            <Button onClick={handleQuickDemo} variant="outline" className="w-full bg-transparent">
+              Try Quick Demo
+            </Button>
           </CardContent>
         </Card>
 
@@ -97,6 +113,17 @@ export default function HomePage() {
             <li>• Section-by-section organization</li>
             <li>• Live presence indicators</li>
           </ul>
+        </div>
+
+        {/* Debug info for production */}
+        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4" />
+            <span className="font-medium">Debug Info</span>
+          </div>
+          <p>Environment: {process.env.NODE_ENV}</p>
+          <p>Airtable configured: {process.env.AIRTABLE_API_KEY ? "Yes" : "No"}</p>
+          <p>Liveblocks configured: {process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ? "Yes" : "No"}</p>
         </div>
       </div>
     </div>

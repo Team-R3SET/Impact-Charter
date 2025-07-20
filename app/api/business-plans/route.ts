@@ -25,6 +25,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ plan: planWithId }, { status: 201 })
   } catch (error) {
     console.error("Failed to create business plan:", error)
-    return NextResponse.json({ error: "Failed to create business plan" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to create business plan",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
+}
+
+// Add a GET method for health check
+export async function GET() {
+  return NextResponse.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+  })
 }
