@@ -42,7 +42,7 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
 
     return (
       <PlanRoom roomId={`plan-${planId}`} userName={user.name} userEmail={user.email}>
-        <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} />
+        <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={false} />
       </PlanRoom>
     )
   } catch (error) {

@@ -14,9 +14,10 @@ interface BusinessPlanEditorProps {
   planId: string
   planName: string
   userEmail: string
+  showHeader?: boolean
 }
 
-export function BusinessPlanEditor({ planId, planName, userEmail }: BusinessPlanEditorProps) {
+export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = true }: BusinessPlanEditorProps) {
   const [activeSection, setActiveSection] = useState(BUSINESS_PLAN_SECTIONS[0].id)
 
   const currentSection = BUSINESS_PLAN_SECTIONS.find((section) => section.id === activeSection)
@@ -27,22 +28,24 @@ export function BusinessPlanEditor({ planId, planName, userEmail }: BusinessPlan
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center justify-between p-4">
-          <div>
-            <h1 className="text-2xl font-bold">{planName}</h1>
-            <p className="text-sm text-muted-foreground">Business Plan</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <PresenceIndicator />
-            <Badge variant="outline" className="gap-1">
-              <Save className="w-3 h-3" />
-              Auto-saving
-            </Badge>
+      {/* Header - only show if showHeader is true */}
+      {showHeader && (
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center justify-between p-4">
+            <div>
+              <h1 className="text-2xl font-bold">{planName}</h1>
+              <p className="text-sm text-muted-foreground">Business Plan</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <PresenceIndicator />
+              <Badge variant="outline" className="gap-1">
+                <Save className="w-3 h-3" />
+                Auto-saving
+              </Badge>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
