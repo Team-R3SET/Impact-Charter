@@ -44,10 +44,15 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
   // Fetch business plans
   const fetchPlans = async () => {
     try {
-      const response = await fetch(`/api/business-plans?owner=${encodeURIComponent(currentUser.email)}`)
+      const response = await fetch(`/api/business-plans?owner=${encodeURIComponent(currentUser.email)}`, {
+        cache: "no-store",
+      })
       if (response.ok) {
-        const { plans } = await response.json()
-        setBusinessPlans(plans)
+        const data = await response.json()
+        console.log("Fetched plans data:", data) // Debug log
+        setBusinessPlans(data.plans || [])
+      } else {
+        console.error("Failed to fetch plans:", response.status, response.statusText)
       }
     } catch (error) {
       console.error("Failed to fetch business plans:", error)
@@ -81,6 +86,8 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
         return "bg-green-500"
       case "In Progress":
         return "bg-blue-500"
+      case "Submitted for Review":
+        return "bg-purple-500"
       default:
         return "bg-gray-500"
     }
@@ -101,22 +108,32 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
           {/* Plan Selector - Only show on plan pages */}
           {isOnPlanPage && (
             <div className="flex items-center gap-3 flex-1 max-w-md">
-              <Select value={currentPlanId} onValueChange={handlePlanChange} disabled={isLoading}>
+              <Select value={currentPlanId || ""} onValueChange={handlePlanChange} disabled={isLoading}>
                 <SelectTrigger className="bg-white/10 border-white/20 text-white placeholder:text-white/70 hover:bg-white/20 transition-colors">
-                  <SelectValue placeholder={isLoading ? "Loading..." : "Select plan"} />
+                  <SelectValue
+                    placeholder={
+                      isLoading ? "Loading plans..." : businessPlans.length === 0 ? "No plans found" : "Select a plan"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {businessPlans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id!}>
-                      <div className="flex items-center gap-2 w-full">
-                        <div className={`w-2 h-2 rounded-full ${getStatusColor(plan.status)}`} />
-                        <span className="truncate">{plan.planName}</span>
-                        <Badge variant="outline" className="ml-auto text-xs">
-                          {plan.status}
-                        </Badge>
-                      </div>
+                  {businessPlans.length === 0 && !isLoading ? (
+                    <SelectItem value="no-plans" disabled>
+                      No business plans found
                     </SelectItem>
-                  ))}
+                  ) : (
+                    businessPlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id!}>
+                        <div className="flex items-center gap-2 w-full">
+                          <div className={`w-2 h-2 rounded-full ${getStatusColor(plan.status)}`} />
+                          <span className="truncate">{plan.planName}</span>
+                          <Badge variant="outline" className="ml-auto text-xs">
+                            {plan.status}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <Tooltip>

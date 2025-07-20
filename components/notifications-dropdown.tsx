@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRoom, useOthers, useEventListener, useBroadcastEvent } from "@liveblocks/react/suspense"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,21 +13,19 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Bell, Check, Edit, UserPlus, UserMinus, FileText } from "lucide-react"
-import { useOthers, useEventListener, useBroadcastEvent } from "@/lib/liveblocks"
+import { Bell, User, FileText, CheckCircle, Edit3 } from "lucide-react"
+import { formatDistanceToNow } from "date-fns"
 
 interface Notification {
   id: string
-  type: "user_joined" | "user_left" | "section_changed" | "section_completed" | "user_typing"
+  type: "user_joined" | "user_left" | "section_edited" | "section_completed"
   message: string
-  user: {
-    name: string
-    email: string
-    avatar: string
-  }
   timestamp: Date
-  sectionId?: string
+  user?: {
+    name: string
+    avatar?: string
+  }
+  section?: string
   read: boolean
 }
 
@@ -35,95 +34,79 @@ export function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false)
   const others = useOthers()
   const broadcast = useBroadcastEvent()
+  let room
 
-  // Listen for room events
-  useEventListener(({ event }) => {
-    if (event.type === "TEXT_CHANGE") {
-      addNotification({
-        type: "section_changed",
-        message: `edited ${event.sectionId}`,
-        user: {
-          name: event.userId,
-          email: event.userId,
-          avatar: "/placeholder.svg",
-        },
-        sectionId: event.sectionId,
-      })
+  try {
+    room = useRoom()
+  } catch {
+    // Not inside a RoomProvider, don't render anything
+    return null
+  }
+
+  if (!room) {
+    return null
+  }
+
+  // Listen for custom events
+  useEventListener(({ event, user }) => {
+    const newNotification: Notification = {
+      id: `${Date.now()}-${Math.random()}`,
+      type: event.type as any,
+      message: event.message,
+      timestamp: new Date(),
+      user: user.info,
+      section: event.section,
+      read: false,
     }
+
+    setNotifications((prev) => [newNotification, ...prev.slice(0, 49)]) // Keep last 50
   })
 
   // Track user presence changes
   useEffect(() => {
-    const currentUserIds = new Set(others.map((user) => user.id))
-    const previousUserIds = new Set(notifications.filter((n) => n.type === "user_joined").map((n) => n.user.email))
+    const currentUserIds = new Set(others.map((user) => user.connectionId))
 
-    // Check for new users
+    // This is a simplified presence tracking - in a real app you'd want more sophisticated logic
     others.forEach((user) => {
-      if (!previousUserIds.has(user.id)) {
-        addNotification({
-          type: "user_joined",
-          message: "joined the session",
-          user: {
-            name: user.info?.name || "Anonymous",
-            email: user.id,
-            avatar: user.info?.avatar || "/placeholder.svg",
-          },
-        })
+      if (user.presence?.status === "online") {
+        // User is online - could add join notification logic here
       }
     })
   }, [others])
 
-  const addNotification = (notification: Omit<Notification, "id" | "timestamp" | "read">) => {
-    const newNotification: Notification = {
-      ...notification,
-      id: Math.random().toString(36).substr(2, 9),
-      timestamp: new Date(),
-      read: false,
-    }
-
-    setNotifications((prev) => [newNotification, ...prev.slice(0, 19)]) // Keep last 20
-  }
-
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-  }
+  const unreadCount = notifications.filter((n) => !n.read).length
 
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
   }
 
-  const clearAll = () => {
-    setNotifications([])
-  }
-
-  const unreadCount = notifications.filter((n) => !n.read).length
-
-  const getNotificationIcon = (type: Notification["type"]) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
       case "user_joined":
-        return <UserPlus className="w-4 h-4 text-green-500" />
       case "user_left":
-        return <UserMinus className="w-4 h-4 text-red-500" />
-      case "section_changed":
-        return <Edit className="w-4 h-4 text-blue-500" />
+        return <User className="w-4 h-4" />
+      case "section_edited":
+        return <Edit3 className="w-4 h-4" />
       case "section_completed":
-        return <Check className="w-4 h-4 text-green-500" />
-      case "user_typing":
-        return <FileText className="w-4 h-4 text-yellow-500" />
+        return <CheckCircle className="w-4 h-4" />
       default:
-        return <Bell className="w-4 h-4" />
+        return <FileText className="w-4 h-4" />
     }
   }
 
-  const formatTime = (date: Date) => {
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / 60000)
-
-    if (minutes < 1) return "just now"
-    if (minutes < 60) return `${minutes}m ago`
-    if (minutes < 1440) return `${Math.floor(minutes / 60)}h ago`
-    return date.toLocaleDateString()
+  const getNotificationColor = (type: string) => {
+    switch (type) {
+      case "user_joined":
+        return "text-green-600"
+      case "user_left":
+        return "text-red-600"
+      case "section_edited":
+        return "text-blue-600"
+      case "section_completed":
+        return "text-purple-600"
+      default:
+        return "text-gray-600"
+    }
   }
 
   return (
@@ -132,10 +115,7 @@ export function NotificationsDropdown() {
         <Button variant="ghost" size="icon" className="relative text-white hover:bg-white/10 h-10 w-10">
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-            >
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 hover:bg-red-500">
               {unreadCount > 9 ? "9+" : unreadCount}
             </Badge>
           )}
@@ -144,27 +124,16 @@ export function NotificationsDropdown() {
       <DropdownMenuContent className="w-80" align="end" forceMount>
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Notifications</span>
-          {notifications.length > 0 && (
-            <div className="flex gap-2">
-              {unreadCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={markAllAsRead} className="h-6 px-2 text-xs">
-                  Mark all read
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={clearAll} className="h-6 px-2 text-xs">
-                Clear all
-              </Button>
-            </div>
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs">
+              Mark all read
+            </Button>
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         {notifications.length === 0 ? (
-          <div className="p-4 text-center text-muted-foreground">
-            <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No notifications yet</p>
-            <p className="text-xs">Activity will appear here when others join</p>
-          </div>
+          <div className="p-4 text-center text-muted-foreground text-sm">No notifications yet</div>
         ) : (
           <ScrollArea className="h-80">
             {notifications.map((notification) => (
@@ -173,23 +142,23 @@ export function NotificationsDropdown() {
                 className={`flex items-start gap-3 p-3 cursor-pointer ${
                   !notification.read ? "bg-blue-50 dark:bg-blue-950/20" : ""
                 }`}
-                onClick={() => markAsRead(notification.id)}
+                onClick={() => {
+                  setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)))
+                }}
               >
-                <div className="flex-shrink-0 mt-0.5">{getNotificationIcon(notification.type)}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Avatar className="w-5 h-5">
-                      <AvatarImage src={notification.user.avatar || "/placeholder.svg"} />
-                      <AvatarFallback className="text-xs">
-                        {notification.user.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium truncate">{notification.user.name}</span>
-                    {!notification.read && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{notification.message}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{formatTime(notification.timestamp)}</p>
+                <div className={`mt-0.5 ${getNotificationColor(notification.type)}`}>
+                  {getNotificationIcon(notification.type)}
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium leading-tight">{notification.message}</p>
+                  {notification.section && (
+                    <p className="text-xs text-muted-foreground mt-1">Section: {notification.section}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                  </p>
+                </div>
+                {!notification.read && <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />}
               </DropdownMenuItem>
             ))}
           </ScrollArea>
