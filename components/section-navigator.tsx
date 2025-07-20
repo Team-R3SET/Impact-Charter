@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { BUSINESS_PLAN_SECTIONS } from "@/lib/business-plan-sections"
 import { useStorage, useOthers } from "@/lib/liveblocks"
-import { CheckCircle, Circle, Edit3 } from "lucide-react"
+import { CheckCircle, Circle, Edit3, Clock } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface SectionNavigatorProps {
@@ -93,6 +93,8 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {completedSections?.[section.id] ? (
                       <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    ) : isComplete ? (
+                      <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />
                     ) : (
                       <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     )}

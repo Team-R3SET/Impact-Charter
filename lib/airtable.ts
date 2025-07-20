@@ -9,7 +9,7 @@ export interface BusinessPlan {
   createdDate: string
   lastModified: string
   ownerEmail: string
-  status: "Draft" | "In Progress" | "Complete"
+  status: "Draft" | "In Progress" | "Complete" | "Submitted for Review"
 }
 
 export interface BusinessPlanSection {
@@ -19,6 +19,9 @@ export interface BusinessPlanSection {
   sectionContent: string
   lastModified: string
   modifiedBy: string
+  isComplete?: boolean
+  submittedForReview?: boolean
+  completedDate?: string
 }
 
 export interface UserProfile {
@@ -123,28 +126,120 @@ export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan
 }
 
 export async function updateBusinessPlanSection(section: BusinessPlanSection): Promise<void> {
-  const url = section.id
-    ? `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${section.id}`
-    : `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    console.log("[updateBusinessPlanSection] Airtable API keys missing - skipping update")
+    return
+  }
 
-  const method = section.id ? "PATCH" : "POST"
+  try {
+    const url = section.id
+      ? `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${section.id}`
+      : `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`
 
-  await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      fields: {
-        planId: section.planId,
-        sectionName: section.sectionName,
-        sectionContent: section.sectionContent,
-        lastModified: section.lastModified,
-        modifiedBy: section.modifiedBy,
+    const method = section.id ? "PATCH" : "POST"
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-    }),
-  })
+      body: JSON.stringify({
+        fields: {
+          planId: section.planId,
+          sectionName: section.sectionName,
+          sectionContent: section.sectionContent,
+          lastModified: section.lastModified,
+          modifiedBy: section.modifiedBy,
+          isComplete: section.isComplete || false,
+          submittedForReview: section.submittedForReview || false,
+          completedDate: section.completedDate,
+        },
+      }),
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      throw new Error(`Airtable update failed: ${res.status} - ${errorText}`)
+    }
+  } catch (error) {
+    console.error("[updateBusinessPlanSection] Error updating section:", error)
+    throw error
+  }
+}
+
+export async function markSectionAsComplete(planId: string, sectionName: string, userEmail: string): Promise<void> {
+  console.log(`[markSectionAsComplete] Marking section ${sectionName} as complete for plan ${planId}`)
+
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    console.log("[markSectionAsComplete] Airtable API keys missing - operation completed locally")
+    return
+  }
+
+  try {
+    // First, try to find existing section record
+    const filterFormula = `AND({planId} = "${planId}", {sectionName} = "${sectionName}")`
+    const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections?filterByFormula=${encodeURIComponent(filterFormula)}&maxRecords=1`
+
+    const searchRes = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+      cache: "no-store",
+    })
+
+    if (!searchRes.ok) {
+      throw new Error(`Failed to search for section: ${searchRes.status}`)
+    }
+
+    const searchData = await searchRes.json()
+    const existingRecord = searchData.records?.[0]
+
+    const updateData = {
+      planId,
+      sectionName,
+      isComplete: true,
+      submittedForReview: true,
+      completedDate: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      modifiedBy: userEmail,
+    }
+
+    let url: string
+    let method: string
+
+    if (existingRecord) {
+      // Update existing record
+      url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${existingRecord.id}`
+      method = "PATCH"
+      // Preserve existing content if available
+      if (existingRecord.fields.sectionContent) {
+        updateData.sectionContent = existingRecord.fields.sectionContent
+      }
+    } else {
+      // Create new record
+      url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`
+      method = "POST"
+      updateData.sectionContent = "" // Default empty content for new records
+    }
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields: updateData }),
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      throw new Error(`Airtable operation failed: ${res.status} - ${errorText}`)
+    }
+
+    console.log(`[markSectionAsComplete] Successfully marked section ${sectionName} as complete`)
+  } catch (error) {
+    console.error("[markSectionAsComplete] Error marking section as complete:", error)
+    throw error
+  }
 }
 
 export async function getBusinessPlan(planId: string): Promise<BusinessPlan | null> {
@@ -235,7 +330,7 @@ export async function getUserProfile(email: string): Promise<UserProfile | null>
       cache: "no-store",
     })
 
-    // 2️⃣ Gracefully handle “table missing” or “no rows” conditions
+    // 2️⃣ Gracefully handle "table missing" or "no rows" conditions
     if (res.status === 404) {
       console.warn("[getUserProfile] Table 'User Profiles' not found – returning null")
       return null

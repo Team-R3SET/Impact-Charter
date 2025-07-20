@@ -10,7 +10,8 @@ import { CollaborativeTextEditor } from "./collaborative-text-editor"
 import { PresenceIndicator } from "./presence-indicator"
 import { RenamePlanDialog } from "./rename-plan-dialog"
 import { BUSINESS_PLAN_SECTIONS } from "@/lib/business-plan-sections"
-import { MessageSquare, Save, Edit3 } from "lucide-react"
+import { MessageSquare, Save, Edit3, CheckCircle, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface BusinessPlanEditorProps {
   planId: string
@@ -23,7 +24,9 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
   const [activeSection, setActiveSection] = useState(BUSINESS_PLAN_SECTIONS[0].id)
   const [currentPlanName, setCurrentPlanName] = useState(planName)
   const [renameDialog, setRenameDialog] = useState(false)
+  const [isMarkingComplete, setIsMarkingComplete] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const currentSection = BUSINESS_PLAN_SECTIONS.find((section) => section.id === activeSection)
 
@@ -31,6 +34,53 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
     setCurrentPlanName(newName)
     // Update the URL to reflect the new name
     router.replace(`/plan/${planId}?name=${encodeURIComponent(newName)}`)
+  }
+
+  const handleMarkAsComplete = async () => {
+    if (!currentSection) return
+
+    setIsMarkingComplete(true)
+
+    try {
+      const response = await fetch(
+        `/api/business-plans/${planId}/sections/${encodeURIComponent(currentSection.id)}/complete`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userEmail,
+          }),
+        },
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to mark section as complete")
+      }
+
+      toast({
+        title: "Section Completed! ✅",
+        description: `"${currentSection.title}" has been marked as complete and submitted for review.`,
+        duration: 5000,
+      })
+
+      // Optionally refresh the page or update local state
+      router.refresh()
+    } catch (error) {
+      console.error("Error marking section as complete:", error)
+
+      toast({
+        title: "Failed to Mark as Complete",
+        description: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+        duration: 7000,
+      })
+    } finally {
+      setIsMarkingComplete(false)
+    }
   }
 
   if (!currentSection) {
@@ -83,10 +133,30 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
                       <CardTitle className="text-xl">{currentSection.title}</CardTitle>
                       <CardDescription className="mt-2">{currentSection.description}</CardDescription>
                     </div>
-                    <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                      <MessageSquare className="w-4 h-4" />
-                      Comments
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                        <MessageSquare className="w-4 h-4" />
+                        Comments
+                      </Button>
+                      <Button
+                        onClick={handleMarkAsComplete}
+                        disabled={isMarkingComplete}
+                        className="gap-2 bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 shadow-sm"
+                        size="sm"
+                      >
+                        {isMarkingComplete ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            Mark as Complete
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
