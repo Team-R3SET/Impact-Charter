@@ -19,7 +19,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
-import { LivePresenceHeader } from "@/components/live-presence-header"
 import type { BusinessPlan } from "@/lib/airtable"
 
 interface AppHeaderProps {
@@ -152,13 +151,6 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
                   <p>Refresh plans</p>
                 </TooltipContent>
               </Tooltip>
-            </div>
-          )}
-
-          {/* Live Presence - Only show on plan pages */}
-          {isOnPlanPage && (
-            <div className="hidden md:flex">
-              <LivePresenceHeader />
             </div>
           )}
 
