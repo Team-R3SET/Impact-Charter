@@ -1,12 +1,20 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Textarea } from "@/components/ui/textarea"
-import { useMutation, useStorage } from "@/lib/liveblocks"
+import {
+  useMutation,
+  useStorage,
+  useMyPresence,
+  useOthers,
+  useBroadcastEvent,
+  useEventListener,
+} from "@/lib/liveblocks"
 import { useToast } from "@/hooks/use-toast"
-import { CheckCircle, Circle } from "lucide-react"
+import { CheckCircle, Circle, Users, Edit3 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface CollaborativeTextEditorProps {
   sectionId: string
@@ -18,10 +26,28 @@ interface CollaborativeTextEditorProps {
 export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEmail }: CollaborativeTextEditorProps) {
   const [localContent, setLocalContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
+  const [isComposing, setIsComposing] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
+  const typingTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
 
+  const [myPresence, updateMyPresence] = useMyPresence()
+  const others = useOthers()
+  const broadcast = useBroadcastEvent()
+
   const sectionContent = useStorage((root) => root.sections?.[sectionId]?.content ?? "") as string
+
+  // Get users currently in this section
+  const usersInSection = others.filter(
+    (user) => user.presence.selectedSection === sectionId || user.presence.isTyping?.sectionId === sectionId,
+  )
+
+  // Get users currently typing in this section
+  const typingUsers = others.filter((user) => {
+    const typing = user.presence.isTyping
+    return typing && typing.sectionId === sectionId && Date.now() - typing.timestamp < 3000
+  })
 
   const updateSection = useMutation(
     ({ storage }, content: string) => {
@@ -45,13 +71,41 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
 
   const isCompleted = useStorage((root) => root.completedSections?.[sectionId] ?? false) as boolean
 
+  // Update presence when section changes
+  useEffect(() => {
+    updateMyPresence({
+      selectedSection: sectionId,
+      textCursor: null,
+      textSelection: null,
+      isTyping: null,
+    })
+
+    return () => {
+      updateMyPresence({
+        selectedSection: null,
+        textCursor: null,
+        textSelection: null,
+        isTyping: null,
+      })
+    }
+  }, [sectionId, updateMyPresence])
+
   // Sync with LiveBlocks storage
   useEffect(() => {
     const safeContent = sectionContent ?? ""
-    if (safeContent !== localContent) {
+    if (safeContent !== localContent && !isComposing) {
       setLocalContent(safeContent)
     }
-  }, [sectionContent, localContent])
+  }, [sectionContent, localContent, isComposing])
+
+  // Listen for real-time text changes from other users
+  useEventListener(({ event }) => {
+    if (event.type === "TEXT_CHANGE" && event.sectionId === sectionId) {
+      if (!isComposing) {
+        setLocalContent(event.content)
+      }
+    }
+  })
 
   // Auto-save to Airtable
   const saveToAirtable = async (content: string) => {
@@ -84,18 +138,69 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
     }
   }
 
-  const handleContentChange = (content: string) => {
-    setLocalContent(content)
-    updateSection(content)
+  const handleContentChange = useCallback(
+    (content: string) => {
+      setLocalContent(content)
+      updateSection(content)
 
-    // Debounced save to Airtable
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
+      // Broadcast real-time change
+      broadcast({
+        type: "TEXT_CHANGE",
+        sectionId,
+        content,
+        userId: userEmail,
+      })
+
+      // Update typing presence
+      updateMyPresence({
+        isTyping: {
+          sectionId,
+          timestamp: Date.now(),
+        },
+      })
+
+      // Clear typing indicator after 2 seconds
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        updateMyPresence({
+          isTyping: null,
+        })
+      }, 2000)
+
+      // Debounced save to Airtable
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+      saveTimeoutRef.current = setTimeout(() => {
+        saveToAirtable(content)
+      }, 2000)
+    },
+    [updateSection, broadcast, sectionId, userEmail, updateMyPresence],
+  )
+
+  const handleCursorChange = useCallback(() => {
+    if (!textareaRef.current) return
+
+    const textarea = textareaRef.current
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+
+    if (start === end) {
+      // Just cursor position
+      updateMyPresence({
+        textCursor: { sectionId, position: start },
+        textSelection: null,
+      })
+    } else {
+      // Text selection
+      updateMyPresence({
+        textCursor: null,
+        textSelection: { sectionId, start, end },
+      })
     }
-    saveTimeoutRef.current = setTimeout(() => {
-      saveToAirtable(content)
-    }, 2000)
-  }
+  }, [sectionId, updateMyPresence])
 
   return (
     <div className="space-y-4">
@@ -125,18 +230,65 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
             </Badge>
           )}
         </div>
+
+        {/* Users in section indicator */}
+        {usersInSection.length > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-1">
+              {usersInSection.slice(0, 3).map((user) => (
+                <Avatar key={user.connectionId} className="w-6 h-6 border-2 border-background">
+                  <AvatarImage src={user.presence.user?.avatar || "/placeholder.svg"} alt={user.presence.user?.name} />
+                  <AvatarFallback className="text-xs">
+                    {user.presence.user?.name?.charAt(0)?.toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+            </div>
+            <Badge variant="outline" className="text-xs gap-1">
+              <Users className="w-3 h-3" />
+              {usersInSection.length} editing
+            </Badge>
+          </div>
+        )}
       </div>
+
+      {/* Typing indicators */}
+      {typingUsers.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Edit3 className="w-4 h-4 animate-pulse" />
+          <span>
+            {typingUsers.length === 1
+              ? `${typingUsers[0].presence.user?.name} is typing...`
+              : `${typingUsers.length} people are typing...`}
+          </span>
+        </div>
+      )}
 
       <div className="relative">
         <Textarea
+          ref={textareaRef}
           value={localContent ?? ""}
           onChange={(e) => handleContentChange(e.target.value)}
+          onSelect={handleCursorChange}
+          onKeyUp={handleCursorChange}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
           placeholder={placeholder}
           className="min-h-[300px] resize-none"
         />
+
+        {/* Save indicator */}
         {isSaving && (
           <div className="absolute top-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
             Saving...
+          </div>
+        )}
+
+        {/* Live collaboration indicator */}
+        {usersInSection.length > 0 && (
+          <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded flex items-center gap-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            Live
           </div>
         )}
       </div>

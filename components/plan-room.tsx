@@ -17,6 +17,9 @@ export function PlanRoom({ roomId, userName, userEmail, children }: PlanRoomProp
       initialPresence={{
         cursor: null,
         selectedSection: null,
+        textCursor: null,
+        textSelection: null,
+        isTyping: null,
         user: {
           name: userName,
           email: userEmail,
