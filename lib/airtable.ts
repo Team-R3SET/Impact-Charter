@@ -79,8 +79,11 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
  *   return a minimal fallback object so the page can still render locally.
  */
 export async function getBusinessPlan(planId: string): Promise<BusinessPlan | null> {
+  console.log(`[getBusinessPlan] Attempting to fetch planId: ${planId}`)
+
   // 1️⃣ Skip the request entirely when Airtable creds are missing
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    console.log("[getBusinessPlan] Airtable API keys missing. Returning local fallback.")
     return {
       id: planId,
       planName: "Untitled Plan",
@@ -92,11 +95,14 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
   }
 
   try {
+    console.log(`[getBusinessPlan] Fetching from Airtable for planId: ${planId}`)
     const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
       headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+      cache: "no-store", // Ensure fresh data
     })
 
     if (res.status === 404) {
+      console.warn(`[getBusinessPlan] Airtable record not found for planId: ${planId}. Returning local fallback.`)
       // 2️⃣  Gracefully handle missing records instead of returning null
       return {
         id: planId,
@@ -108,12 +114,19 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
       }
     }
 
-    if (!res.ok) throw new Error("Airtable request failed")
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error(
+        `[getBusinessPlan] Airtable request failed for planId: ${planId}. Status: ${res.status}, Response: ${errorText}`,
+      )
+      throw new Error(`Airtable request failed: ${res.status} - ${errorText}`)
+    }
 
     const data = await res.json()
+    console.log(`[getBusinessPlan] Successfully fetched planId: ${planId}`)
     return { id: data.id, ...data.fields }
   } catch (error) {
-    console.error("Error fetching business plan:", error)
+    console.error(`[getBusinessPlan] Error fetching business plan for planId: ${planId}:`, error)
     // 3️⃣  Last-chance fallback
     return {
       id: planId,
