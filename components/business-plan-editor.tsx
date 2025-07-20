@@ -20,7 +20,7 @@ import { CollaborativeTextEditor } from "@/components/collaborative-text-editor"
 import { SectionNavigator } from "@/components/section-navigator"
 import { LiveCollabButton } from "@/components/live-collab-button"
 import { AppHeader } from "@/components/app-header"
-import { businessPlanSections } from "@/lib/business-plan-sections"
+import { BUSINESS_PLAN_SECTIONS } from "@/lib/business-plan-sections"
 
 interface BusinessPlanEditorProps {
   planId: string
@@ -74,10 +74,10 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
   }
 
   const completedCount = Object.values(completedSections).filter(Boolean).length
-  const totalSections = businessPlanSections.length
+  const totalSections = BUSINESS_PLAN_SECTIONS.length
   const completionPercentage = Math.round((completedCount / totalSections) * 100)
 
-  const currentSectionData = businessPlanSections.find((section) => section.id === activeSection)
+  const currentSectionData = BUSINESS_PLAN_SECTIONS.find((section) => section.id === activeSection)
 
   const getSectionIcon = (sectionId: string) => {
     const iconMap: Record<string, any> = {
@@ -87,9 +87,9 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
       "organization-management": Users,
       "products-services": Lightbulb,
       "marketing-sales": BarChart3,
-      "funding-request": DollarSign,
+      "funding-requirements": DollarSign,
       "financial-projections": BarChart3,
-      appendix: Settings,
+      "risk-analysis": Settings,
       "implementation-timeline": Clock,
     }
     return iconMap[sectionId] || FileText
@@ -194,7 +194,7 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
           {/* Section Navigator */}
           <div className="lg:col-span-1">
             <SectionNavigator
-              sections={businessPlanSections}
+              sections={BUSINESS_PLAN_SECTIONS}
               activeSection={activeSection}
               completedSections={completedSections}
               onSectionChange={setActiveSection}

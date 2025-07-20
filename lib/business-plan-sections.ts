@@ -69,3 +69,9 @@ export const BUSINESS_PLAN_SECTIONS: BusinessPlanSection[] = [
     placeholder: "Provide a timeline with key milestones and deadlines for implementing your business plan...",
   },
 ]
+
+// Add the missing export for backward compatibility
+export const businessPlanSections = BUSINESS_PLAN_SECTIONS
+
+// Also provide a default export for flexibility
+export default BUSINESS_PLAN_SECTIONS

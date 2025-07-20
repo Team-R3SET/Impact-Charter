@@ -10,12 +10,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 interface SectionNavigatorProps {
   activeSection: string
   onSectionChange: (sectionId: string) => void
+  sections?: typeof BUSINESS_PLAN_SECTIONS
+  completedSections?: Record<string, boolean>
 }
 
-export function SectionNavigator({ activeSection, onSectionChange }: SectionNavigatorProps) {
+export function SectionNavigator({
+  activeSection,
+  onSectionChange,
+  sections = BUSINESS_PLAN_SECTIONS,
+  completedSections = {},
+}: SectionNavigatorProps) {
   const others = useOthers()
 
-  const sections = useStorage((root) => {
+  const sectionsData = useStorage((root) => {
     if (!root.sections) return {}
 
     if (typeof (root.sections as any).get === "function") {
@@ -28,7 +35,7 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
     return root.sections as Record<string, any>
   })
 
-  const completedSections = useStorage((root) => {
+  const liveblocksCompletedSections = useStorage((root) => {
     if (!root.completedSections) return {}
 
     if (typeof (root.completedSections as any).get === "function") {
@@ -41,12 +48,15 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
     return root.completedSections as Record<string, boolean>
   }) as Record<string, boolean>
 
+  // Merge completed sections from props and Liveblocks
+  const allCompletedSections = { ...completedSections, ...liveblocksCompletedSections }
+
   const getSectionProgress = (sectionId: string) => {
-    if (completedSections?.[sectionId]) {
+    if (allCompletedSections?.[sectionId]) {
       return true
     }
 
-    const entry = sections?.[sectionId]
+    const entry = sectionsData?.[sectionId]
     const content = entry?.content ?? ""
     return content.trim().length > 50
   }
@@ -57,7 +67,7 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
     )
   }
 
-  const completedCount = BUSINESS_PLAN_SECTIONS.filter((section) => completedSections?.[section.id] === true).length
+  const completedCount = sections.filter((section) => allCompletedSections?.[section.id] === true).length
 
   return (
     <div className="w-80 border-r bg-muted/30 flex flex-col">
@@ -65,14 +75,14 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
         <h2 className="font-semibold text-lg">Business Plan Sections</h2>
         <div className="flex items-center gap-2 mt-2">
           <Badge variant="outline">
-            {completedCount}/{BUSINESS_PLAN_SECTIONS.length} Complete
+            {completedCount}/{sections.length} Complete
           </Badge>
         </div>
       </div>
 
       <ScrollArea className="flex-1">
         <div className="p-2">
-          {BUSINESS_PLAN_SECTIONS.map((section, index) => {
+          {sections.map((section, index) => {
             const isActive = activeSection === section.id
             const isComplete = getSectionProgress(section.id)
             const usersInSection = getUsersInSection(section.id)
@@ -91,7 +101,7 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
               >
                 <div className="flex items-start gap-3 w-full">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {completedSections?.[section.id] ? (
+                    {allCompletedSections?.[section.id] ? (
                       <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                     ) : isComplete ? (
                       <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />

@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Users, Wifi, WifiOff, Loader2 } from "lucide-react"
-import { useRoom, useOthers, useMyPresence } from "@/lib/liveblocks"
-import { toast } from "@/hooks/use-toast"
+import { Users, WifiOff, Loader2, Play, Square } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 interface LiveCollabButtonProps {
   planId: string
@@ -15,187 +15,213 @@ interface LiveCollabButtonProps {
   currentUser: {
     name: string
     email: string
-    avatar?: string
+    avatar: string
   }
 }
 
-type CollabState = "disconnected" | "connecting" | "connected" | "error"
+type CollabState = "inactive" | "connecting" | "connected" | "error"
 
 export function LiveCollabButton({ planId, planName, currentUser }: LiveCollabButtonProps) {
-  const [collabState, setCollabState] = useState<CollabState>("disconnected")
-  const [showParticipants, setShowParticipants] = useState(false)
+  const [collabState, setCollabState] = useState<CollabState>("inactive")
+  const [participants, setParticipants] = useState<Array<{ name: string; email: string; avatar: string }>>([])
+  const [isInitializing, setIsInitializing] = useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
 
-  // These hooks will only work inside a RoomProvider
-  const room = useRoom()
-  const others = useOthers()
-  const myPresence = useMyPresence()
-
-  // Update collab state based on room connection
+  // Check if collaboration is already active from URL params
   useEffect(() => {
-    if (!room) {
-      setCollabState("disconnected")
-      return
+    const isCollabActive = searchParams.get("collab") === "true"
+    if (isCollabActive) {
+      setCollabState("connected")
+      // Simulate some participants for demo
+      setParticipants([
+        currentUser,
+        {
+          name: "Alice Johnson",
+          email: "alice@example.com",
+          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=alice",
+        },
+      ])
     }
-
-    const updateConnectionState = () => {
-      const connectionState = room.getStatus()
-      switch (connectionState) {
-        case "initial":
-        case "connecting":
-          setCollabState("connecting")
-          break
-        case "open":
-          setCollabState("connected")
-          break
-        case "unavailable":
-        case "closed":
-          setCollabState("error")
-          break
-        default:
-          setCollabState("disconnected")
-      }
-    }
-
-    // Initial state
-    updateConnectionState()
-
-    // Listen for connection changes
-    const unsubscribe = room.subscribe("status", updateConnectionState)
-
-    return () => {
-      unsubscribe()
-    }
-  }, [room])
-
-  // Show success toast when connected
-  useEffect(() => {
-    if (collabState === "connected" && room) {
-      toast({
-        title: "Live Collaboration Active",
-        description: `Connected to "${planName}" - Real-time editing enabled`,
-        duration: 3000,
-      })
-    }
-  }, [collabState, planName, room])
+  }, [searchParams, currentUser])
 
   const handleCollabToggle = async () => {
     if (collabState === "connected") {
-      // Disconnect from collaboration
-      try {
-        setCollabState("connecting")
-        // In a real implementation, you might want to leave the room
-        // For now, we'll just refresh the page to disconnect
-        window.location.reload()
-      } catch (error) {
-        console.error("Error disconnecting from collaboration:", error)
-        setCollabState("error")
+      // Stop collaboration
+      setCollabState("inactive")
+      setParticipants([])
+
+      // Remove collab param from URL
+      const newSearchParams = new URLSearchParams(searchParams.toString())
+      newSearchParams.delete("collab")
+      const newUrl = newSearchParams.toString()
+        ? `${window.location.pathname}?${newSearchParams.toString()}`
+        : window.location.pathname
+      router.replace(newUrl)
+
+      toast({
+        title: "Collaboration Ended",
+        description: "You've left the collaborative session.",
+        duration: 3000,
+      })
+      return
+    }
+
+    // Start collaboration
+    setIsInitializing(true)
+    setCollabState("connecting")
+
+    try {
+      // Simulate room initialization
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Add collab param to URL
+      const newSearchParams = new URLSearchParams(searchParams.toString())
+      newSearchParams.set("collab", "true")
+      router.replace(`${window.location.pathname}?${newSearchParams.toString()}`)
+
+      setCollabState("connected")
+      setParticipants([currentUser])
+
+      toast({
+        title: "Live Collaboration Started! 🚀",
+        description: `"${planName}" is now ready for real-time collaboration. Share this URL with your team.`,
+        duration: 5000,
+      })
+
+      // Simulate another user joining after a delay
+      setTimeout(() => {
+        setParticipants((prev) => [
+          ...prev,
+          {
+            name: "Alice Johnson",
+            email: "alice@example.com",
+            avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=alice",
+          },
+        ])
+
         toast({
-          title: "Disconnection Failed",
-          description: "Unable to disconnect from collaboration session",
-          variant: "destructive",
+          title: "Alice Johnson joined",
+          description: "A new collaborator has joined the session.",
+          duration: 3000,
         })
-      }
-    } else {
-      // Connect to collaboration
-      try {
-        setCollabState("connecting")
+      }, 3000)
+    } catch (error) {
+      console.error("Failed to initialize collaboration:", error)
+      setCollabState("error")
 
-        // Initialize the room by redirecting to the plan page
-        // This will trigger the PlanRoom component to wrap the page
-        const currentUrl = new URL(window.location.href)
-        const searchParams = new URLSearchParams(currentUrl.search)
-        searchParams.set("collab", "true")
-
-        const newUrl = `/plan/${planId}?${searchParams.toString()}`
-        window.location.href = newUrl
-      } catch (error) {
-        console.error("Error initializing collaboration:", error)
-        setCollabState("error")
-        toast({
-          title: "Connection Failed",
-          description: "Unable to initialize collaboration session",
-          variant: "destructive",
-        })
-      }
+      toast({
+        title: "Connection Failed",
+        description: "Unable to start collaboration. Please check your connection and try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
+    } finally {
+      setIsInitializing(false)
     }
   }
 
-  const getButtonVariant = () => {
+  const getButtonConfig = () => {
     switch (collabState) {
-      case "connected":
-        return "default"
       case "connecting":
-        return "secondary"
+        return {
+          text: "Connecting...",
+          icon: <Loader2 className="w-4 h-4 animate-spin" />,
+          variant: "secondary" as const,
+          className: "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200",
+        }
+      case "connected":
+        return {
+          text: "End Collaboration",
+          icon: <Square className="w-4 h-4" />,
+          variant: "destructive" as const,
+          className: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200",
+        }
       case "error":
-        return "destructive"
+        return {
+          text: "Retry Connection",
+          icon: <WifiOff className="w-4 h-4" />,
+          variant: "destructive" as const,
+          className: "",
+        }
       default:
-        return "outline"
+        return {
+          text: "Start Live Collab",
+          icon: <Play className="w-4 h-4" />,
+          variant: "default" as const,
+          className: "bg-blue-600 hover:bg-blue-700 text-white shadow-md",
+        }
     }
   }
 
-  const getButtonIcon = () => {
-    switch (collabState) {
-      case "connected":
-        return <Wifi className="w-4 h-4" />
-      case "connecting":
-        return <Loader2 className="w-4 h-4 animate-spin" />
-      case "error":
-        return <WifiOff className="w-4 h-4" />
-      default:
-        return <Users className="w-4 h-4" />
-    }
-  }
-
-  const getButtonText = () => {
-    switch (collabState) {
-      case "connected":
-        return "Live Collab Active"
-      case "connecting":
-        return "Connecting..."
-      case "error":
-        return "Connection Error"
-      default:
-        return "Start Live Collab"
-    }
-  }
-
-  const getStatusColor = () => {
-    switch (collabState) {
-      case "connected":
-        return "bg-green-500"
-      case "connecting":
-        return "bg-yellow-500"
-      case "error":
-        return "bg-red-500"
-      default:
-        return "bg-gray-500"
-    }
-  }
-
-  const activeParticipants = others.length + (collabState === "connected" ? 1 : 0)
+  const buttonConfig = getButtonConfig()
 
   return (
     <TooltipProvider>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        {/* Participants Display */}
+        {participants.length > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-2">
+              {participants.slice(0, 3).map((participant, index) => (
+                <Tooltip key={participant.email}>
+                  <TooltipTrigger>
+                    <Avatar className="w-8 h-8 border-2 border-white shadow-sm">
+                      <AvatarImage src={participant.avatar || "/placeholder.svg"} alt={participant.name} />
+                      <AvatarFallback className="text-xs">
+                        {participant.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{participant.name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+
+            {participants.length > 3 && (
+              <Badge variant="secondary" className="text-xs">
+                +{participants.length - 3}
+              </Badge>
+            )}
+
+            {/* Connection Status Indicator */}
+            <div className="flex items-center gap-1">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  collabState === "connected"
+                    ? "bg-green-500"
+                    : collabState === "connecting"
+                      ? "bg-yellow-500 animate-pulse"
+                      : "bg-red-500"
+                }`}
+              />
+              <span className="text-xs text-gray-600">{participants.length} active</span>
+            </div>
+          </div>
+        )}
+
+        {/* Main Collaboration Button */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={getButtonVariant()}
-              size="sm"
               onClick={handleCollabToggle}
-              disabled={collabState === "connecting"}
-              className="relative"
+              disabled={isInitializing}
+              variant={buttonConfig.variant}
+              className={`gap-2 font-medium px-4 py-2 ${buttonConfig.className}`}
+              size="sm"
             >
-              {getButtonIcon()}
-              <span className="ml-2">{getButtonText()}</span>
-
-              {/* Status indicator */}
-              <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${getStatusColor()}`} />
-
-              {/* Participant count badge */}
-              {collabState === "connected" && activeParticipants > 1 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {activeParticipants}
+              {buttonConfig.icon}
+              {buttonConfig.text}
+              {collabState === "connected" && (
+                <Badge variant="secondary" className="ml-1 bg-white/20 text-white">
+                  <Users className="w-3 h-3 mr-1" />
+                  {participants.length}
                 </Badge>
               )}
             </Button>
@@ -203,50 +229,17 @@ export function LiveCollabButton({ planId, planName, currentUser }: LiveCollabBu
           <TooltipContent>
             <div className="text-center">
               <p className="font-medium">
-                {collabState === "connected"
-                  ? "Disconnect from live collaboration"
-                  : "Start real-time collaborative editing"}
+                {collabState === "inactive" && "Start real-time collaboration"}
+                {collabState === "connecting" && "Initializing collaboration room..."}
+                {collabState === "connected" && `${participants.length} people collaborating`}
+                {collabState === "error" && "Connection failed - click to retry"}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {collabState === "connected"
-                  ? `${activeParticipants} participant${activeParticipants !== 1 ? "s" : ""} active`
-                  : "Enable live co-editing with your team"}
-              </p>
+              {collabState === "connected" && (
+                <p className="text-xs text-gray-400 mt-1">Share this URL to invite others</p>
+              )}
             </div>
           </TooltipContent>
         </Tooltip>
-
-        {/* Participants preview */}
-        {collabState === "connected" && others.length > 0 && (
-          <div className="flex items-center gap-1">
-            <div className="flex -space-x-2">
-              {others.slice(0, 3).map((other, index) => (
-                <Tooltip key={other.connectionId}>
-                  <TooltipTrigger asChild>
-                    <Avatar className="w-6 h-6 border-2 border-background">
-                      <AvatarImage
-                        src={other.presence?.user?.avatar || "/placeholder.svg"}
-                        alt={other.presence?.user?.name || "User"}
-                      />
-                      <AvatarFallback className="text-xs">
-                        {(other.presence?.user?.name || "U").charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{other.presence?.user?.name || "Anonymous User"}</p>
-                    <p className="text-xs text-muted-foreground">{other.presence?.user?.email || "No email"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-              {others.length > 3 && (
-                <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
-                  <span className="text-xs font-medium">+{others.length - 3}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </TooltipProvider>
   )
