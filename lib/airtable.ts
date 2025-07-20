@@ -209,6 +209,7 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
 export async function getUserProfile(email: string): Promise<UserProfile | null> {
   console.log(`[getUserProfile] Fetching profile for: ${email}`)
 
+  // 1️⃣ Local-dev fallback
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
     return {
       id: "local-user",
@@ -225,26 +226,35 @@ export async function getUserProfile(email: string): Promise<UserProfile | null>
 
   try {
     const filterFormula = `{email} = "${email}"`
-    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/User%20Profiles?filterByFormula=${encodeURIComponent(filterFormula)}`
+    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/User%20Profiles?filterByFormula=${encodeURIComponent(
+      filterFormula,
+    )}&maxRecords=1`
 
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
       cache: "no-store",
     })
 
+    // 2️⃣ Gracefully handle “table missing” or “no rows” conditions
+    if (res.status === 404) {
+      console.warn("[getUserProfile] Table 'User Profiles' not found – returning null")
+      return null
+    }
     if (!res.ok) {
-      throw new Error(`Airtable request failed: ${res.status}`)
+      const text = await res.text()
+      throw new Error(`Airtable request failed: ${res.status} – ${text}`)
     }
 
     const data = await res.json()
-    if (data.records.length === 0) {
+    if (!Array.isArray(data.records) || data.records.length === 0) {
       return null
     }
 
     const record = data.records[0]
     return { id: record.id, ...record.fields }
-  } catch (error) {
-    console.error("[getUserProfile] Error fetching user profile:", error)
+  } catch (err) {
+    // 3️⃣ Log & return null instead of propagating
+    console.error("[getUserProfile] Error fetching user profile:", err)
     return null
   }
 }
