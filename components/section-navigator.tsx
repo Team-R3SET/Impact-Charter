@@ -1,149 +1,74 @@
 "use client"
+
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BUSINESS_PLAN_SECTIONS } from "@/lib/business-plan-sections"
-import { useStorage, useOthers } from "@/lib/liveblocks"
-import { CheckCircle, Circle, Edit3, Clock } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Progress } from "@/components/ui/progress"
+import { CheckCircle, Clock, FileText } from "lucide-react"
+import type { BusinessPlanSection } from "@/lib/business-plan-sections"
 
 interface SectionNavigatorProps {
-  activeSection: string
+  sections: BusinessPlanSection[]
+  currentSectionId: string
+  completedSections: Set<string>
   onSectionChange: (sectionId: string) => void
-  sections?: typeof BUSINESS_PLAN_SECTIONS
-  completedSections?: Record<string, boolean>
 }
 
 export function SectionNavigator({
-  activeSection,
+  sections,
+  currentSectionId,
+  completedSections,
   onSectionChange,
-  sections = BUSINESS_PLAN_SECTIONS,
-  completedSections = {},
 }: SectionNavigatorProps) {
-  const others = useOthers()
-
-  const sectionsData = useStorage((root) => {
-    if (!root.sections) return {}
-
-    if (typeof (root.sections as any).get === "function") {
-      const map = root.sections as any
-      const obj: Record<string, any> = {}
-      map.forEach((value: any, key: string) => (obj[key] = value))
-      return obj
-    }
-
-    return root.sections as Record<string, any>
-  })
-
-  const liveblocksCompletedSections = useStorage((root) => {
-    if (!root.completedSections) return {}
-
-    if (typeof (root.completedSections as any).get === "function") {
-      const map = root.completedSections as any
-      const obj: Record<string, boolean> = {}
-      map.forEach((value: boolean, key: string) => (obj[key] = value))
-      return obj
-    }
-
-    return root.completedSections as Record<string, boolean>
-  }) as Record<string, boolean>
-
-  // Merge completed sections from props and Liveblocks
-  const allCompletedSections = { ...completedSections, ...liveblocksCompletedSections }
-
-  const getSectionProgress = (sectionId: string) => {
-    if (allCompletedSections?.[sectionId]) {
-      return true
-    }
-
-    const entry = sectionsData?.[sectionId]
-    const content = entry?.content ?? ""
-    return content.trim().length > 50
-  }
-
-  const getUsersInSection = (sectionId: string) => {
-    return others.filter(
-      (user) => user.presence.selectedSection === sectionId || user.presence.isTyping?.sectionId === sectionId,
-    )
-  }
-
-  const completedCount = sections.filter((section) => allCompletedSections?.[section.id] === true).length
+  const completionPercentage = Math.round((completedSections.size / sections.length) * 100)
 
   return (
-    <div className="w-80 border-r bg-muted/30 flex flex-col">
-      <div className="p-4 border-b">
-        <h2 className="font-semibold text-lg">Business Plan Sections</h2>
-        <div className="flex items-center gap-2 mt-2">
-          <Badge variant="outline">
-            {completedCount}/{sections.length} Complete
-          </Badge>
+    <Card className="sticky top-24">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-lg">Business Plan Sections</CardTitle>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600 dark:text-gray-400">
+              {completedSections.size}/{sections.length} Complete
+            </span>
+            <Badge variant={completionPercentage === 100 ? "default" : "secondary"}>{completionPercentage}%</Badge>
+          </div>
+          <Progress value={completionPercentage} className="h-2" />
         </div>
-      </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {sections.map((section) => {
+          const isCompleted = completedSections.has(section.id)
+          const isCurrent = currentSectionId === section.id
 
-      <ScrollArea className="flex-1">
-        <div className="p-2">
-          {sections.map((section, index) => {
-            const isActive = activeSection === section.id
-            const isComplete = getSectionProgress(section.id)
-            const usersInSection = getUsersInSection(section.id)
-            const typingUsers = usersInSection.filter(
-              (user) =>
-                user.presence.isTyping?.sectionId === section.id &&
-                Date.now() - user.presence.isTyping.timestamp < 3000,
-            )
-
-            return (
-              <Button
-                key={section.id}
-                variant={isActive ? "default" : "ghost"}
-                className="w-full justify-start mb-1 h-auto p-3"
-                onClick={() => onSectionChange(section.id)}
-              >
-                <div className="flex items-start gap-3 w-full">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {allCompletedSections?.[section.id] ? (
-                      <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    ) : isComplete ? (
-                      <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <div className="text-left min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate flex items-center gap-2">
-                        {index + 1}. {section.title}
-                        {typingUsers.length > 0 && <Edit3 className="w-3 h-3 text-blue-500 animate-pulse" />}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{section.description}</div>
-
-                      {/* Show users currently in this section */}
-                      {usersInSection.length > 0 && (
-                        <div className="flex items-center gap-1 mt-2">
-                          <div className="flex -space-x-1">
-                            {usersInSection.slice(0, 2).map((user) => (
-                              <Avatar key={user.connectionId} className="w-4 h-4 border border-background">
-                                <AvatarImage
-                                  src={user.presence.user?.avatar || "/placeholder.svg"}
-                                  alt={user.presence.user?.name}
-                                />
-                                <AvatarFallback className="text-[8px]">
-                                  {user.presence.user?.name?.charAt(0)?.toUpperCase() || "?"}
-                                </AvatarFallback>
-                              </Avatar>
-                            ))}
-                          </div>
-                          {usersInSection.length > 2 && (
-                            <span className="text-[10px] text-muted-foreground">+{usersInSection.length - 2}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+          return (
+            <Button
+              key={section.id}
+              variant={isCurrent ? "default" : "ghost"}
+              className={`w-full justify-start text-left h-auto p-3 ${
+                isCurrent ? "bg-blue-600 text-white" : ""
+              } ${isCompleted && !isCurrent ? "bg-green-50 text-green-700 hover:bg-green-100" : ""}`}
+              onClick={() => onSectionChange(section.id)}
+            >
+              <div className="flex items-start gap-3 w-full">
+                <div className="flex-shrink-0 mt-0.5">
+                  {isCompleted ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : isCurrent ? (
+                    <Clock className="w-4 h-4" />
+                  ) : (
+                    <FileText className="w-4 h-4 text-gray-400" />
+                  )}
                 </div>
-              </Button>
-            )
-          })}
-        </div>
-      </ScrollArea>
-    </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm leading-tight">{section.title}</div>
+                  <div className="text-xs opacity-75 mt-1 line-clamp-2">{section.description}</div>
+                </div>
+              </div>
+            </Button>
+          )
+        })}
+      </CardContent>
+    </Card>
   )
 }

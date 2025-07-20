@@ -1,26 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import {
-  FileText,
-  CheckCircle,
-  Clock,
-  Users,
-  Target,
-  TrendingUp,
-  Lightbulb,
-  DollarSign,
-  BarChart3,
-  Settings,
-} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { CheckCircle, FileText } from "lucide-react"
 import { CollaborativeTextEditor } from "@/components/collaborative-text-editor"
 import { SectionNavigator } from "@/components/section-navigator"
-import { LiveCollabButton } from "@/components/live-collab-button"
 import { AppHeader } from "@/components/app-header"
+import { LiveCollabButton } from "@/components/live-collab-button"
+import { LivePresenceHeader } from "@/components/live-presence-header"
 import { BUSINESS_PLAN_SECTIONS } from "@/lib/business-plan-sections"
+import { useToast } from "@/hooks/use-toast"
 
 interface BusinessPlanEditorProps {
   planId: string
@@ -30,209 +22,138 @@ interface BusinessPlanEditorProps {
 }
 
 export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = true }: BusinessPlanEditorProps) {
-  const [activeSection, setActiveSection] = useState("executive-summary")
-  const [completedSections, setCompletedSections] = useState<Record<string, boolean>>({})
-  const [isLoading, setIsLoading] = useState(true)
+  const [currentSectionId, setCurrentSectionId] = useState(BUSINESS_PLAN_SECTIONS[0].id)
+  const [completedSections, setCompletedSections] = useState<Set<string>>(new Set())
+  const [sectionContent, setSectionContent] = useState<Record<string, string>>({})
+  const { toast } = useToast()
 
-  // Mock user for demo purposes
+  // Mock user for demo
   const currentUser = {
     name: "Demo User",
     email: userEmail,
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userEmail}`,
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
   }
 
-  // Load completed sections
-  useEffect(() => {
-    const loadCompletedSections = async () => {
-      try {
-        const response = await fetch(`/api/business-plans/${planId}/sections`)
-        if (response.ok) {
-          const data = await response.json()
-          const completed: Record<string, boolean> = {}
-          data.sections?.forEach((section: any) => {
-            if (section.isCompleted) {
-              completed[section.sectionName] = true
-            }
-          })
-          setCompletedSections(completed)
-        }
-      } catch (error) {
-        console.error("Error loading completed sections:", error)
-      } finally {
-        setIsLoading(false)
-      }
+  const currentSection = BUSINESS_PLAN_SECTIONS.find((section) => section.id === currentSectionId)
+  const completionPercentage = Math.round((completedSections.size / BUSINESS_PLAN_SECTIONS.length) * 100)
+
+  const handleSectionComplete = async (sectionId: string) => {
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      setCompletedSections((prev) => new Set([...prev, sectionId]))
+
+      toast({
+        title: "Section Completed! ✅",
+        description: `"${BUSINESS_PLAN_SECTIONS.find((s) => s.id === sectionId)?.title}" has been marked as complete and submitted for review.`,
+        duration: 4000,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to mark section as complete. Please try again.",
+        variant: "destructive",
+      })
     }
+  }
 
-    loadCompletedSections()
-  }, [planId])
-
-  const handleSectionComplete = (sectionName: string, isComplete: boolean) => {
-    setCompletedSections((prev) => ({
+  const handleContentChange = (content: string) => {
+    setSectionContent((prev) => ({
       ...prev,
-      [sectionName]: isComplete,
+      [currentSectionId]: content,
     }))
   }
 
-  const completedCount = Object.values(completedSections).filter(Boolean).length
-  const totalSections = BUSINESS_PLAN_SECTIONS.length
-  const completionPercentage = Math.round((completedCount / totalSections) * 100)
-
-  const currentSectionData = BUSINESS_PLAN_SECTIONS.find((section) => section.id === activeSection)
-
-  const getSectionIcon = (sectionId: string) => {
-    const iconMap: Record<string, any> = {
-      "executive-summary": FileText,
-      "company-description": Target,
-      "market-analysis": TrendingUp,
-      "organization-management": Users,
-      "products-services": Lightbulb,
-      "marketing-sales": BarChart3,
-      "funding-requirements": DollarSign,
-      "financial-projections": BarChart3,
-      "risk-analysis": Settings,
-      "implementation-timeline": Clock,
-    }
-    return iconMap[sectionId] || FileText
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        {showHeader && <AppHeader currentUser={currentUser} currentPlanId={planId} />}
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading business plan...</p>
-          </div>
-        </div>
-      </div>
-    )
+  if (!currentSection) {
+    return <div>Section not found</div>
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {showHeader && <AppHeader currentUser={currentUser} currentPlanId={planId} />}
 
       <div className="container mx-auto px-4 py-6">
         {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div className="mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{planName}</h1>
-              <p className="text-gray-600 dark:text-gray-400">Collaborative business plan development workspace</p>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <LiveCollabButton planId={planId} planName={planName} currentUser={currentUser} />
-
-              <div className="text-right">
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Progress</div>
+              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Progress value={completionPercentage} className="w-24" />
-                  <span className="text-sm font-medium">
-                    {completedCount}/{totalSections}
+                  <Progress value={completionPercentage} className="w-32" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {completedSections.size}/{BUSINESS_PLAN_SECTIONS.length} Complete
                   </span>
                 </div>
+                <Badge variant={completionPercentage === 100 ? "default" : "secondary"}>
+                  {completionPercentage}% Complete
+                </Badge>
               </div>
             </div>
-          </div>
 
-          {/* Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Completed</p>
-                    <p className="text-xl font-bold">{completedCount}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-yellow-600" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">In Progress</p>
-                    <p className="text-xl font-bold">{totalSections - completedCount}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Sections</p>
-                    <p className="text-xl font-bold">{totalSections}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-purple-600" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Completion</p>
-                    <p className="text-xl font-bold">{completionPercentage}%</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex items-center gap-3">
+              <LivePresenceHeader />
+              <LiveCollabButton planId={planId} planName={planName} currentUser={currentUser} />
+            </div>
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Section Navigator */}
           <div className="lg:col-span-1">
             <SectionNavigator
               sections={BUSINESS_PLAN_SECTIONS}
-              activeSection={activeSection}
+              currentSectionId={currentSectionId}
               completedSections={completedSections}
-              onSectionChange={setActiveSection}
+              onSectionChange={setCurrentSectionId}
             />
           </div>
 
-          {/* Editor */}
+          {/* Main Content */}
           <div className="lg:col-span-3">
             <Card className="shadow-lg">
               <CardHeader className="border-b">
-                <div className="flex items-center gap-3">
-                  {currentSectionData && (
-                    <>
-                      {(() => {
-                        const IconComponent = getSectionIcon(currentSectionData.id)
-                        return <IconComponent className="w-6 h-6 text-blue-600" />
-                      })()}
-                      <div className="flex-1">
-                        <CardTitle className="text-xl">{currentSectionData.title}</CardTitle>
-                        <CardDescription className="mt-1">{currentSectionData.description}</CardDescription>
-                      </div>
-                      {completedSections[activeSection] && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Complete
-                        </Badge>
-                      )}
-                    </>
-                  )}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      {currentSection.title}
+                      {completedSections.has(currentSectionId) && <CheckCircle className="w-5 h-5 text-green-600" />}
+                    </CardTitle>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{currentSection.description}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {!completedSections.has(currentSectionId) && (
+                      <Button
+                        onClick={() => handleSectionComplete(currentSectionId)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        size="sm"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Mark as Complete
+                      </Button>
+                    )}
+
+                    {completedSections.has(currentSectionId) && (
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Completed
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
 
-              <CardContent className="p-0">
+              <CardContent className="p-6">
                 <CollaborativeTextEditor
                   planId={planId}
-                  sectionName={activeSection}
+                  sectionId={currentSectionId}
+                  placeholder={currentSection.placeholder}
+                  initialContent={sectionContent[currentSectionId] || ""}
+                  onContentChange={handleContentChange}
                   userEmail={userEmail}
-                  onSectionComplete={handleSectionComplete}
                 />
               </CardContent>
             </Card>
