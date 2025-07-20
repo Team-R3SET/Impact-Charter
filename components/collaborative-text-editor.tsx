@@ -10,14 +10,28 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { CheckCircle, Clock, Users, Save, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import {
-  useMyPresence,
-  useOthers,
-  useMutation,
-  useStorage,
-  useBroadcastEvent,
-  useEventListener,
-} from "@/lib/liveblocks"
+
+// Conditional Liveblocks imports with error handling
+let useMyPresence: any = null
+let useOthers: any = null
+let useMutation: any = null
+let useStorage: any = null
+let useBroadcastEvent: any = null
+let useEventListener: any = null
+let useRoom: any = null
+
+try {
+  const liveblocks = require("@/lib/liveblocks")
+  useMyPresence = liveblocks.useMyPresence
+  useOthers = liveblocks.useOthers
+  useMutation = liveblocks.useMutation
+  useStorage = liveblocks.useStorage
+  useBroadcastEvent = liveblocks.useBroadcastEvent
+  useEventListener = liveblocks.useEventListener
+  useRoom = liveblocks.useRoom
+} catch (error) {
+  console.warn("Liveblocks not available, running in standalone mode")
+}
 
 interface CollaborativeTextEditorProps {
   sectionId: string
@@ -41,79 +55,84 @@ export function CollaborativeTextEditor({
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isCompleting, setIsCompleting] = useState(false)
+  const [isCompleted, setIsCompleted] = useState(false)
+  const [isCollaborative, setIsCollaborative] = useState(false)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
+  const room = useRoom ? useRoom() : null
+  const collaborativeHooks = room
+    ? {
+        myPresence: useMyPresence ? useMyPresence() : [null, () => {}],
+        others: useOthers ? useOthers() : [],
+        sections: useStorage ? useStorage((root) => root?.sections) : null,
+        completedSections: useStorage ? useStorage((root) => root?.completedSections) : null,
+        broadcast: useBroadcastEvent ? useBroadcastEvent() : () => {},
+        updateSection: useMutation
+          ? useMutation(
+              ({ storage }, content: string) => {
+                if (!storage.get("sections")) {
+                  storage.set("sections", new Map())
+                }
+                if (!storage.get("completedSections")) {
+                  storage.set("completedSections", new Map())
+                }
 
-  const [myPresence, updateMyPresence] = useMyPresence()
-  const others = useOthers()
-  const broadcast = useBroadcastEvent()
+                const sectionsMap = storage.get("sections")
+                sectionsMap.set(sectionId, {
+                  title: sectionTitle,
+                  content,
+                  lastModified: new Date().toISOString(),
+                  modifiedBy: currentUser.email,
+                  isCompleted: false,
+                })
+              },
+              [sectionId, sectionTitle, currentUser.email],
+            )
+          : null,
+        markSectionComplete: useMutation
+          ? useMutation(
+              ({ storage }) => {
+                if (!storage.get("completedSections")) {
+                  storage.set("completedSections", new Map())
+                }
 
-  // Get storage data
-  const sections = useStorage((root) => root?.sections)
-  const completedSections = useStorage((root) => root?.completedSections)
+                const completedMap = storage.get("completedSections")
+                completedMap.set(sectionId, true)
 
-  // Mutations for updating storage
-  const updateSection = useMutation(
-    ({ storage }, content: string) => {
-      if (!storage.get("sections")) {
-        storage.set("sections", new Map())
+                const sectionsMap = storage.get("sections")
+                if (sectionsMap && sectionsMap.get(sectionId)) {
+                  const section = sectionsMap.get(sectionId)
+                  sectionsMap.set(sectionId, {
+                    ...section,
+                    isCompleted: true,
+                    lastModified: new Date().toISOString(),
+                    modifiedBy: currentUser.email,
+                  })
+                }
+              },
+              [sectionId, currentUser.email],
+            )
+          : null,
       }
-      if (!storage.get("completedSections")) {
-        storage.set("completedSections", new Map())
-      }
+    : null
+  const usersTyping = isCollaborative
+    ? collaborativeHooks?.others?.filter(
+        (user: any) =>
+          user.presence?.isTyping?.sectionId === sectionId && Date.now() - user.presence.isTyping.timestamp < 3000,
+      ) || []
+    : []
+  const usersInSection = isCollaborative
+    ? collaborativeHooks?.others?.filter((user: any) => user.presence?.selectedSection === sectionId) || []
+    : []
 
-      const sectionsMap = storage.get("sections")
-      sectionsMap.set(sectionId, {
-        title: sectionTitle,
-        content,
-        lastModified: new Date().toISOString(),
-        modifiedBy: currentUser.email,
-        isCompleted: false,
-      })
-    },
-    [sectionId, sectionTitle, currentUser.email],
-  )
-
-  const markSectionComplete = useMutation(
-    ({ storage }) => {
-      if (!storage.get("completedSections")) {
-        storage.set("completedSections", new Map())
-      }
-
-      const completedMap = storage.get("completedSections")
-      completedMap.set(sectionId, true)
-
-      const sectionsMap = storage.get("sections")
-      if (sectionsMap && sectionsMap.get(sectionId)) {
-        const section = sectionsMap.get(sectionId)
-        sectionsMap.set(sectionId, {
-          ...section,
-          isCompleted: true,
-          lastModified: new Date().toISOString(),
-          modifiedBy: currentUser.email,
-        })
-      }
-    },
-    [sectionId, currentUser.email],
-  )
-
-  // Listen for text changes from other users
-  useEventListener(({ event }) => {
-    if (event.type === "TEXT_CHANGE" && event.sectionId === sectionId && event.userId !== currentUser.email) {
-      setLocalContent(event.content)
-    }
-  })
-
-  // Load initial content
   useEffect(() => {
-    if (sections && sections[sectionId]) {
-      setLocalContent(sections[sectionId].content || "")
-    }
-    setIsLoading(false)
-  }, [sections, sectionId])
+    setIsCollaborative(!!room)
+  }, [room])
 
-  // Update presence when section changes
   useEffect(() => {
+    if (!collaborativeHooks) return
+
+    const [, updateMyPresence] = collaborativeHooks.myPresence
     updateMyPresence({
       selectedSection: sectionId,
       user: {
@@ -126,9 +145,8 @@ export function CollaborativeTextEditor({
     return () => {
       updateMyPresence({ selectedSection: null })
     }
-  }, [sectionId, currentUser, updateMyPresence])
+  }, [sectionId, currentUser, collaborativeHooks])
 
-  // Save to Airtable
   const saveToAirtable = useCallback(
     async (content: string) => {
       try {
@@ -167,30 +185,34 @@ export function CollaborativeTextEditor({
     [planId, sectionId, currentUser.email, toast],
   )
 
-  // Handle content changes
   const handleContentChange = useCallback(
     (content: string) => {
       setLocalContent(content)
 
-      // Update Liveblocks storage if available
-      if (sections !== null) {
-        updateSection(content)
+      if (!isCollaborative) {
+        localStorage.setItem(`section-${planId}-${sectionId}`, content)
       }
 
-      // Broadcast change to other users
-      broadcast({
-        type: "TEXT_CHANGE",
-        sectionId,
-        content,
-        userId: currentUser.email,
-      })
+      if (collaborativeHooks?.updateSection) {
+        collaborativeHooks.updateSection(content)
+      }
 
-      // Update typing presence
-      updateMyPresence({
-        isTyping: { sectionId, timestamp: Date.now() },
-      })
+      if (collaborativeHooks?.broadcast) {
+        collaborativeHooks.broadcast({
+          type: "TEXT_CHANGE",
+          sectionId,
+          content,
+          userId: currentUser.email,
+        })
+      }
 
-      // Debounced save to Airtable
+      if (collaborativeHooks) {
+        const [, updateMyPresence] = collaborativeHooks.myPresence
+        updateMyPresence({
+          isTyping: { sectionId, timestamp: Date.now() },
+        })
+      }
+
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current)
       }
@@ -198,20 +220,23 @@ export function CollaborativeTextEditor({
         saveToAirtable(content)
       }, 2000)
     },
-    [sections, updateSection, broadcast, sectionId, currentUser.email, updateMyPresence, saveToAirtable],
+    [isCollaborative, planId, sectionId, collaborativeHooks, currentUser.email, saveToAirtable],
   )
 
-  // Handle mark as complete
   const handleMarkComplete = async () => {
     try {
       setIsCompleting(true)
 
-      // Update Liveblocks storage
-      if (completedSections !== null) {
-        markSectionComplete()
+      setIsCompleted(true)
+
+      if (!isCollaborative) {
+        localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(true))
       }
 
-      // Save to Airtable
+      if (collaborativeHooks?.markSectionComplete) {
+        collaborativeHooks.markSectionComplete()
+      }
+
       const response = await fetch(`/api/business-plans/${planId}/sections/${sectionId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -225,12 +250,13 @@ export function CollaborativeTextEditor({
         throw new Error(errorData.error || "Failed to mark as complete")
       }
 
-      // Broadcast completion
-      broadcast({
-        type: "SECTION_COMPLETED",
-        sectionId,
-        userId: currentUser.email,
-      })
+      if (collaborativeHooks?.broadcast) {
+        collaborativeHooks.broadcast({
+          type: "SECTION_COMPLETED",
+          sectionId,
+          userId: currentUser.email,
+        })
+      }
 
       toast({
         title: "Section completed!",
@@ -238,6 +264,10 @@ export function CollaborativeTextEditor({
       })
     } catch (error) {
       console.error("Failed to mark as complete:", error)
+      setIsCompleted(false)
+      if (!isCollaborative) {
+        localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(false))
+      }
       toast({
         title: "Failed to mark as complete",
         description: error instanceof Error ? error.message : "Please try again.",
@@ -248,17 +278,27 @@ export function CollaborativeTextEditor({
     }
   }
 
-  // Get current section data
-  const currentSection = sections?.[sectionId]
-  const isCompleted = completedSections?.[sectionId] || currentSection?.isCompleted || false
+  useEffect(() => {
+    if (collaborativeHooks?.sections && collaborativeHooks.sections[sectionId]) {
+      setLocalContent(collaborativeHooks.sections[sectionId].content || "")
+      setIsCompleted(collaborativeHooks.sections[sectionId].isCompleted || false)
+    } else {
+      const savedContent = localStorage.getItem(`section-${planId}-${sectionId}`)
+      const savedCompletion = localStorage.getItem(`section-${planId}-${sectionId}-completed`)
+      if (savedContent) {
+        setLocalContent(savedContent)
+      }
+      if (savedCompletion) {
+        setIsCompleted(JSON.parse(savedCompletion))
+      }
+    }
+    setIsLoading(false)
+  }, [collaborativeHooks?.sections, sectionId, planId])
 
-  // Get users currently viewing this section
-  const usersInSection = others.filter((user) => user.presence?.selectedSection === sectionId)
-
-  // Get users currently typing in this section
-  const usersTyping = others.filter(
-    (user) => user.presence?.isTyping?.sectionId === sectionId && Date.now() - user.presence.isTyping.timestamp < 3000,
-  )
+  const currentSection = collaborativeHooks?.sections?.[sectionId]
+  const completedFromStorage =
+    collaborativeHooks?.completedSections?.[sectionId] || currentSection?.isCompleted || false
+  const finalIsCompleted = isCollaborative ? completedFromStorage : isCompleted
 
   if (isLoading) {
     return (
@@ -276,18 +316,18 @@ export function CollaborativeTextEditor({
   return (
     <TooltipProvider>
       <Card
-        className={`transition-all duration-200 ${isCompleted ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/20" : ""}`}
+        className={`transition-all duration-200 ${finalIsCompleted ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/20" : ""}`}
       >
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              {isCompleted ? (
+              {finalIsCompleted ? (
                 <CheckCircle className="w-5 h-5 text-green-500" />
               ) : (
                 <Clock className="w-5 h-5 text-yellow-500" />
               )}
               {sectionTitle}
-              {isCompleted && (
+              {finalIsCompleted && (
                 <Badge
                   variant="secondary"
                   className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
@@ -295,15 +335,19 @@ export function CollaborativeTextEditor({
                   Complete
                 </Badge>
               )}
+              {isCollaborative && (
+                <Badge variant="outline" className="text-xs">
+                  Live
+                </Badge>
+              )}
             </CardTitle>
 
             <div className="flex items-center gap-2">
-              {/* Users in section */}
-              {usersInSection.length > 0 && (
+              {isCollaborative && usersInSection.length > 0 && (
                 <div className="flex items-center gap-1">
                   <Users className="w-4 h-4 text-muted-foreground" />
                   <div className="flex -space-x-1">
-                    {usersInSection.slice(0, 3).map((user) => (
+                    {usersInSection.slice(0, 3).map((user: any) => (
                       <Tooltip key={user.id}>
                         <TooltipTrigger asChild>
                           <Avatar className="w-6 h-6 ring-2 ring-background">
@@ -327,7 +371,6 @@ export function CollaborativeTextEditor({
                 </div>
               )}
 
-              {/* Save status */}
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 {isSaving ? (
                   <>
@@ -349,11 +392,10 @@ export function CollaborativeTextEditor({
             </div>
           </div>
 
-          {/* Typing indicators */}
-          {usersTyping.length > 0 && (
+          {isCollaborative && usersTyping.length > 0 && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="flex -space-x-1">
-                {usersTyping.map((user) => (
+                {usersTyping.map((user: any) => (
                   <Avatar key={user.id} className="w-4 h-4">
                     <AvatarImage src={user.presence?.user?.avatar || "/placeholder.svg"} />
                     <AvatarFallback className="text-xs">
@@ -363,7 +405,7 @@ export function CollaborativeTextEditor({
                 ))}
               </div>
               <span>
-                {usersTyping.map((u) => u.presence?.user?.name || "Someone").join(", ")}
+                {usersTyping.map((u: any) => u.presence?.user?.name || "Someone").join(", ")}
                 {usersTyping.length === 1 ? " is" : " are"} typing...
               </span>
             </div>
@@ -376,10 +418,10 @@ export function CollaborativeTextEditor({
             onChange={(e) => handleContentChange(e.target.value)}
             placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
             className="min-h-[200px] resize-none"
-            disabled={isCompleted}
+            disabled={finalIsCompleted}
           />
 
-          {!isCompleted && (
+          {!finalIsCompleted && (
             <>
               <Separator />
               <div className="flex justify-between items-center">
@@ -407,7 +449,7 @@ export function CollaborativeTextEditor({
             </>
           )}
 
-          {isCompleted && currentSection && (
+          {finalIsCompleted && currentSection && (
             <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
               <p className="text-sm text-green-800 dark:text-green-200">
                 ✅ This section was completed on {new Date(currentSection.lastModified).toLocaleDateString()}
