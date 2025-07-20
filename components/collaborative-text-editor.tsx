@@ -14,8 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 
 // Add these imports at the top
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { getNextSection, getPreviousSection } from "@/lib/business-plan-sections"
-import { businessPlanSections } from "@/lib/business-plan-sections"
+import { businessPlanSections, getNextSection, getPreviousSection } from "@/lib/business-plan-sections"
 
 interface CollaborativeTextEditorProps {
   sectionId: string
@@ -114,6 +113,9 @@ const CollaborativeTextEditor: React.FC<CollaborativeTextEditorProps> = ({
     )
   }
 
+  const prevSection = getPreviousSection(sectionId)
+  const nextSection = getNextSection(sectionId)
+
   return (
     <Card className="w-full h-full p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -154,42 +156,32 @@ const CollaborativeTextEditor: React.FC<CollaborativeTextEditorProps> = ({
         className="h-96 resize-none"
       />
 
-      {/* Add this section navigation component after the textarea and before the closing </Card> */}
-      <div className="flex items-center justify-between pt-4 mt-6 border-t border-gray-200 dark:border-gray-700">
+      {/* section navigation */}
+      <div className="flex items-center justify-between pt-6 border-t border-border/40">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => {
-            const prevSection = getPreviousSection(sectionId)
-            if (prevSection && onSectionSelect) {
-              onSectionSelect(prevSection.id)
-            }
-          }}
-          disabled={!getPreviousSection(sectionId)}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+          disabled={!prevSection}
+          onClick={() => prevSection && onSectionSelect?.(prevSection.id)}
+          className="gap-1 text-muted-foreground hover:text-foreground"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
 
-        <div className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Section {businessPlanSections.findIndex((s) => s.id === sectionId) + 1} of {businessPlanSections.length}
-        </div>
+        </span>
 
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => {
-            const nextSection = getNextSection(sectionId)
-            if (nextSection && onSectionSelect) {
-              onSectionSelect(nextSection.id)
-            }
-          }}
-          disabled={!getNextSection(sectionId)}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+          disabled={!nextSection}
+          onClick={() => nextSection && onSectionSelect?.(nextSection.id)}
+          className="gap-1 text-muted-foreground hover:text-foreground"
         >
           Next
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </Card>

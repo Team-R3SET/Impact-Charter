@@ -6,7 +6,29 @@ export interface BusinessPlanSection {
   order: number
 }
 
-export const BUSINESS_PLAN_SECTIONS: BusinessPlanSection[] = [
+export interface PlanSection {
+  id: string
+  title: string
+}
+
+/**
+ * Ordered list of all sections that make up a business plan.
+ * Adjust the order / naming here and the navigation + progress
+ * bar will pick it up automatically.
+ */
+export const businessPlanSections: PlanSection[] = [
+  { id: "executive-summary", title: "Executive Summary" },
+  { id: "company-description", title: "Company Description" },
+  { id: "market-analysis", title: "Market Analysis" },
+  { id: "organization-management", title: "Organization & Management" },
+  { id: "service-product-line", title: "Service / Product Line" },
+  { id: "marketing-sales", title: "Marketing & Sales" },
+  { id: "funding-request", title: "Funding Request" },
+  { id: "financial-projections", title: "Financial Projections" },
+  { id: "appendix", title: "Appendix" },
+]
+
+const BUSINESS_PLAN_SECTIONS: BusinessPlanSection[] = [
   {
     id: "executive-summary",
     title: "Executive Summary",
@@ -40,8 +62,8 @@ export const BUSINESS_PLAN_SECTIONS: BusinessPlanSection[] = [
     order: 4,
   },
   {
-    id: "products-services",
-    title: "Products or Services",
+    id: "service-product-line",
+    title: "Service / Product Line",
     description: "Detailed description of your products or services.",
     placeholder:
       "Provide detailed descriptions of your products or services, their features, benefits, lifecycle, and how they meet customer needs. Include pricing strategy...",
@@ -79,18 +101,10 @@ export const BUSINESS_PLAN_SECTIONS: BusinessPlanSection[] = [
       "Include supporting documents such as resumes, permits, lease agreements, legal documents, and other relevant materials that support your business plan...",
     order: 9,
   },
-  {
-    id: "implementation-timeline",
-    title: "Implementation Timeline",
-    description: "Timeline for implementing your business plan.",
-    placeholder:
-      "Create a detailed timeline showing key milestones, deadlines, and implementation phases for launching and growing your business...",
-    order: 10,
-  },
 ]
 
 // Export alias for backward compatibility
-export const businessPlanSections = BUSINESS_PLAN_SECTIONS
+export const businessPlanSectionsAlias = BUSINESS_PLAN_SECTIONS
 
 // Default export
 export default BUSINESS_PLAN_SECTIONS
@@ -104,14 +118,14 @@ export function getSectionByOrder(order: number): BusinessPlanSection | undefine
   return BUSINESS_PLAN_SECTIONS.find((section) => section.order === order)
 }
 
-export function getNextSection(currentId: string): BusinessPlanSection | undefined {
-  const current = getSectionById(currentId)
-  if (!current) return undefined
-  return getSectionByOrder(current.order + 1)
+export const getSectionIndex = (sectionId: string) => businessPlanSections.findIndex((s) => s.id === sectionId)
+
+export const getNextSectionById = (sectionId: string) => {
+  const i = getSectionIndex(sectionId)
+  return i > -1 && i < businessPlanSections.length - 1 ? businessPlanSections[i + 1] : null
 }
 
-export function getPreviousSection(currentId: string): BusinessPlanSection | undefined {
-  const current = getSectionById(currentId)
-  if (!current) return undefined
-  return getSectionByOrder(current.order - 1)
+export const getPreviousSectionById = (sectionId: string) => {
+  const i = getSectionIndex(sectionId)
+  return i > 0 ? businessPlanSections[i - 1] : null
 }
