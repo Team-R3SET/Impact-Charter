@@ -11,10 +11,11 @@ import {
   useEventListener,
 } from "@/lib/liveblocks"
 import { useToast } from "@/hooks/use-toast"
-import { CheckCircle, Circle, Users, Edit3 } from "lucide-react"
+import { CheckCircle, Circle, Users, Edit3, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface CollaborativeTextEditorProps {
   sectionId: string
@@ -27,6 +28,7 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
   const [localContent, setLocalContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [isComposing, setIsComposing] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
@@ -113,6 +115,8 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
   // Auto-save to Airtable
   const saveToAirtable = async (content: string) => {
     setIsSaving(true)
+    setSaveError(null)
+
     try {
       const response = await fetch(`/api/business-plans/${planId}/sections`, {
         method: "POST",
@@ -126,16 +130,14 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
         }),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to save")
+      const result = await response.json()
+
+      if (!result.success) {
+        setSaveError(result.message || "Failed to save to Airtable")
       }
     } catch (error) {
       console.error("Failed to save to Airtable:", error)
-      toast({
-        title: "Save Error",
-        description: "Failed to save changes. Please try again.",
-        variant: "destructive",
-      })
+      setSaveError("Failed to save changes. Content saved locally.")
     } finally {
       setIsSaving(false)
     }
@@ -207,17 +209,62 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
     }
   }, [sectionId, updateMyPresence])
 
+  const handleMarkComplete = async () => {
+    if (!storageReady) return
+
+    try {
+      const response = await fetch(`/api/business-plans/${planId}/sections/${sectionId}/complete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userEmail }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Section Completed",
+          description: result.message,
+        })
+        toggleCompletion(sectionId, true)
+      } else {
+        toast({
+          title: "Marked Complete Locally",
+          description: result.message,
+          variant: "destructive",
+        })
+        toggleCompletion(sectionId, true)
+      }
+    } catch (error) {
+      toast({
+        title: "Marked Complete Locally",
+        description: "Section marked as complete locally. Check your Airtable connection.",
+        variant: "destructive",
+      })
+      toggleCompletion(sectionId, true)
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {/* Save error alert */}
+      {saveError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            {saveError} Your changes are saved locally and will sync when connection is restored.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button
             variant={isCompleted ? "default" : "outline"}
             size="sm"
-            onClick={() => {
-              if (!storageReady) return
-              toggleCompletion(sectionId, !isCompleted)
-            }}
+            onClick={handleMarkComplete}
             className="gap-2"
           >
             {isCompleted ? (
