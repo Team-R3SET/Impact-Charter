@@ -1,78 +1,80 @@
 "use client"
 
-import { useRoom, useOthers, useMyPresence } from "@liveblocks/react/suspense"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
-import { Eye, Edit3 } from "lucide-react"
+import { useRoom, useOthers, useMyPresence } from "@/lib/liveblocks"
 
 export function LivePresenceHeader() {
   const room = useRoom()
   const others = useOthers()
-  const [myPresence] = useMyPresence()
+  const myPresence = useMyPresence()
 
-  const onlineUsers = others.filter((user) => user.presence?.status === "online")
-
-  if (onlineUsers.length === 0) {
+  if (!room) {
     return null
   }
+
+  const totalUsers = others.length + 1 // +1 for current user
 
   return (
     <TooltipProvider>
       <div className="flex items-center gap-2">
         <div className="flex -space-x-2">
-          {onlineUsers.slice(0, 3).map((user) => (
-            <Tooltip key={user.connectionId}>
+          {/* Current user */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Avatar className="w-8 h-8 border-2 border-white/20 ring-2 ring-green-500">
+                <AvatarImage
+                  src={myPresence?.user?.avatar || "/placeholder.svg"}
+                  alt={myPresence?.user?.name || "You"}
+                />
+                <AvatarFallback className="bg-green-500 text-white text-xs">
+                  {(myPresence?.user?.name || "You").charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{myPresence?.user?.name || "You"} (You)</p>
+              <p className="text-xs text-muted-foreground">Online</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Other users */}
+          {others.slice(0, 4).map((other, index) => (
+            <Tooltip key={other.connectionId}>
               <TooltipTrigger asChild>
-                <div className="relative">
-                  <Avatar className="h-8 w-8 ring-2 ring-white/20 border-2 border-white">
-                    <AvatarImage
-                      src={user.info?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.info?.email}`}
-                      alt={user.info?.name || "User"}
-                    />
-                    <AvatarFallback className="bg-white/10 text-white text-xs">
-                      {(user.info?.name || "U").charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  {user.presence?.isTyping && (
-                    <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1">
-                      <Edit3 className="w-2 h-2 text-white" />
-                    </div>
-                  )}
-                  {user.presence?.currentSection && !user.presence?.isTyping && (
-                    <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-1">
-                      <Eye className="w-2 h-2 text-white" />
-                    </div>
-                  )}
-                </div>
+                <Avatar className="w-8 h-8 border-2 border-white/20">
+                  <AvatarImage
+                    src={other.presence?.user?.avatar || "/placeholder.svg"}
+                    alt={other.presence?.user?.name || "User"}
+                  />
+                  <AvatarFallback className="bg-blue-500 text-white text-xs">
+                    {(other.presence?.user?.name || "U").charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               </TooltipTrigger>
               <TooltipContent>
-                <div className="text-center">
-                  <p className="font-medium">{user.info?.name || "Anonymous"}</p>
-                  {user.presence?.currentSection && (
-                    <p className="text-xs text-muted-foreground">
-                      {user.presence.isTyping ? "Editing" : "Viewing"}: {user.presence.currentSection}
-                    </p>
-                  )}
-                  <Badge variant="outline" className="text-xs mt-1">
-                    Online
-                  </Badge>
-                </div>
+                <p>{other.presence?.user?.name || "Anonymous User"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {other.presence?.selectedSection ? `Viewing: ${other.presence.selectedSection}` : "Online"}
+                </p>
               </TooltipContent>
             </Tooltip>
           ))}
+
+          {/* Overflow indicator */}
+          {others.length > 4 && (
+            <div className="w-8 h-8 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center">
+              <span className="text-xs font-medium text-white">+{others.length - 4}</span>
+            </div>
+          )}
         </div>
 
-        {onlineUsers.length > 3 && (
-          <Badge variant="secondary" className="text-xs bg-white/10 text-white border-white/20">
-            +{onlineUsers.length - 3}
+        {totalUsers > 1 && (
+          <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
+            {totalUsers} online
           </Badge>
         )}
-
-        <div className="flex items-center gap-1 text-xs text-white/70">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <span>{onlineUsers.length} online</span>
-        </div>
       </div>
     </TooltipProvider>
   )

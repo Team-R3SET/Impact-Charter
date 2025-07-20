@@ -38,14 +38,23 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
       avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
     }
 
-    return (
-      <>
-        <AppHeader currentUser={user} currentPlanId={planId} />
-        <PlanRoom roomId={`plan-${planId}`} userName={user.name} userEmail={user.email}>
-          <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={false} />
-        </PlanRoom>
-      </>
-    )
+    // Check if collaboration is requested
+    const isCollabMode = searchParamsResolved.collab === "true"
+
+    // If collaboration is requested, wrap with PlanRoom
+    if (isCollabMode) {
+      return (
+        <>
+          <AppHeader currentUser={user} currentPlanId={planId} />
+          <PlanRoom roomId={`plan-${planId}`} userName={user.name} userEmail={user.email}>
+            <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={false} />
+          </PlanRoom>
+        </>
+      )
+    }
+
+    // Default mode without collaboration
+    return <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={true} />
   } catch (error) {
     console.error("Error loading plan:", error)
     notFound()
