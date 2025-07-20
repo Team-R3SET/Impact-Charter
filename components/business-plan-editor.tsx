@@ -151,6 +151,7 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
                 planId={planId}
                 currentUser={currentUser}
                 onSectionComplete={handleSectionComplete}
+                onSectionSelect={setSelectedSection}
               />
             )}
           </div>
