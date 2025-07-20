@@ -26,35 +26,29 @@ export default function HomePage() {
 
     setIsCreating(true)
     try {
-      const response = await fetch("/api/business-plans", {
+      const res = await fetch("/api/business-plans", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planName: planName.trim(),
-          ownerEmail: "user@example.com", // In a real app, get from auth
+          ownerEmail: "user@example.com", // TODO: replace with real auth email
         }),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to create business plan")
-      }
-
-      const { plan } = await response.json()
+      if (!res.ok) throw new Error("Failed to create business plan")
+      const { plan } = await res.json()
 
       toast({
         title: "Success",
         description: "Business plan created successfully!",
       })
 
-      // Pass the name via query-string so the editor can use it
       router.push(`/plan/${plan.id}?name=${encodeURIComponent(plan.planName)}`)
-    } catch (error) {
-      console.error("Failed to create business plan:", error)
+    } catch (err) {
+      console.error("Failed to create business plan:", err)
       toast({
         title: "Error",
-        description: "Failed to create business plan. Please try again.",
+        description: "Unable to create plan. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -85,7 +79,7 @@ export default function HomePage() {
                 placeholder="Enter your business plan name..."
                 value={planName}
                 onChange={(e) => setPlanName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !isCreating && handleCreatePlan()}
+                onKeyDown={(e) => e.key === "Enter" && handleCreatePlan()}
                 disabled={isCreating}
               />
             </div>
