@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    optimizePackageImports: ["@radix-ui/react-icons"],
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -12,6 +9,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Add explicit output configuration
+  output: 'standalone',
+  // Ensure proper trailing slash handling
+  trailingSlash: false,
+  // Add explicit page extensions
+  pageExtensions: ['ts', 'tsx', 'js', 'jsx'],
 }
 
 export default nextConfig
