@@ -4,28 +4,26 @@ import { getCurrentUser, canViewLogs } from "@/lib/user-management"
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userEmail = searchParams.get("userEmail")
-    const limit = Number.parseInt(searchParams.get("limit") || "100")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
+    // Mock authentication - in a real app, get user from session/token
+    const currentUser = await getCurrentUser("admin@example.com")
 
-    if (!userEmail) {
-      return NextResponse.json({ error: "User email is required" }, { status: 400 })
+    if (!currentUser || !canViewLogs(currentUser)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    const user = await getCurrentUser(userEmail)
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
+    const url = new URL(request.url)
+    const limit = url.searchParams.get("limit")
+    const limitNumber = limit ? Number.parseInt(limit, 10) : undefined
 
-    if (!canViewLogs(user)) {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
-    }
+    const logs = await getAccessLogs(limitNumber)
 
-    const logs = await getAccessLogs(limit, offset)
-    return NextResponse.json({ logs })
+    return NextResponse.json({
+      success: true,
+      logs,
+      total: logs.length,
+    })
   } catch (error) {
-    console.error("Failed to fetch access logs:", error)
+    console.error("Error fetching access logs:", error)
     return NextResponse.json({ error: "Failed to fetch access logs" }, { status: 500 })
   }
 }

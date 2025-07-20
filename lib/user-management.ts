@@ -1,15 +1,10 @@
 import { randomUUID } from "crypto"
-import type { User } from "./user-types"
+import type { User } from "@/lib/user-types"
+import { isAdministrator, canAccessAdminFeatures, canViewLogs, canManageUsers } from "@/lib/user-types"
 
-// 👉 NEW: Re-export role helpers for convenience
-export {
-  isAdministrator,
-  canAccessAdminFeatures,
-  canViewLogs,
-  canManageUsers,
-} from "./user-types"
+// Re-export for convenience
+export { isAdministrator, canAccessAdminFeatures, canViewLogs, canManageUsers }
 
-// In-memory storage for demo purposes
 const users: User[] = [
   {
     id: "admin-1",
@@ -51,7 +46,6 @@ const users: User[] = [
 export const getCurrentUser = async (email: string): Promise<User | null> => {
   const user = users.find((u) => u.email === email && u.isActive)
   if (user && user.email === email) {
-    // Update last login
     user.lastLoginDate = new Date().toISOString()
   }
   return user || null

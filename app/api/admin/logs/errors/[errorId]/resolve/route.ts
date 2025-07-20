@@ -4,30 +4,25 @@ import { getCurrentUser, canViewLogs } from "@/lib/user-management"
 
 export async function POST(request: NextRequest, { params }: { params: { errorId: string } }) {
   try {
-    const body = await request.json()
-    const { userEmail } = body
+    const currentUser = await getCurrentUser("admin@example.com")
 
-    if (!userEmail) {
-      return NextResponse.json({ error: "User email is required" }, { status: 400 })
+    if (!currentUser || !canViewLogs(currentUser)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    const user = await getCurrentUser(userEmail)
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
+    const { resolvedBy } = await request.json()
+    const success = await resolveError(params.errorId, resolvedBy)
 
-    if (!canViewLogs(user)) {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
-    }
-
-    const success = await resolveError(params.errorId, user.email)
     if (success) {
-      return NextResponse.json({ success: true, message: "Error marked as resolved" })
+      return NextResponse.json({
+        success: true,
+        message: "Error marked as resolved",
+      })
     } else {
       return NextResponse.json({ error: "Error not found" }, { status: 404 })
     }
   } catch (error) {
-    console.error("Failed to resolve error:", error)
+    console.error("Error resolving error log:", error)
     return NextResponse.json({ error: "Failed to resolve error" }, { status: 500 })
   }
 }

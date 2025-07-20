@@ -2,68 +2,75 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  AlertTriangle,
-  CheckCircle,
-  Clock,
-  Users,
-  Activity,
-  Shield,
-  AlertCircle,
-  XCircle,
-  RefreshCw,
-} from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import type { User, AccessLog, ErrorLog } from "@/lib/user-types"
-import { getErrorExplanation } from "@/lib/logging"
+import { AlertTriangle, CheckCircle, Clock, Users, Activity, Shield } from "lucide-react"
+import type { AccessLog, ErrorLog } from "@/lib/user-types"
 
 interface AdminDashboardProps {
-  currentUser: User
+  currentUser: {
+    id: string
+    name: string
+    email: string
+    role: "administrator" | "regular"
+  }
 }
 
 export function AdminDashboard({ currentUser }: AdminDashboardProps) {
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([])
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([])
-  const [errorStats, setErrorStats] = useState({
-    total: 0,
-    unresolved: 0,
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    totalErrors: 0,
+    unresolvedErrors: 0,
+    recentActivity: 0,
   })
-  const [isLoading, setIsLoading] = useState(true)
-  const { toast } = useToast()
 
-  const fetchAccessLogs = async () => {
-    try {
-      const response = await fetch(`/api/admin/logs/access?userEmail=${encodeURIComponent(currentUser.email)}`)
-      if (response.ok) {
-        const data = await response.json()
-        setAccessLogs(data.logs)
-      }
-    } catch (error) {
-      console.error("Failed to fetch access logs:", error)
-    }
-  }
+  useEffect(() => {
+    fetchLogs()
+  }, [])
 
-  const fetchErrorLogs = async () => {
+  const fetchLogs = async () => {
     try {
-      const response = await fetch(`/api/admin/logs/errors?userEmail=${encodeURIComponent(currentUser.email)}`)
-      if (response.ok) {
-        const data = await response.json()
-        setErrorLogs(data.logs)
-        setErrorStats(data.stats)
+      setLoading(true)
+
+      const [accessResponse, errorResponse] = await Promise.all([
+        fetch("/api/admin/logs/access"),
+        fetch("/api/admin/logs/errors"),
+      ])
+
+      if (accessResponse.ok) {
+        const accessData = await accessResponse.json()
+        setAccessLogs(accessData.logs || [])
       }
+
+      if (errorResponse.ok) {
+        const errorData = await errorResponse.json()
+        setErrorLogs(errorData.logs || [])
+      }
+
+      // Calculate stats
+      const totalErrors = errorLogs.length
+      const unresolvedErrors = errorLogs.filter((log) => !log.resolved).length
+      const recentActivity = accessLogs.filter(
+        (log) => new Date(log.timestamp) > new Date(Date.now() - 24 * 60 * 60 * 1000),
+      ).length
+
+      setStats({
+        totalUsers: 3, // Mock data
+        activeUsers: 3,
+        totalErrors,
+        unresolvedErrors,
+        recentActivity,
+      })
     } catch (error) {
-      console.error("Failed to fetch error logs:", error)
+      console.error("Failed to fetch logs:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -72,36 +79,22 @@ export function AdminDashboard({ currentUser }: AdminDashboardProps) {
       const response = await fetch(`/api/admin/logs/errors/${errorId}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userEmail: currentUser.email }),
+        body: JSON.stringify({ resolvedBy: currentUser.name }),
       })
 
       if (response.ok) {
-        toast({
-          title: "Error Resolved",
-          description: "The error has been marked as resolved.",
-        })
-        fetchErrorLogs() // Refresh the logs
-      } else {
-        throw new Error("Failed to resolve error")
+        setErrorLogs((prev) =>
+          prev.map((log) =>
+            log.id === errorId
+              ? { ...log, resolved: true, resolvedBy: currentUser.name, resolvedDate: new Date().toISOString() }
+              : log,
+          ),
+        )
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to resolve the error. Please try again.",
-        variant: "destructive",
-      })
+      console.error("Failed to resolve error:", error)
     }
   }
-
-  const refreshLogs = async () => {
-    setIsLoading(true)
-    await Promise.all([fetchAccessLogs(), fetchErrorLogs()])
-    setIsLoading(false)
-  }
-
-  useEffect(() => {
-    refreshLogs()
-  }, [])
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -110,84 +103,53 @@ export function AdminDashboard({ currentUser }: AdminDashboardProps) {
       case "HIGH":
         return "destructive"
       case "MEDIUM":
-        return "default"
-      case "LOW":
         return "secondary"
+      case "LOW":
+        return "outline"
       default:
         return "outline"
     }
   }
 
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case "CRITICAL":
-        return <XCircle className="w-4 h-4" />
-      case "HIGH":
-        return <AlertTriangle className="w-4 h-4" />
-      case "MEDIUM":
-        return <AlertCircle className="w-4 h-4" />
-      case "LOW":
-        return <Clock className="w-4 h-4" />
-      default:
-        return <AlertCircle className="w-4 h-4" />
-    }
-  }
-
-  if (currentUser.role !== "administrator") {
+  if (loading) {
     return (
-      <Alert>
-        <Shield className="h-4 w-4" />
-        <AlertTitle>Access Denied</AlertTitle>
-        <AlertDescription>You don't have permission to access the admin dashboard.</AlertDescription>
-      </Alert>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading admin dashboard...</p>
+        </div>
+      </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Monitor system activity and manage errors</p>
-        </div>
-        <Button onClick={refreshLogs} disabled={isLoading}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+      <div className="flex items-center gap-2">
+        <Shield className="h-6 w-6" />
+        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">{stats.activeUsers} active</p>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Errors</CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{errorStats.total}</div>
-            <p className="text-xs text-muted-foreground">All time</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unresolved</CardTitle>
-            <XCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{errorStats.unresolved}</div>
-            <p className="text-xs text-muted-foreground">Need attention</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical Errors</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{errorStats.critical}</div>
-            <p className="text-xs text-muted-foreground">High priority</p>
+            <div className="text-2xl font-bold">{stats.totalErrors}</div>
+            <p className="text-xs text-muted-foreground">{stats.unresolvedErrors} unresolved</p>
           </CardContent>
         </Card>
 
@@ -197,12 +159,24 @@ export function AdminDashboard({ currentUser }: AdminDashboardProps) {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{accessLogs.length}</div>
-            <p className="text-xs text-muted-foreground">Access logs</p>
+            <div className="text-2xl font-bold">{stats.recentActivity}</div>
+            <p className="text-xs text-muted-foreground">Last 24 hours</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">System Status</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-500">Healthy</div>
+            <p className="text-xs text-muted-foreground">All systems operational</p>
           </CardContent>
         </Card>
       </div>
 
+      {/* Logs Tabs */}
       <Tabs defaultValue="errors" className="space-y-4">
         <TabsList>
           <TabsTrigger value="errors">Error Logs</TabsTrigger>
@@ -213,56 +187,61 @@ export function AdminDashboard({ currentUser }: AdminDashboardProps) {
           <Card>
             <CardHeader>
               <CardTitle>Error Logs</CardTitle>
-              <CardDescription>System errors and their details</CardDescription>
+              <CardDescription>System errors with detailed explanations and resolution tracking</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="h-96">
                 <div className="space-y-4">
-                  {errorLogs.map((error) => (
-                    <Card key={error.id} className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-3 flex-1">
-                          <div className="flex-shrink-0">{getSeverityIcon(error.severity)}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant={getSeverityColor(error.severity) as any}>{error.severity}</Badge>
-                              <Badge variant="outline">{error.errorType}</Badge>
-                              {error.resolved && (
-                                <Badge variant="secondary">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Resolved
-                                </Badge>
-                              )}
-                            </div>
-                            <h4 className="font-medium text-sm mb-1">{error.error}</h4>
-                            <p className="text-xs text-muted-foreground mb-2">{getErrorExplanation(error)}</p>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <span>{new Date(error.timestamp).toLocaleString()}</span>
-                              {error.userName && (
-                                <span className="flex items-center gap-1">
-                                  <Users className="w-3 h-3" />
-                                  {error.userName}
-                                </span>
-                              )}
-                              <span>{error.url}</span>
-                            </div>
-                            {error.context && (
-                              <div className="mt-2 p-2 bg-muted rounded text-xs">
-                                <strong>Context:</strong> {JSON.stringify(error.context, null, 2)}
-                              </div>
+                  {errorLogs.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No errors logged</p>
+                  ) : (
+                    errorLogs.map((log) => (
+                      <div key={log.id} className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={getSeverityColor(log.severity)}>{log.severity}</Badge>
+                            <Badge variant="outline">{log.errorType}</Badge>
+                            {log.resolved && (
+                              <Badge variant="default" className="bg-green-500">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Resolved
+                              </Badge>
                             )}
                           </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {new Date(log.timestamp).toLocaleString()}
+                          </div>
                         </div>
-                        {!error.resolved && (
-                          <Button size="sm" variant="outline" onClick={() => resolveError(error.id)}>
-                            Mark Resolved
+
+                        <div>
+                          <p className="font-medium">{log.error}</p>
+                          {log.userEmail && (
+                            <p className="text-sm text-muted-foreground">
+                              User: {log.userName} ({log.userEmail})
+                            </p>
+                          )}
+                          <p className="text-sm text-muted-foreground">URL: {log.url}</p>
+                        </div>
+
+                        {log.stack && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-muted-foreground">Stack trace</summary>
+                            <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">{log.stack}</pre>
+                          </details>
+                        )}
+
+                        {log.resolved ? (
+                          <div className="text-sm text-green-600">
+                            Resolved by {log.resolvedBy} on {new Date(log.resolvedDate!).toLocaleString()}
+                          </div>
+                        ) : (
+                          <Button size="sm" onClick={() => resolveError(log.id)} className="mt-2">
+                            Mark as Resolved
                           </Button>
                         )}
                       </div>
-                    </Card>
-                  ))}
-                  {errorLogs.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">No error logs found</div>
+                    ))
                   )}
                 </div>
               </ScrollArea>
@@ -274,50 +253,34 @@ export function AdminDashboard({ currentUser }: AdminDashboardProps) {
           <Card>
             <CardHeader>
               <CardTitle>Access Logs</CardTitle>
-              <CardDescription>User activity and system access</CardDescription>
+              <CardDescription>User activity and system access tracking</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Resource</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>IP Address</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {accessLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback className="text-xs">{log.userName.charAt(0).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium text-sm">{log.userName}</div>
-                            <div className="text-xs text-muted-foreground">{log.userEmail}</div>
+              <ScrollArea className="h-96">
+                <div className="space-y-2">
+                  {accessLogs.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No access logs</p>
+                  ) : (
+                    accessLogs.map((log) => (
+                      <div key={log.id} className="flex items-center justify-between p-3 border rounded">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={log.success ? "default" : "destructive"}>
+                              {log.success ? "SUCCESS" : "FAILED"}
+                            </Badge>
+                            <span className="font-medium">{log.action}</span>
                           </div>
+                          <div className="text-sm text-muted-foreground">
+                            {log.userName} ({log.userEmail}) - {log.resource}
+                          </div>
+                          {log.details && <div className="text-xs text-muted-foreground mt-1">{log.details}</div>}
                         </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{log.action}</TableCell>
-                      <TableCell>{log.resource}</TableCell>
-                      <TableCell>
-                        <Badge variant={log.success ? "secondary" : "destructive"}>
-                          {log.success ? "Success" : "Failed"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
-                      <TableCell className="text-muted-foreground">{log.ipAddress || "Unknown"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {accessLogs.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">No access logs found</div>
-              )}
+                        <div className="text-sm text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
