@@ -52,7 +52,7 @@ export function CollaborativeTextEditor({
   currentUser,
   onSectionComplete,
 }: CollaborativeTextEditorProps) {
-  const room = useRoom()
+  const room = useRoom?.() || null
   const [localContent, setLocalContent] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
