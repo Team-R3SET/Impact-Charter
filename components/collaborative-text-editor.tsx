@@ -11,6 +11,8 @@ import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/comp
 import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { businessPlanSections, getNextSection, getPreviousSection, getSectionIndex } from "@/lib/business-plan-sections"
+import { logAccess, logError } from "@/lib/logging"
+import type { User } from "@/lib/user-types"
 
 // Conditional Liveblocks imports with error handling
 let useMyPresence: any = null
@@ -181,6 +183,15 @@ export function CollaborativeTextEditor({
         setIsSaving(true)
         setSaveError(null)
 
+        // Log the access attempt
+        await logAccess(
+          currentUser as User,
+          "SAVE_SECTION",
+          `plan/${planId}/section/${sectionId}`,
+          true,
+          `Content length: ${content.length}`,
+        )
+
         console.log(`[saveToAirtable] Saving section ${sectionId} for plan ${planId}`)
 
         const response = await fetch(`/api/business-plans/${planId}/sections`, {
@@ -198,12 +209,37 @@ export function CollaborativeTextEditor({
         if (!contentType || !contentType.includes("application/json")) {
           const textResponse = await response.text()
           console.error("[saveToAirtable] Non-JSON response:", textResponse)
+
+          // Log the error
+          await logError(
+            "Server returned non-JSON response",
+            "API_ERROR",
+            "HIGH",
+            window.location.href,
+            currentUser as User,
+            undefined,
+            undefined,
+            { planId, sectionId, response: textResponse },
+          )
+
           throw new Error("Server returned an invalid response. Please try again.")
         }
 
         const result = await response.json()
 
         if (!response.ok) {
+          // Log API error
+          await logError(
+            result.error || `Server error: ${response.status}`,
+            "API_ERROR",
+            response.status >= 500 ? "HIGH" : "MEDIUM",
+            window.location.href,
+            currentUser as User,
+            undefined,
+            undefined,
+            { planId, sectionId, statusCode: response.status },
+          )
+
           throw new Error(result.error || `Server error: ${response.status}`)
         }
 
@@ -222,6 +258,18 @@ export function CollaborativeTextEditor({
 
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
         setSaveError(errorMessage)
+
+        // Log the error with context
+        await logError(
+          errorMessage,
+          "API_ERROR",
+          "MEDIUM",
+          window.location.href,
+          currentUser as User,
+          undefined,
+          error instanceof Error ? error.stack : undefined,
+          { planId, sectionId, action: "save_section" },
+        )
 
         // Show different messages based on error type
         if (errorMessage.includes("table not found")) {
@@ -253,7 +301,7 @@ export function CollaborativeTextEditor({
         setIsSaving(false)
       }
     },
-    [planId, sectionId, currentUser.email, toast, isOnline],
+    [planId, sectionId, currentUser, toast, isOnline],
   )
 
   // Handle content changes
@@ -303,6 +351,15 @@ export function CollaborativeTextEditor({
       setIsCompleting(true)
       setSaveError(null)
 
+      // Log the completion attempt
+      await logAccess(
+        currentUser as User,
+        "COMPLETE_SECTION",
+        `plan/${planId}/section/${sectionId}`,
+        true,
+        "Section marked as complete",
+      )
+
       // Update local state
       setIsCompleted(true)
       localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(true))
@@ -343,6 +400,18 @@ export function CollaborativeTextEditor({
         const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
         console.warn("Failed to save completion to Airtable:", errorData.error)
 
+        // Log the error
+        await logError(
+          `Failed to save section completion: ${errorData.error}`,
+          "API_ERROR",
+          "MEDIUM",
+          window.location.href,
+          currentUser as User,
+          undefined,
+          undefined,
+          { planId, sectionId, action: "complete_section" },
+        )
+
         toast({
           title: "Section completed locally",
           description: "Completion saved locally. Check your Airtable connection in Settings.",
@@ -351,6 +420,18 @@ export function CollaborativeTextEditor({
       }
     } catch (error) {
       console.error("Failed to mark as complete:", error)
+
+      // Log the error
+      await logError(
+        error instanceof Error ? error.message : "Unknown error during section completion",
+        "SYSTEM_ERROR",
+        "MEDIUM",
+        window.location.href,
+        currentUser as User,
+        undefined,
+        error instanceof Error ? error.stack : undefined,
+        { planId, sectionId, action: "complete_section" },
+      )
 
       // Don't revert local state, just show warning
       toast({

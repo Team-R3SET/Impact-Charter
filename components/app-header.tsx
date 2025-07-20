@@ -16,17 +16,15 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw } from "lucide-react"
+import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw, Shield } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
 import type { BusinessPlan } from "@/lib/airtable"
+import { canAccessAdminFeatures } from "@/lib/user-management"
+import type { User as UserType } from "@/lib/user-types"
 
 interface AppHeaderProps {
-  currentUser: {
-    name: string
-    email: string
-    avatar?: string
-  }
+  currentUser: UserType
   currentPlanId?: string
 }
 
@@ -244,6 +242,17 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
                   <span>Settings</span>
                 </Link>
               </DropdownMenuItem>
+              {canAccessAdminFeatures(currentUser) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin">
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Admin Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
