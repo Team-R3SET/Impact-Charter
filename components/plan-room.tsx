@@ -23,7 +23,9 @@ export function PlanRoom({ roomId, userName, userEmail, children }: PlanRoomProp
           avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userEmail}`,
         },
       }}
-      initialStorage={{ sections: {} }}
+      initialStorage={{
+        sections: {},
+      }}
     >
       {children}
     </RoomProvider>
