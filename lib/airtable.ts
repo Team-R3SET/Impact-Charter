@@ -125,47 +125,76 @@ export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan
   }
 }
 
+/**
+ * Create a section when it doesn't exist or update it when it does.
+ * If a PATCH returns 404 (record was deleted or the ID is stale),
+ * we fall back to a POST that creates a fresh record.
+ */
 export async function updateBusinessPlanSection(section: BusinessPlanSection): Promise<void> {
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
-    console.log("[updateBusinessPlanSection] Airtable API keys missing - skipping update")
+    console.log("[updateBusinessPlanSection] Airtable creds missing – skipping remote update")
     return
   }
 
-  try {
-    const url = section.id
-      ? `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${section.id}`
-      : `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`
+  // Shared payload (Airtable "fields" object)
+  const fields = {
+    planId: section.planId,
+    sectionName: section.sectionName,
+    sectionContent: section.sectionContent,
+    lastModified: section.lastModified,
+    modifiedBy: section.modifiedBy,
+    // allow undefined → false for booleans
+    isComplete: !!section.isComplete,
+    submittedForReview: !!section.submittedForReview,
+    completedDate: section.completedDate,
+  }
 
-    const method = section.id ? "PATCH" : "POST"
-
-    const res = await fetch(url, {
-      method,
+  // Helper for the POST branch
+  const createRecord = async () => {
+    const createRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`, {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${AIRTABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        fields: {
-          planId: section.planId,
-          sectionName: section.sectionName,
-          sectionContent: section.sectionContent,
-          lastModified: section.lastModified,
-          modifiedBy: section.modifiedBy,
-          isComplete: section.isComplete || false,
-          submittedForReview: section.submittedForReview || false,
-          completedDate: section.completedDate,
-        },
-      }),
+      body: JSON.stringify({ fields }),
     })
-
-    if (!res.ok) {
-      const errorText = await res.text()
-      throw new Error(`Airtable update failed: ${res.status} - ${errorText}`)
+    if (!createRes.ok) {
+      const txt = await createRes.text()
+      throw new Error(`Airtable create failed: ${createRes.status} – ${txt}`)
     }
-  } catch (error) {
-    console.error("[updateBusinessPlanSection] Error updating section:", error)
-    throw error
   }
+
+  // If we *think* we have an Airtable record ID, try PATCH first
+  if (section.id) {
+    const patchRes = await fetch(
+      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${section.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ fields }),
+      },
+    )
+
+    // 404 means the record ID is stale or was deleted → fall back to POST
+    if (patchRes.status === 404) {
+      console.warn(`[updateBusinessPlanSection] Record ${section.id} not found – creating a new one`)
+      await createRecord()
+      return
+    }
+
+    if (!patchRes.ok) {
+      const txt = await patchRes.text()
+      throw new Error(`Airtable update failed: ${patchRes.status} – ${txt}`)
+    }
+    return
+  }
+
+  // No section.id → always create
+  await createRecord()
 }
 
 export async function markSectionAsComplete(planId: string, sectionName: string, userEmail: string): Promise<void> {
