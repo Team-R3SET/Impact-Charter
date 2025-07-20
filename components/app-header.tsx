@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { FileText, Plus, User, Settings, LogOut, Home } from "lucide-react"
 import type { BusinessPlan } from "@/lib/airtable"
 
@@ -73,104 +74,131 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
   }
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="flex h-16 items-center px-4 gap-4">
-        {/* Logo/Home */}
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <FileText className="w-6 h-6 text-blue-600" />
-          <span className="hidden sm:inline">Business Plan Builder</span>
-        </Link>
-
-        {/* Plan Selector */}
-        {pathname.startsWith("/plan/") && (
-          <div className="flex items-center gap-2 flex-1 max-w-md">
-            <Select value={currentPlanId} onValueChange={handlePlanChange} disabled={isLoading}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={isLoading ? "Loading plans..." : "Select a business plan"} />
-              </SelectTrigger>
-              <SelectContent>
-                {businessPlans.map((plan) => (
-                  <SelectItem key={plan.id} value={plan.id!}>
-                    <div className="flex items-center gap-2 w-full">
-                      <div className={`w-2 h-2 rounded-full ${getStatusColor(plan.status)}`} />
-                      <span className="truncate">{plan.planName}</span>
-                      <Badge variant="outline" className="ml-auto text-xs">
-                        {plan.status}
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1 ml-auto">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/">
-              <Home className="w-4 h-4 mr-2" />
-              Home
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/plans">
-              <FileText className="w-4 h-4 mr-2" />
-              My Plans
-            </Link>
-          </Button>
-        </nav>
-
-        {/* Create New Plan Button */}
-        <Button size="sm" asChild className="hidden sm:flex">
-          <Link href="/">
-            <Plus className="w-4 h-4 mr-2" />
-            New Plan
+    <TooltipProvider>
+      <header className="border-b bg-gradient-to-r from-blue-600 to-indigo-700 text-white sticky top-0 z-50 shadow-lg">
+        <div className="flex h-16 items-center px-6 gap-6">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3 font-bold text-xl hover:opacity-80 transition-opacity">
+            <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+              <FileText className="w-6 h-6" />
+            </div>
+            <span className="hidden lg:inline">Business Plan Builder</span>
           </Link>
-        </Button>
 
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={currentUser.avatar || "/placeholder.svg"} alt={currentUser.name} />
-                <AvatarFallback>{currentUser.name.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{currentUser.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/profile">
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/plans">
-                <FileText className="mr-2 h-4 w-4" />
-                <span>My Plans</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </header>
+          {/* Plan Selector - Only show on plan pages */}
+          {pathname.startsWith("/plan/") && (
+            <div className="flex items-center gap-3 flex-1 max-w-md">
+              <Select value={currentPlanId} onValueChange={handlePlanChange} disabled={isLoading}>
+                <SelectTrigger className="bg-white/10 border-white/20 text-white placeholder:text-white/70 hover:bg-white/20 transition-colors">
+                  <SelectValue placeholder={isLoading ? "Loading..." : "Select plan"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {businessPlans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id!}>
+                      <div className="flex items-center gap-2 w-full">
+                        <div className={`w-2 h-2 rounded-full ${getStatusColor(plan.status)}`} />
+                        <span className="truncate">{plan.planName}</span>
+                        <Badge variant="outline" className="ml-auto text-xs">
+                          {plan.status}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Icon Navigation */}
+          <nav className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 h-10 w-10">
+                  <Link href="/">
+                    <Home className="w-5 h-5" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Home</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 h-10 w-10">
+                  <Link href="/plans">
+                    <FileText className="w-5 h-5" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>My Plans</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 h-10 w-10">
+                  <Link href="/">
+                    <Plus className="w-5 h-5" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>New Plan</p>
+              </TooltipContent>
+            </Tooltip>
+          </nav>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
+                <Avatar className="h-10 w-10 ring-2 ring-white/20">
+                  <AvatarImage src={currentUser.avatar || "/placeholder.svg"} alt={currentUser.name} />
+                  <AvatarFallback className="bg-white/10 text-white">
+                    {currentUser.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/plans">
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>My Plans</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+    </TooltipProvider>
   )
 }

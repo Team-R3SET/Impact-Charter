@@ -1,6 +1,7 @@
 import { getBusinessPlan } from "@/lib/airtable"
 import { BusinessPlanEditor } from "@/components/business-plan-editor"
 import { PlanRoom } from "@/components/plan-room"
+import { AppHeader } from "@/components/app-header"
 import { notFound } from "next/navigation"
 
 interface PlanPageProps {
@@ -9,24 +10,20 @@ interface PlanPageProps {
 }
 
 export default async function PlanPage({ params, searchParams }: PlanPageProps) {
-  // Await the params and searchParams
   const { planId } = params
   const searchParamsResolved = searchParams
 
-  // Validate planId
   if (!planId || typeof planId !== "string") {
     notFound()
   }
 
   try {
-    // Attempt to load from Airtable (or fallback handled inside)
     const plan = await getBusinessPlan(planId)
 
     if (!plan) {
       notFound()
     }
 
-    // Use query-string name when Airtable returns placeholder
     const derivedName =
       plan?.planName === "Untitled Plan"
         ? typeof searchParamsResolved.name === "string"
@@ -38,12 +35,16 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
     const user = {
       name: "Demo User",
       email: "user@example.com",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
     }
 
     return (
-      <PlanRoom roomId={`plan-${planId}`} userName={user.name} userEmail={user.email}>
-        <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={false} />
-      </PlanRoom>
+      <>
+        <AppHeader currentUser={user} currentPlanId={planId} />
+        <PlanRoom roomId={`plan-${planId}`} userName={user.name} userEmail={user.email}>
+          <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={false} />
+        </PlanRoom>
+      </>
     )
   } catch (error) {
     console.error("Error loading plan:", error)
@@ -51,7 +52,6 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
   }
 }
 
-// Add metadata for better SEO
 export async function generateMetadata({ params }: { params: { planId: string } }) {
   const { planId } = params
 
