@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createBusinessPlan } from "@/lib/airtable"
+import { randomUUID } from "crypto"
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +19,10 @@ export async function POST(request: NextRequest) {
       status: "Draft",
     })
 
-    return NextResponse.json({ plan })
+    // 🔑 Fallback for local/dev where Airtable may not return an id
+    const planId = plan.id ?? randomUUID()
+
+    return NextResponse.json({ plan: { ...plan, id: planId } })
   } catch (error) {
     console.error("Failed to create business plan:", error)
     return NextResponse.json({ error: "Failed to create business plan" }, { status: 500 })

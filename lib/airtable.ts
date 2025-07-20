@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto"
+
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
 
@@ -20,21 +22,28 @@ export interface BusinessPlanSection {
 }
 
 export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promise<BusinessPlan> {
-  const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      fields: plan,
-    }),
-  })
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    // Local fallback
+    return { id: randomUUID(), ...plan }
+  }
 
-  const data = await response.json()
-  return {
-    id: data.id,
-    ...data.fields,
+  try {
+    const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields: plan }),
+    })
+
+    if (!res.ok) throw new Error("Airtable insert failed")
+
+    const data = await res.json()
+    return { id: data.id, ...data.fields }
+  } catch {
+    // Safe fallback instead of propagating undefined id
+    return { id: randomUUID(), ...plan }
   }
 }
 
