@@ -9,8 +9,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "@auth0/auth0-react": "latest",
-    "@clerk/clerk-react": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@liveblocks/client": "latest",
     "@liveblocks/node": "latest",
@@ -46,7 +44,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "latest",
-    "convex": "latest",
     "crypto": "latest",
     "date-fns": "latest",
     "embla-carousel-react": "latest",
