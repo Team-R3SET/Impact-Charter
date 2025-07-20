@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { useMutation, useStorage } from "@/lib/liveblocks"
-import { updateBusinessPlanSection } from "@/lib/airtable"
+import { useToast } from "@/hooks/use-toast"
 
 interface CollaborativeTextEditorProps {
   sectionId: string
@@ -16,6 +16,7 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
   const [localContent, setLocalContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
+  const { toast } = useToast()
 
   const sectionContent = useStorage((root) => root.sections?.[sectionId]?.content || "")
 
@@ -44,15 +45,28 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
   const saveToAirtable = async (content: string) => {
     setIsSaving(true)
     try {
-      await updateBusinessPlanSection({
-        planId,
-        sectionName: sectionId,
-        sectionContent: content,
-        lastModified: new Date().toISOString(),
-        modifiedBy: userEmail,
+      const response = await fetch(`/api/business-plans/${planId}/sections`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sectionName: sectionId,
+          sectionContent: content,
+          modifiedBy: userEmail,
+        }),
       })
+
+      if (!response.ok) {
+        throw new Error("Failed to save")
+      }
     } catch (error) {
       console.error("Failed to save to Airtable:", error)
+      toast({
+        title: "Save Error",
+        description: "Failed to save changes. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsSaving(false)
     }
@@ -79,7 +93,11 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
         placeholder={placeholder}
         className="min-h-[300px] resize-none"
       />
-      {isSaving && <div className="absolute top-2 right-2 text-xs text-muted-foreground">Saving...</div>}
+      {isSaving && (
+        <div className="absolute top-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
+          Saving...
+        </div>
+      )}
     </div>
   )
 }

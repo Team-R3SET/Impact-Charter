@@ -5,32 +5,57 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { createBusinessPlan } from "@/lib/airtable"
 import { PlusCircle, FileText } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function HomePage() {
   const [planName, setPlanName] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleCreatePlan = async () => {
-    if (!planName.trim()) return
+    if (!planName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a plan name",
+        variant: "destructive",
+      })
+      return
+    }
 
     setIsCreating(true)
     try {
-      const plan = await createBusinessPlan({
-        planName: planName.trim(),
-        createdDate: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        ownerEmail: "user@example.com", // In a real app, get from auth
-        status: "Draft",
+      const response = await fetch("/api/business-plans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planName: planName.trim(),
+          ownerEmail: "user@example.com", // In a real app, get from auth
+        }),
       })
 
-      if (plan.id) {
-        router.push(`/plan/${plan.id}`)
+      if (!response.ok) {
+        throw new Error("Failed to create business plan")
       }
+
+      const { plan } = await response.json()
+
+      toast({
+        title: "Success",
+        description: "Business plan created successfully!",
+      })
+
+      router.push(`/plan/${plan.id}`)
     } catch (error) {
       console.error("Failed to create business plan:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create business plan. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsCreating(false)
     }
@@ -59,7 +84,8 @@ export default function HomePage() {
                 placeholder="Enter your business plan name..."
                 value={planName}
                 onChange={(e) => setPlanName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreatePlan()}
+                onKeyDown={(e) => e.key === "Enter" && !isCreating && handleCreatePlan()}
+                disabled={isCreating}
               />
             </div>
             <Button onClick={handleCreatePlan} disabled={!planName.trim() || isCreating} className="w-full">
