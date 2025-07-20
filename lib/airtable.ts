@@ -22,8 +22,8 @@ export interface BusinessPlanSection {
 }
 
 export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promise<BusinessPlan> {
+  // 1️⃣ Local/dev fallback when Airtable keys are missing
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
-    // Local fallback
     return { id: randomUUID(), ...plan }
   }
 
@@ -41,8 +41,9 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
 
     const data = await res.json()
     return { id: data.id, ...data.fields }
-  } catch {
-    // Safe fallback instead of propagating undefined id
+  } catch (err) {
+    // 2️⃣  Graceful degradation when Airtable is unreachable
+    console.warn("Airtable unreachable – using local fallback:", err)
     return { id: randomUUID(), ...plan }
   }
 }

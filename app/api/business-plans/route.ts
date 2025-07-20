@@ -19,10 +19,10 @@ export async function POST(request: NextRequest) {
       status: "Draft",
     })
 
-    // 🔑 Fallback for local/dev where Airtable may not return an id
-    const planId = plan.id ?? randomUUID()
+    // Ensure we never return a plan without an id
+    const planWithId = plan.id ? plan : { ...plan, id: randomUUID() }
 
-    return NextResponse.json({ plan }, { status: 201 })
+    return NextResponse.json({ plan: planWithId }, { status: 201 })
   } catch (error) {
     console.error("Failed to create business plan:", error)
     return NextResponse.json({ error: "Failed to create business plan" }, { status: 500 })
