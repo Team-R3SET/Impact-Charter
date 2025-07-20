@@ -18,7 +18,7 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
 
-  const sectionContent = useStorage((root) => root.sections?.[sectionId]?.content || "")
+  const sectionContent = useStorage((root) => root.sections?.[sectionId]?.content ?? "") as string
 
   const updateSection = useMutation(
     ({ storage }, content: string) => {
@@ -36,10 +36,11 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
 
   // Sync with LiveBlocks storage
   useEffect(() => {
-    if (sectionContent !== localContent) {
-      setLocalContent(sectionContent)
+    const safeContent = sectionContent ?? ""
+    if (safeContent !== localContent) {
+      setLocalContent(safeContent)
     }
-  }, [sectionContent])
+  }, [sectionContent, localContent])
 
   // Auto-save to Airtable
   const saveToAirtable = async (content: string) => {
@@ -88,7 +89,7 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
   return (
     <div className="relative">
       <Textarea
-        value={localContent}
+        value={localContent ?? ""}
         onChange={(e) => handleContentChange(e.target.value)}
         placeholder={placeholder}
         className="min-h-[300px] resize-none"
