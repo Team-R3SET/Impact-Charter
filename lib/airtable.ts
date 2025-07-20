@@ -88,35 +88,37 @@ export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan
 
   try {
     const filterFormula = `{ownerEmail} = "${ownerEmail}"`
-    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans?filterByFormula=${encodeURIComponent(filterFormula)}&sort[0][field]=lastModified&sort[0][direction]=desc`
+    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans?filterByFormula=${encodeURIComponent(
+      filterFormula,
+    )}&sort[0][field]=lastModified&sort[0][direction]=desc`
 
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
       cache: "no-store",
     })
 
+    // Airtable returns 200 with an empty array when no records match,
+    // but we also guard against an unexpected 404 (table renamed / deleted)
+    if (res.status === 404) {
+      console.warn("[getBusinessPlans] Table not found – returning empty list")
+      return []
+    }
+
     if (!res.ok) {
-      throw new Error(`Airtable request failed: ${res.status}`)
+      const errorText = await res.text()
+      throw new Error(`Airtable request failed: ${res.status} - ${errorText}`)
     }
 
     const data = await res.json()
-    return data.records.map((record: any) => ({
+    const records = Array.isArray(data.records) ? data.records : []
+    return records.map((record: any) => ({
       id: record.id,
       ...record.fields,
-    }))
+    })) as BusinessPlan[]
   } catch (error) {
     console.error("[getBusinessPlans] Error fetching business plans:", error)
-    // Return sample data as fallback
-    return [
-      {
-        id: "fallback-1",
-        planName: "My Business Plan",
-        createdDate: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        ownerEmail,
-        status: "Draft",
-      },
-    ]
+    // 3️⃣ Return an empty list instead of throwing to keep UI functional
+    return []
   }
 }
 

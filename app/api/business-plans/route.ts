@@ -45,15 +45,11 @@ export async function GET(request: NextRequest) {
     }
 
     const plans = await getBusinessPlans(owner)
+    // 👉 Always return a 200 with an array (might be empty)
     return NextResponse.json({ plans })
   } catch (error) {
     console.error("Failed to fetch business plans:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to fetch business plans",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
-    )
+    // Return graceful fallback instead of 500
+    return NextResponse.json({ plans: [] })
   }
 }
