@@ -204,33 +204,21 @@ export function CollaborativeTextEditor({
           }),
         })
 
-        // Check if response is JSON
-        const contentType = response.headers.get("content-type")
-        if (!contentType || !contentType.includes("application/json")) {
-          const textResponse = await response.text()
-          console.error("[saveToAirtable] Non-JSON response:", textResponse)
+        /* ---------- read and interpret the server reply ---------- */
+        let result: any = null
+        const rawBody = await response.text()
 
-          // Log the error
-          await logError(
-            "Server returned non-JSON response",
-            "API_ERROR",
-            "HIGH",
-            window.location.href,
-            currentUser as User,
-            undefined,
-            undefined,
-            { planId, sectionId, response: textResponse },
-          )
-
-          throw new Error("Server returned an invalid response. Please try again.")
+        // Try to parse JSON first – fall back to raw text/HTML
+        try {
+          result = JSON.parse(rawBody)
+        } catch {
+          result = { raw: rawBody }
         }
 
-        const result = await response.json()
-
+        // Non-2xx status = API error
         if (!response.ok) {
-          // Log API error
           await logError(
-            result.error || `Server error: ${response.status}`,
+            result?.error || rawBody || `HTTP ${response.status}`,
             "API_ERROR",
             response.status >= 500 ? "HIGH" : "MEDIUM",
             window.location.href,
@@ -239,8 +227,12 @@ export function CollaborativeTextEditor({
             undefined,
             { planId, sectionId, statusCode: response.status },
           )
+          throw new Error(result?.error || `Server error: ${response.status}`)
+        }
 
-          throw new Error(result.error || `Server error: ${response.status}`)
+        // If the body *looked* like JSON but didn’t have success=true, treat that as an error too
+        if (!result?.success) {
+          throw new Error(result?.error || "Unexpected server reply")
         }
 
         if (result.success) {
