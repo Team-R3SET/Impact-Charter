@@ -1,37 +1,50 @@
-;/import { NextResponse } from "next/eerrsv
-"
+import { NextResponse } from "next/server"
+import { updateBusinessPlanSectionWithUserCreds } from "@/lib/airtable-user"
 
-import { updateBusinessPlanSectionWithUserCreds } from "@/lib/airtable"
-import { auth } from "@/lib/auth"
-
-export async function POST(req: Request, { params }: { params: { planId: string } }) {
-  const session = await auth()
-  const userEmail = session?.user?.email
-
-  if (!userEmail) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { sectionName, sectionContent } = await req.json()
-
-  if (!sectionName) {
-    return NextResponse.json({ error: "Missing sectionName" }, { status: 400 })
-  }
-
-  /* ───────────────────────────── Airtable upsert ─────────────────────────── */
+/**
+ * Save (or update) a single section for a business-plan.
+ * Expects JSON: { sectionName, sectionContent, userEmail }
+ */
+export async function POST(request: Request, { params }: { params: { planId: string } }) {
   try {
+    /* -------------------------------------------------------------------- */
+    /* 1️⃣  Validate request body                                            */
+    /* -------------------------------------------------------------------- */
+    const { sectionName, sectionContent = "", userEmail } = await request.json()
+
+    if (!sectionName || !userEmail) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields: sectionName and userEmail",
+        },
+        { status: 400 },
+      )
+    }
+
+    /* -------------------------------------------------------------------- */
+    /* 2️⃣  Upsert into Airtable                                             */
+    /* -------------------------------------------------------------------- */
     await updateBusinessPlanSectionWithUserCreds(
       {
         planId: params.planId,
         sectionName,
-        sectionContent: sectionContent || "",
+        sectionContent,
         lastModified: new Date().toISOString(),
         modifiedBy: userEmail,
       },
       userEmail,
     )
+
+    /* -------------------------------------------------------------------- */
+    /* 3️⃣  Success                                                          */
+    /* -------------------------------------------------------------------- */
+    return NextResponse.json({ success: true })
   } catch (err) {
-    console.error("[API] Airtable update failed:", err)
+    /* -------------------------------------------------------------------- */
+    /* 4️⃣  Airtable (or other) failure – return *graceful* JSON             */
+    /* -------------------------------------------------------------------- */
+    console.error("[API] Failed to update section:", err)
 
     return NextResponse.json(
       {
@@ -41,9 +54,7 @@ export async function POST(req: Request, { params }: { params: { planId: string 
             ? err.message
             : "Unexpected error while talking to Airtable. Your changes are kept locally.",
       },
-      { status: 200 }, // ← prevent 500 white-label page
+      { status: 200 }, // ➜ keeps the client from seeing a 500 HTML page
     )
   }
-
-  return NextResponse.json({ success: true })
 }
