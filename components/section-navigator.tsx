@@ -33,13 +33,33 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
     return root.sections as Record<string, any>
   })
 
+  const completedSections = useStorage((root) => {
+    if (!root.completedSections) return {}
+
+    // Handle both LiveMap and plain object
+    if (typeof (root.completedSections as any).get === "function") {
+      const map = root.completedSections as any
+      const obj: Record<string, boolean> = {}
+      map.forEach((value: boolean, key: string) => (obj[key] = value))
+      return obj
+    }
+
+    return root.completedSections as Record<string, boolean>
+  }) as Record<string, boolean>
+
   const getSectionProgress = (sectionId: string) => {
+    // Check explicit completion first
+    if (completedSections?.[sectionId]) {
+      return true
+    }
+
+    // Fallback to content length for backward compatibility
     const entry = sections?.[sectionId]
     const content = entry?.content ?? ""
     return content.trim().length > 50
   }
 
-  const completedSections = BUSINESS_PLAN_SECTIONS.filter((section) => getSectionProgress(section.id)).length
+  const completedCount = BUSINESS_PLAN_SECTIONS.filter((section) => completedSections?.[section.id] === true).length
 
   return (
     <div className="w-80 border-r bg-muted/30 flex flex-col">
@@ -47,7 +67,7 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
         <h2 className="font-semibold text-lg">Business Plan Sections</h2>
         <div className="flex items-center gap-2 mt-2">
           <Badge variant="outline">
-            {completedSections}/{BUSINESS_PLAN_SECTIONS.length} Complete
+            {completedCount}/{BUSINESS_PLAN_SECTIONS.length} Complete
           </Badge>
         </div>
       </div>
@@ -67,7 +87,7 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
               >
                 <div className="flex items-start gap-3 w-full">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {isComplete ? (
+                    {completedSections?.[section.id] ? (
                       <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                     ) : (
                       <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0" />

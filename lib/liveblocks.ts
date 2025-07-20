@@ -24,8 +24,10 @@ type Storage = {
       content: string
       lastModified: string
       modifiedBy: string
+      isCompleted?: boolean
     }
   >
+  completedSections: Record<string, boolean>
 }
 
 type UserMeta = {

@@ -25,6 +25,7 @@ export function PlanRoom({ roomId, userName, userEmail, children }: PlanRoomProp
       }}
       initialStorage={{
         sections: {},
+        completedSections: {},
       }}
     >
       {children}

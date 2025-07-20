@@ -4,6 +4,9 @@ import { useState, useEffect, useRef } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { useMutation, useStorage } from "@/lib/liveblocks"
 import { useToast } from "@/hooks/use-toast"
+import { CheckCircle, Circle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 interface CollaborativeTextEditorProps {
   sectionId: string
@@ -33,6 +36,14 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
     },
     [sectionId, userEmail],
   )
+
+  const toggleCompletion = useMutation(({ storage }, sectionId: string, isCompleted: boolean) => {
+    const completedSections = storage.get("completedSections") || {}
+    completedSections[sectionId] = isCompleted
+    storage.set("completedSections", completedSections)
+  }, [])
+
+  const isCompleted = useStorage((root) => root.completedSections?.[sectionId] ?? false) as boolean
 
   // Sync with LiveBlocks storage
   useEffect(() => {
@@ -87,18 +98,48 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
   }
 
   return (
-    <div className="relative">
-      <Textarea
-        value={localContent ?? ""}
-        onChange={(e) => handleContentChange(e.target.value)}
-        placeholder={placeholder}
-        className="min-h-[300px] resize-none"
-      />
-      {isSaving && (
-        <div className="absolute top-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
-          Saving...
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={isCompleted ? "default" : "outline"}
+            size="sm"
+            onClick={() => toggleCompletion(sectionId, !isCompleted)}
+            className="gap-2"
+          >
+            {isCompleted ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Completed
+              </>
+            ) : (
+              <>
+                <Circle className="w-4 h-4" />
+                Mark as Complete
+              </>
+            )}
+          </Button>
+          {isCompleted && (
+            <Badge variant="secondary" className="text-xs">
+              Section completed
+            </Badge>
+          )}
         </div>
-      )}
+      </div>
+
+      <div className="relative">
+        <Textarea
+          value={localContent ?? ""}
+          onChange={(e) => handleContentChange(e.target.value)}
+          placeholder={placeholder}
+          className="min-h-[300px] resize-none"
+        />
+        {isSaving && (
+          <div className="absolute top-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
+            Saving...
+          </div>
+        )}
+      </div>
     </div>
   )
 }
