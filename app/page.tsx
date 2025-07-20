@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PlusCircle, FileText, AlertCircle } from "lucide-react"
+import { PlusCircle, FileText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export default function HomePage() {
@@ -113,17 +113,6 @@ export default function HomePage() {
             <li>• Section-by-section organization</li>
             <li>• Live presence indicators</li>
           </ul>
-        </div>
-
-        {/* Debug info for production */}
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-4 h-4" />
-            <span className="font-medium">Debug Info</span>
-          </div>
-          <p>Environment: {process.env.NODE_ENV}</p>
-          <p>Airtable configured: {process.env.AIRTABLE_API_KEY ? "Yes" : "No"}</p>
-          <p>Liveblocks configured: {process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY ? "Yes" : "No"}</p>
         </div>
       </div>
     </div>
