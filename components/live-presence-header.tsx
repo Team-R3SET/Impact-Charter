@@ -3,11 +3,18 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
-import { useOthers, useMyPresence } from "@/lib/liveblocks"
+import { useOthers, useMyPresence, useRoom } from "@/lib/liveblocks"
 
 export function LivePresenceHeader() {
+  const room = useRoom()
   const others = useOthers()
   const [myPresence] = useMyPresence()
+
+  // If we’re not inside a RoomProvider (e.g. on non-plan pages),
+  // silently render nothing to avoid “RoomProvider is missing” errors.
+  if (!room) {
+    return null
+  }
 
   const activeUsers = others.filter((user) => user.presence?.user)
   const totalUsers = activeUsers.length + 1 // +1 for current user
