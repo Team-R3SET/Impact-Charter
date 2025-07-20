@@ -1,180 +1,194 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { CheckCircle, Clock, Users, Save, AlertCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import {
-  useMutation,
-  useStorage,
   useMyPresence,
   useOthers,
+  useMutation,
+  useStorage,
   useBroadcastEvent,
   useEventListener,
 } from "@/lib/liveblocks"
-import { useToast } from "@/hooks/use-toast"
-import { CheckCircle, Circle, Users, Edit3, AlertTriangle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface CollaborativeTextEditorProps {
   sectionId: string
-  placeholder: string
+  sectionTitle: string
   planId: string
-  userEmail: string
+  currentUser: {
+    name: string
+    email: string
+    avatar?: string
+  }
 }
 
-export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEmail }: CollaborativeTextEditorProps) {
+export function CollaborativeTextEditor({
+  sectionId,
+  sectionTitle,
+  planId,
+  currentUser,
+}: CollaborativeTextEditorProps) {
   const [localContent, setLocalContent] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [isComposing, setIsComposing] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [isCompleting, setIsCompleting] = useState(false)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
-  const typingTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
 
   const [myPresence, updateMyPresence] = useMyPresence()
   const others = useOthers()
   const broadcast = useBroadcastEvent()
 
-  const sectionContent = useStorage((root) => root.sections?.[sectionId]?.content ?? "") as string
+  // Get storage data
+  const sections = useStorage((root) => root?.sections)
+  const completedSections = useStorage((root) => root?.completedSections)
 
-  // Get users currently in this section
-  const usersInSection = others.filter(
-    (user) => user.presence.selectedSection === sectionId || user.presence.isTyping?.sectionId === sectionId,
-  )
-
-  // Get users currently typing in this section
-  const typingUsers = others.filter((user) => {
-    const typing = user.presence.isTyping
-    return typing && typing.sectionId === sectionId && Date.now() - typing.timestamp < 3000
-  })
-
-  // Liveblocks storage is `undefined` until it finishes loading
-  const storageReady = useStorage((root) => (root === undefined ? false : true)) as boolean
-
+  // Mutations for updating storage
   const updateSection = useMutation(
     ({ storage }, content: string) => {
-      const sections = storage.get("sections") || {}
-      sections[sectionId] = {
-        title: sectionId,
+      if (!storage.get("sections")) {
+        storage.set("sections", new Map())
+      }
+      if (!storage.get("completedSections")) {
+        storage.set("completedSections", new Map())
+      }
+
+      const sectionsMap = storage.get("sections")
+      sectionsMap.set(sectionId, {
+        title: sectionTitle,
         content,
         lastModified: new Date().toISOString(),
-        modifiedBy: userEmail,
-      }
-      storage.set("sections", sections)
+        modifiedBy: currentUser.email,
+        isCompleted: false,
+      })
     },
-    [sectionId, userEmail],
+    [sectionId, sectionTitle, currentUser.email],
   )
 
-  const toggleCompletion = useMutation(({ storage }, sectionId: string, isCompleted: boolean) => {
-    const completedSections = storage.get("completedSections") || {}
-    completedSections[sectionId] = isCompleted
-    storage.set("completedSections", completedSections)
-  }, [])
+  const markSectionComplete = useMutation(
+    ({ storage }) => {
+      if (!storage.get("completedSections")) {
+        storage.set("completedSections", new Map())
+      }
 
-  const isCompleted = useStorage((root) => root.completedSections?.[sectionId] ?? false) as boolean
+      const completedMap = storage.get("completedSections")
+      completedMap.set(sectionId, true)
+
+      const sectionsMap = storage.get("sections")
+      if (sectionsMap && sectionsMap.get(sectionId)) {
+        const section = sectionsMap.get(sectionId)
+        sectionsMap.set(sectionId, {
+          ...section,
+          isCompleted: true,
+          lastModified: new Date().toISOString(),
+          modifiedBy: currentUser.email,
+        })
+      }
+    },
+    [sectionId, currentUser.email],
+  )
+
+  // Listen for text changes from other users
+  useEventListener(({ event }) => {
+    if (event.type === "TEXT_CHANGE" && event.sectionId === sectionId && event.userId !== currentUser.email) {
+      setLocalContent(event.content)
+    }
+  })
+
+  // Load initial content
+  useEffect(() => {
+    if (sections && sections[sectionId]) {
+      setLocalContent(sections[sectionId].content || "")
+    }
+    setIsLoading(false)
+  }, [sections, sectionId])
 
   // Update presence when section changes
   useEffect(() => {
     updateMyPresence({
       selectedSection: sectionId,
-      textCursor: null,
-      textSelection: null,
-      isTyping: null,
+      user: {
+        name: currentUser.name,
+        email: currentUser.email,
+        avatar: currentUser.avatar || "/placeholder.svg",
+      },
     })
 
     return () => {
-      updateMyPresence({
-        selectedSection: null,
-        textCursor: null,
-        textSelection: null,
-        isTyping: null,
-      })
+      updateMyPresence({ selectedSection: null })
     }
-  }, [sectionId, updateMyPresence])
+  }, [sectionId, currentUser, updateMyPresence])
 
-  // Sync with LiveBlocks storage
-  useEffect(() => {
-    const safeContent = sectionContent ?? ""
-    if (safeContent !== localContent && !isComposing) {
-      setLocalContent(safeContent)
-    }
-  }, [sectionContent, localContent, isComposing])
+  // Save to Airtable
+  const saveToAirtable = useCallback(
+    async (content: string) => {
+      try {
+        setIsSaving(true)
+        const response = await fetch(`/api/business-plans/${planId}/sections`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sectionName: sectionId,
+            sectionContent: content,
+            userEmail: currentUser.email,
+          }),
+        })
 
-  // Listen for real-time text changes from other users
-  useEventListener(({ event }) => {
-    if (event.type === "TEXT_CHANGE" && event.sectionId === sectionId) {
-      if (!isComposing) {
-        setLocalContent(event.content)
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to save")
+        }
+
+        setLastSaved(new Date())
+        toast({
+          title: "Section saved",
+          description: "Your changes have been saved successfully.",
+        })
+      } catch (error) {
+        console.error("Failed to save to Airtable:", error)
+        toast({
+          title: "Save failed",
+          description: error instanceof Error ? error.message : "Failed to save changes. Working in local mode.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsSaving(false)
       }
-    }
-  })
+    },
+    [planId, sectionId, currentUser.email, toast],
+  )
 
-  // Auto-save to Airtable
-  const saveToAirtable = async (content: string) => {
-    setIsSaving(true)
-    setSaveError(null)
-
-    try {
-      const response = await fetch(`/api/business-plans/${planId}/sections`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sectionName: sectionId,
-          sectionContent: content,
-          modifiedBy: userEmail,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        setSaveError(result.message || "Failed to save to Airtable")
-      }
-    } catch (error) {
-      console.error("Failed to save to Airtable:", error)
-      setSaveError("Failed to save changes. Content saved locally.")
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
+  // Handle content changes
   const handleContentChange = useCallback(
     (content: string) => {
-      if (!storageReady) return // wait until Liveblocks storage has loaded
-
       setLocalContent(content)
-      updateSection(content)
 
-      // Broadcast real-time change
+      // Update Liveblocks storage if available
+      if (sections !== null) {
+        updateSection(content)
+      }
+
+      // Broadcast change to other users
       broadcast({
         type: "TEXT_CHANGE",
         sectionId,
         content,
-        userId: userEmail,
+        userId: currentUser.email,
       })
 
       // Update typing presence
       updateMyPresence({
-        isTyping: {
-          sectionId,
-          timestamp: Date.now(),
-        },
+        isTyping: { sectionId, timestamp: Date.now() },
       })
-
-      // Clear typing indicator after 2 seconds
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
-      }
-      typingTimeoutRef.current = setTimeout(() => {
-        updateMyPresence({
-          isTyping: null,
-        })
-      }, 2000)
 
       // Debounced save to Airtable
       if (saveTimeoutRef.current) {
@@ -184,169 +198,225 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
         saveToAirtable(content)
       }, 2000)
     },
-    [updateSection, broadcast, sectionId, userEmail, updateMyPresence, storageReady],
+    [sections, updateSection, broadcast, sectionId, currentUser.email, updateMyPresence, saveToAirtable],
   )
 
-  const handleCursorChange = useCallback(() => {
-    if (!textareaRef.current) return
-
-    const textarea = textareaRef.current
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-
-    if (start === end) {
-      // Just cursor position
-      updateMyPresence({
-        textCursor: { sectionId, position: start },
-        textSelection: null,
-      })
-    } else {
-      // Text selection
-      updateMyPresence({
-        textCursor: null,
-        textSelection: { sectionId, start, end },
-      })
-    }
-  }, [sectionId, updateMyPresence])
-
+  // Handle mark as complete
   const handleMarkComplete = async () => {
-    if (!storageReady) return
-
     try {
+      setIsCompleting(true)
+
+      // Update Liveblocks storage
+      if (completedSections !== null) {
+        markSectionComplete()
+      }
+
+      // Save to Airtable
       const response = await fetch(`/api/business-plans/${planId}/sections/${sectionId}/complete`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userEmail }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userEmail: currentUser.email,
+        }),
       })
 
-      const result = await response.json()
-
-      if (result.success) {
-        toast({
-          title: "Section Completed",
-          description: result.message,
-        })
-        toggleCompletion(sectionId, true)
-      } else {
-        toast({
-          title: "Marked Complete Locally",
-          description: result.message,
-          variant: "destructive",
-        })
-        toggleCompletion(sectionId, true)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to mark as complete")
       }
-    } catch (error) {
+
+      // Broadcast completion
+      broadcast({
+        type: "SECTION_COMPLETED",
+        sectionId,
+        userId: currentUser.email,
+      })
+
       toast({
-        title: "Marked Complete Locally",
-        description: "Section marked as complete locally. Check your Airtable connection.",
+        title: "Section completed!",
+        description: `${sectionTitle} has been marked as complete and submitted for review.`,
+      })
+    } catch (error) {
+      console.error("Failed to mark as complete:", error)
+      toast({
+        title: "Failed to mark as complete",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       })
-      toggleCompletion(sectionId, true)
+    } finally {
+      setIsCompleting(false)
     }
   }
 
+  // Get current section data
+  const currentSection = sections?.[sectionId]
+  const isCompleted = completedSections?.[sectionId] || currentSection?.isCompleted || false
+
+  // Get users currently viewing this section
+  const usersInSection = others.filter((user) => user.presence?.selectedSection === sectionId)
+
+  // Get users currently typing in this section
+  const usersTyping = others.filter(
+    (user) => user.presence?.isTyping?.sectionId === sectionId && Date.now() - user.presence.isTyping.timestamp < 3000,
+  )
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Save error alert */}
-      {saveError && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            {saveError} Your changes are saved locally and will sync when connection is restored.
-          </AlertDescription>
-        </Alert>
-      )}
+    <TooltipProvider>
+      <Card
+        className={`transition-all duration-200 ${isCompleted ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/20" : ""}`}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              {isCompleted ? (
+                <CheckCircle className="w-5 h-5 text-green-500" />
+              ) : (
+                <Clock className="w-5 h-5 text-yellow-500" />
+              )}
+              {sectionTitle}
+              {isCompleted && (
+                <Badge
+                  variant="secondary"
+                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                >
+                  Complete
+                </Badge>
+              )}
+            </CardTitle>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant={isCompleted ? "default" : "outline"}
-            size="sm"
-            onClick={handleMarkComplete}
-            className="gap-2"
-          >
-            {isCompleted ? (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                Completed
-              </>
-            ) : (
-              <>
-                <Circle className="w-4 h-4" />
-                Mark as Complete
-              </>
-            )}
-          </Button>
-          {isCompleted && (
-            <Badge variant="secondary" className="text-xs">
-              Section completed
-            </Badge>
-          )}
-        </div>
+            <div className="flex items-center gap-2">
+              {/* Users in section */}
+              {usersInSection.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <div className="flex -space-x-1">
+                    {usersInSection.slice(0, 3).map((user) => (
+                      <Tooltip key={user.id}>
+                        <TooltipTrigger asChild>
+                          <Avatar className="w-6 h-6 ring-2 ring-background">
+                            <AvatarImage src={user.presence?.user?.avatar || "/placeholder.svg"} />
+                            <AvatarFallback className="text-xs">
+                              {user.presence?.user?.name?.charAt(0).toUpperCase() || "A"}
+                            </AvatarFallback>
+                          </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{user.presence?.user?.name || "Anonymous"} is viewing this section</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                    {usersInSection.length > 3 && (
+                      <div className="w-6 h-6 bg-muted rounded-full ring-2 ring-background flex items-center justify-center">
+                        <span className="text-xs font-medium">+{usersInSection.length - 3}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-        {/* Users in section indicator */}
-        {usersInSection.length > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-1">
-              {usersInSection.slice(0, 3).map((user) => (
-                <Avatar key={user.connectionId} className="w-6 h-6 border-2 border-background">
-                  <AvatarImage src={user.presence.user?.avatar || "/placeholder.svg"} alt={user.presence.user?.name} />
-                  <AvatarFallback className="text-xs">
-                    {user.presence.user?.name?.charAt(0)?.toUpperCase() || "?"}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
+              {/* Save status */}
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                {isSaving ? (
+                  <>
+                    <Save className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : lastSaved ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span>Saved {lastSaved.toLocaleTimeString()}</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-4 h-4 text-yellow-500" />
+                    <span>Unsaved</span>
+                  </>
+                )}
+              </div>
             </div>
-            <Badge variant="outline" className="text-xs gap-1">
-              <Users className="w-3 h-3" />
-              {usersInSection.length} editing
-            </Badge>
           </div>
-        )}
-      </div>
 
-      {/* Typing indicators */}
-      {typingUsers.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Edit3 className="w-4 h-4 animate-pulse" />
-          <span>
-            {typingUsers.length === 1
-              ? `${typingUsers[0].presence.user?.name} is typing...`
-              : `${typingUsers.length} people are typing...`}
-          </span>
-        </div>
-      )}
+          {/* Typing indicators */}
+          {usersTyping.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex -space-x-1">
+                {usersTyping.map((user) => (
+                  <Avatar key={user.id} className="w-4 h-4">
+                    <AvatarImage src={user.presence?.user?.avatar || "/placeholder.svg"} />
+                    <AvatarFallback className="text-xs">
+                      {user.presence?.user?.name?.charAt(0).toUpperCase() || "A"}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+              </div>
+              <span>
+                {usersTyping.map((u) => u.presence?.user?.name || "Someone").join(", ")}
+                {usersTyping.length === 1 ? " is" : " are"} typing...
+              </span>
+            </div>
+          )}
+        </CardHeader>
 
-      <div className="relative">
-        <Textarea
-          ref={textareaRef}
-          value={localContent ?? ""}
-          onChange={(e) => handleContentChange(e.target.value)}
-          onSelect={handleCursorChange}
-          onKeyUp={handleCursorChange}
-          onCompositionStart={() => setIsComposing(true)}
-          onCompositionEnd={() => setIsComposing(false)}
-          placeholder={placeholder}
-          className="min-h-[300px] resize-none"
-        />
+        <CardContent className="space-y-4">
+          <Textarea
+            value={localContent}
+            onChange={(e) => handleContentChange(e.target.value)}
+            placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
+            className="min-h-[200px] resize-none"
+            disabled={isCompleted}
+          />
 
-        {/* Save indicator */}
-        {isSaving && (
-          <div className="absolute top-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
-            Saving...
-          </div>
-        )}
+          {!isCompleted && (
+            <>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  Complete this section when you're ready to submit it for review.
+                </p>
+                <Button
+                  onClick={handleMarkComplete}
+                  disabled={isCompleting || !localContent.trim()}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {isCompleting ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2 animate-spin" />
+                      Marking Complete...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Mark as Complete
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
 
-        {/* Live collaboration indicator */}
-        {usersInSection.length > 0 && (
-          <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded flex items-center gap-1">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            Live
-          </div>
-        )}
-      </div>
-    </div>
+          {isCompleted && currentSection && (
+            <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
+              <p className="text-sm text-green-800 dark:text-green-200">
+                ✅ This section was completed on {new Date(currentSection.lastModified).toLocaleDateString()}
+                by {currentSection.modifiedBy}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   )
 }

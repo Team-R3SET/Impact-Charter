@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
+import { NotificationsDropdown } from "@/components/notifications-dropdown"
+import { LivePresenceHeader } from "@/components/live-presence-header"
 import type { BusinessPlan } from "@/lib/airtable"
 
 interface AppHeaderProps {
@@ -35,6 +37,9 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
+
+  // Check if we're on a plan page (for showing live features)
+  const isOnPlanPage = pathname.startsWith("/plan/")
 
   // Fetch business plans
   const fetchPlans = async () => {
@@ -94,7 +99,7 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
           </Link>
 
           {/* Plan Selector - Only show on plan pages */}
-          {pathname.startsWith("/plan/") && (
+          {isOnPlanPage && (
             <div className="flex items-center gap-3 flex-1 max-w-md">
               <Select value={currentPlanId} onValueChange={handlePlanChange} disabled={isLoading}>
                 <SelectTrigger className="bg-white/10 border-white/20 text-white placeholder:text-white/70 hover:bg-white/20 transition-colors">
@@ -130,6 +135,13 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
                   <p>Refresh plans</p>
                 </TooltipContent>
               </Tooltip>
+            </div>
+          )}
+
+          {/* Live Presence - Only show on plan pages */}
+          {isOnPlanPage && (
+            <div className="hidden md:flex">
+              <LivePresenceHeader />
             </div>
           )}
 
@@ -176,6 +188,9 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
                 <p>New Plan</p>
               </TooltipContent>
             </Tooltip>
+
+            {/* Notifications - Only show on plan pages */}
+            {isOnPlanPage && <NotificationsDropdown />}
 
             {/* Theme Switcher */}
             <ThemeSwitcher />
