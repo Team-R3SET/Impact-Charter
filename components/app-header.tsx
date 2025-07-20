@@ -16,7 +16,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { FileText, Plus, User, Settings, LogOut, Home } from "lucide-react"
+import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import type { BusinessPlan } from "@/lib/airtable"
 
@@ -32,27 +32,34 @@ interface AppHeaderProps {
 export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
   const [businessPlans, setBusinessPlans] = useState<BusinessPlan[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
   // Fetch business plans
-  useEffect(() => {
-    const fetchPlans = async () => {
-      try {
-        const response = await fetch(`/api/business-plans?owner=${encodeURIComponent(currentUser.email)}`)
-        if (response.ok) {
-          const { plans } = await response.json()
-          setBusinessPlans(plans)
-        }
-      } catch (error) {
-        console.error("Failed to fetch business plans:", error)
-      } finally {
-        setIsLoading(false)
+  const fetchPlans = async () => {
+    try {
+      const response = await fetch(`/api/business-plans?owner=${encodeURIComponent(currentUser.email)}`)
+      if (response.ok) {
+        const { plans } = await response.json()
+        setBusinessPlans(plans)
       }
+    } catch (error) {
+      console.error("Failed to fetch business plans:", error)
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
     }
+  }
 
+  useEffect(() => {
     fetchPlans()
   }, [currentUser.email])
+
+  const handleRefreshPlans = async () => {
+    setIsRefreshing(true)
+    await fetchPlans()
+  }
 
   const currentPlan = businessPlans.find((plan) => plan.id === currentPlanId)
 
@@ -107,6 +114,22 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRefreshPlans}
+                    disabled={isRefreshing}
+                    className="text-white hover:bg-white/10 h-8 w-8"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh plans</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           )}
 

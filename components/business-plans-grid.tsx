@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { FileText, Plus, Search, MoreVertical, Edit, Trash2, Copy, Calendar, User } from "lucide-react"
+import { FileText, Plus, Search, MoreVertical, Edit, Trash2, Copy, Calendar, User, Edit3 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
+import { RenamePlanDialog } from "@/components/rename-plan-dialog"
 import type { BusinessPlan } from "@/lib/airtable"
 
 interface BusinessPlansGridProps {
@@ -19,6 +20,15 @@ interface BusinessPlansGridProps {
 export function BusinessPlansGrid({ plans }: BusinessPlansGridProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [filteredPlans, setFilteredPlans] = useState(plans)
+  const [renameDialog, setRenameDialog] = useState<{
+    isOpen: boolean
+    planId: string
+    currentName: string
+  }>({
+    isOpen: false,
+    planId: "",
+    currentName: "",
+  })
   const router = useRouter()
 
   // Filter plans based on search query
@@ -26,6 +36,29 @@ export function BusinessPlansGrid({ plans }: BusinessPlansGridProps) {
     setSearchQuery(query)
     const filtered = plans.filter((plan) => plan.planName.toLowerCase().includes(query.toLowerCase()))
     setFilteredPlans(filtered)
+  }
+
+  const handleRenameClick = (planId: string, currentName: string) => {
+    setRenameDialog({
+      isOpen: true,
+      planId,
+      currentName,
+    })
+  }
+
+  const handleRenameSuccess = (planId: string, newName: string) => {
+    // Update the plans in state
+    const updatedPlans = plans.map((plan) => (plan.id === planId ? { ...plan, planName: newName } : plan))
+
+    // Update filtered plans as well
+    const updatedFilteredPlans = filteredPlans.map((plan) =>
+      plan.id === planId ? { ...plan, planName: newName } : plan,
+    )
+
+    setFilteredPlans(updatedFilteredPlans)
+
+    // Refresh the page to ensure data consistency
+    router.refresh()
   }
 
   const getStatusColor = (status: string) => {
@@ -113,6 +146,13 @@ export function BusinessPlansGrid({ plans }: BusinessPlansGridProps) {
                           Edit Plan
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleRenameClick(plan.id!, plan.planName)}
+                        className="cursor-pointer"
+                      >
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Rename
+                      </DropdownMenuItem>
                       <DropdownMenuItem>
                         <Copy className="mr-2 h-4 w-4" />
                         Duplicate
@@ -147,6 +187,15 @@ export function BusinessPlansGrid({ plans }: BusinessPlansGridProps) {
           ))}
         </div>
       )}
+
+      {/* Rename Dialog */}
+      <RenamePlanDialog
+        isOpen={renameDialog.isOpen}
+        onClose={() => setRenameDialog({ isOpen: false, planId: "", currentName: "" })}
+        planId={renameDialog.planId}
+        currentName={renameDialog.currentName}
+        onSuccess={(newName) => handleRenameSuccess(renameDialog.planId, newName)}
+      />
     </div>
   )
 }

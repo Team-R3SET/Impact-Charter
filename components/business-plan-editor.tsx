@@ -1,14 +1,16 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { SectionNavigator } from "./section-navigator"
 import { CollaborativeTextEditor } from "./collaborative-text-editor"
 import { PresenceIndicator } from "./presence-indicator"
+import { RenamePlanDialog } from "./rename-plan-dialog"
 import { BUSINESS_PLAN_SECTIONS } from "@/lib/business-plan-sections"
-import { MessageSquare, Save } from "lucide-react"
+import { MessageSquare, Save, Edit3 } from "lucide-react"
 
 interface BusinessPlanEditorProps {
   planId: string
@@ -19,8 +21,17 @@ interface BusinessPlanEditorProps {
 
 export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = true }: BusinessPlanEditorProps) {
   const [activeSection, setActiveSection] = useState(BUSINESS_PLAN_SECTIONS[0].id)
+  const [currentPlanName, setCurrentPlanName] = useState(planName)
+  const [renameDialog, setRenameDialog] = useState(false)
+  const router = useRouter()
 
   const currentSection = BUSINESS_PLAN_SECTIONS.find((section) => section.id === activeSection)
+
+  const handleRenameSuccess = (newName: string) => {
+    setCurrentPlanName(newName)
+    // Update the URL to reflect the new name
+    router.replace(`/plan/${planId}?name=${encodeURIComponent(newName)}`)
+  }
 
   if (!currentSection) {
     return <div>Section not found</div>
@@ -32,9 +43,20 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
       {showHeader && (
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex items-center justify-between p-4">
-            <div>
-              <h1 className="text-2xl font-bold">{planName}</h1>
-              <p className="text-sm text-muted-foreground">Business Plan</p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-2xl font-bold">{currentPlanName}</h1>
+                <p className="text-sm text-muted-foreground">Business Plan</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setRenameDialog(true)}
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <Edit3 className="w-4 h-4" />
+                Rename
+              </Button>
             </div>
             <div className="flex items-center gap-4">
               <PresenceIndicator />
@@ -80,6 +102,15 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
           </div>
         </div>
       </div>
+
+      {/* Rename Dialog */}
+      <RenamePlanDialog
+        isOpen={renameDialog}
+        onClose={() => setRenameDialog(false)}
+        planId={planId}
+        currentName={currentPlanName}
+        onSuccess={handleRenameSuccess}
+      />
     </div>
   )
 }
