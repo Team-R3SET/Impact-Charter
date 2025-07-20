@@ -1,42 +1,26 @@
-import { BusinessPlanEditor } from "@/components/business-plan-editor"
-import { RoomProvider } from "@/lib/liveblocks"
-import { getBusinessPlan } from "@/lib/airtable"
 import { notFound } from "next/navigation"
+import { getBusinessPlan } from "@/lib/airtable"
+import { BusinessPlanEditor } from "@/components/business-plan-editor"
+import { PlanRoom } from "@/components/plan-room"
 
 interface PlanPageProps {
-  params: {
-    planId: string
-  }
+  params: { planId: string }
 }
 
 export default async function PlanPage({ params }: PlanPageProps) {
   const plan = await getBusinessPlan(params.planId)
+  if (!plan) notFound()
 
-  if (!plan) {
-    notFound()
+  // Replace with real auth in production
+  const user = {
+    name: "Demo User",
+    email: "user@example.com",
   }
 
-  // In a real app, you'd get this from authentication
-  const userEmail = "user@example.com"
-  const userName = "Demo User"
-
   return (
-    <RoomProvider
-      id={`plan-${params.planId}`}
-      initialPresence={{
-        cursor: null,
-        selectedSection: null,
-        user: {
-          name: userName,
-          email: userEmail,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userEmail}`,
-        },
-      }}
-      initialStorage={{
-        sections: {},
-      }}
-    >
-      <BusinessPlanEditor planId={params.planId} planName={plan.planName} userEmail={userEmail} />
-    </RoomProvider>
+    <PlanRoom roomId={`plan-${params.planId}`} userName={user.name} userEmail={user.email}>
+      {/* BusinessPlanEditor is already a client component */}
+      <BusinessPlanEditor planId={params.planId} planName={plan.planName} userEmail={user.email} />
+    </PlanRoom>
   )
 }
