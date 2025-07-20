@@ -12,11 +12,31 @@ interface SectionNavigatorProps {
 }
 
 export function SectionNavigator({ activeSection, onSectionChange }: SectionNavigatorProps) {
-  const sections = useStorage((root) => root.sections || {})
+  const sections = useStorage((root) => {
+    // root.sections is either:
+    //   • undefined  (when not yet created)
+    //   • a plain object (our initialStorage fallback)
+    //   • a LiveMap   (when other users have written)
+    // Convert everything to a POJO so downstream code never hits null.
+    if (!root.sections) return {}
+
+    // LiveMap API
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    if (typeof (root.sections as any).get === "function") {
+      const map = root.sections as any
+      const obj: Record<string, any> = {}
+      map.forEach((value: any, key: string) => (obj[key] = value))
+      return obj
+    }
+
+    // Already a plain object
+    return root.sections as Record<string, any>
+  })
 
   const getSectionProgress = (sectionId: string) => {
-    const content = sections[sectionId]?.content || ""
-    return content.trim().length > 50 // Consider section complete if it has substantial content
+    const entry = sections?.[sectionId]
+    const content = entry?.content ?? ""
+    return content.trim().length > 50
   }
 
   const completedSections = BUSINESS_PLAN_SECTIONS.filter((section) => getSectionProgress(section.id)).length
