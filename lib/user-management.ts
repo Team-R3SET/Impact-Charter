@@ -1,6 +1,14 @@
 import { randomUUID } from "crypto"
 import type { User } from "./user-types"
 
+// 👉 NEW: Re-export role helpers for convenience
+export {
+  isAdministrator,
+  canAccessAdminFeatures,
+  canViewLogs,
+  canManageUsers,
+} from "./user-types"
+
 // In-memory storage for demo purposes
 const users: User[] = [
   {
