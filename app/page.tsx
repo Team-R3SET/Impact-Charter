@@ -20,6 +20,7 @@ export default function HomePage() {
     name: "Demo User",
     email: "user@example.com",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
+    role: "regular" as const,
   }
 
   const handleCreatePlan = async () => {

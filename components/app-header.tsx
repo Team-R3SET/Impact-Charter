@@ -2,177 +2,283 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw, Shield } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
-import { LivePresenceHeader } from "@/components/live-presence-header"
-import { Settings, User, LogOut, Shield, FileText, Home, Plus } from "lucide-react"
-import { getCurrentUser, isAdministrator } from "@/lib/user-management"
-import type { User as UserType } from "@/lib/user-types"
+import type { BusinessPlan } from "@/lib/airtable"
 
-export function AppHeader() {
+interface AppHeaderProps {
+  currentUser?: {
+    name: string
+    email: string
+    avatar?: string
+    role?: "administrator" | "regular"
+  }
+  currentPlanId?: string
+}
+
+export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
+  const [businessPlans, setBusinessPlans] = useState<BusinessPlan[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const router = useRouter()
   const pathname = usePathname()
-  const [user, setUser] = useState<UserType | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
+
+  // Default user if none provided
+  const user = currentUser || {
+    name: "Demo User",
+    email: "user@example.com",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
+    role: "regular" as const,
+  }
+
+  // Check if we're on a plan page (for showing live features)
+  const isOnPlanPage = pathname.startsWith("/plan/")
+  const isAdmin = user.role === "administrator"
+
+  // Fetch business plans
+  const fetchPlans = async () => {
+    try {
+      const response = await fetch(`/api/business-plans?owner=${encodeURIComponent(user.email)}`, {
+        cache: "no-store",
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setBusinessPlans(data.plans || [])
+      } else {
+        console.error("Failed to fetch plans:", response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error("Failed to fetch business plans:", error)
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await getCurrentUser()
-        setUser(currentUser)
-        setIsAdmin(isAdministrator(currentUser))
-      } catch (error) {
-        console.error("Failed to load user:", error)
-      }
-    }
-    loadUser()
-  }, [])
+    fetchPlans()
+  }, [user.email])
 
-  const isOnPlanPage = pathname?.startsWith("/plan/")
-  const planId = isOnPlanPage ? pathname?.split("/")[2] : null
+  const handleRefreshPlans = async () => {
+    setIsRefreshing(true)
+    await fetchPlans()
+  }
+
+  const currentPlan = businessPlans.find((plan) => plan.id === currentPlanId)
+
+  const handlePlanChange = (planId: string) => {
+    const plan = businessPlans.find((p) => p.id === planId)
+    if (plan) {
+      router.push(`/plan/${planId}?name=${encodeURIComponent(plan.planName)}`)
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Complete":
+        return "bg-green-500"
+      case "In Progress":
+        return "bg-blue-500"
+      case "Submitted for Review":
+        return "bg-purple-500"
+      default:
+        return "bg-gray-500"
+    }
+  }
 
   return (
-    <header className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          {/* Logo and Navigation */}
-          <div className="flex items-center space-x-6">
-            <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                <FileText className="h-5 w-5 text-blue-600" />
-              </div>
-              <span className="text-xl font-bold">Impact Charter</span>
-            </Link>
+    <TooltipProvider>
+      <header className="border-b bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-800 dark:to-indigo-900 text-white sticky top-0 z-50 shadow-lg">
+        <div className="flex h-16 items-center px-6 gap-6">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3 font-bold text-xl hover:opacity-80 transition-opacity">
+            <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+              <FileText className="w-6 h-6" />
+            </div>
+            <span className="hidden lg:inline">Business Plan Builder</span>
+          </Link>
 
-            <nav className="hidden md:flex items-center space-x-4">
-              <Link
-                href="/"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === "/" ? "bg-white/20" : "hover:bg-white/10"
-                }`}
-              >
-                <Home className="h-4 w-4 inline mr-2" />
-                Home
-              </Link>
-              <Link
-                href="/plans"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === "/plans" ? "bg-white/20" : "hover:bg-white/10"
-                }`}
-              >
-                <FileText className="h-4 w-4 inline mr-2" />
-                My Plans
-              </Link>
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === "/admin" ? "bg-white/20" : "hover:bg-white/10"
-                  }`}
-                >
-                  <Shield className="h-4 w-4 inline mr-2" />
-                  Admin
-                </Link>
-              )}
-            </nav>
-          </div>
-
-          {/* Live Presence (only on plan pages) */}
-          {isOnPlanPage && planId && (
-            <div className="flex-1 flex justify-center">
-              <LivePresenceHeader planId={planId} />
+          {/* Plan Selector - Only show on plan pages */}
+          {isOnPlanPage && (
+            <div className="flex items-center gap-3 flex-1 max-w-md">
+              <Select value={currentPlanId || ""} onValueChange={handlePlanChange} disabled={isLoading}>
+                <SelectTrigger className="bg-white/10 border-white/20 text-white placeholder:text-white/70 hover:bg-white/20 transition-colors">
+                  <SelectValue
+                    placeholder={
+                      isLoading ? "Loading plans..." : businessPlans.length === 0 ? "No plans found" : "Select a plan"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {businessPlans.length === 0 && !isLoading ? (
+                    <SelectItem value="no-plans" disabled>
+                      No business plans found
+                    </SelectItem>
+                  ) : (
+                    businessPlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id!}>
+                        <div className="flex items-center gap-2 w-full">
+                          <div className={`w-2 h-2 rounded-full ${getStatusColor(plan.status)}`} />
+                          <span className="truncate">{plan.planName}</span>
+                          <Badge variant="outline" className="ml-auto text-xs">
+                            {plan.status}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRefreshPlans}
+                    disabled={isRefreshing}
+                    className="text-white hover:bg-white/10 h-8 w-8"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh plans</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           )}
 
-          {/* Right side actions */}
-          <div className="flex items-center space-x-3">
-            <Link href="/plans">
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
-                <Plus className="h-4 w-4 mr-2" />
-                New Plan
-              </Button>
-            </Link>
+          {/* Spacer */}
+          <div className="flex-1" />
 
-            <NotificationsDropdown />
-            <ThemeSwitcher />
-
-            {/* User Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} alt={user?.name || "User"} />
-                    <AvatarFallback className="bg-white text-blue-600">{user?.name?.charAt(0) || "U"}</AvatarFallback>
-                  </Avatar>
-                  {isAdmin && (
-                    <Badge
-                      variant="secondary"
-                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                    >
-                      <Shield className="h-3 w-3" />
-                    </Badge>
-                  )}
+          {/* Icon Navigation */}
+          <nav className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 h-10 w-10">
+                  <Link href="/">
+                    <Home className="w-5 h-5" />
+                  </Link>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user?.name || "User"}</p>
-                    <p className="w-[200px] truncate text-sm text-muted-foreground">
-                      {user?.email || "user@example.com"}
-                    </p>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Home</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 h-10 w-10">
+                  <Link href="/plans">
+                    <FileText className="w-5 h-5" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>My Plans</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 h-10 w-10">
+                  <Link href="/">
+                    <Plus className="w-5 h-5" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>New Plan</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Notifications - Only show on plan pages */}
+            {isOnPlanPage && <NotificationsDropdown />}
+
+            {/* Theme Switcher */}
+            <ThemeSwitcher />
+          </nav>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
+                <Avatar className="h-10 w-10 ring-2 ring-white/20">
+                  <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                  <AvatarFallback className="bg-white/10 text-white">
+                    {user.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium leading-none">{user.name}</p>
                     {isAdmin && (
-                      <Badge variant="outline" className="w-fit">
-                        <Shield className="h-3 w-3 mr-1" />
-                        Administrator
+                      <Badge variant="secondary" className="text-xs">
+                        Admin
                       </Badge>
                     )}
                   </div>
+                  <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </Link>
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin" className="cursor-pointer">
-                        <Shield className="mr-2 h-4 w-4" />
-                        <span>Admin Dashboard</span>
-                      </Link>
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/plans">
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>My Plans</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+              </DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin">
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Admin Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
+              <DropdownMenuItem>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
-    </header>
+      </header>
+    </TooltipProvider>
   )
 }
