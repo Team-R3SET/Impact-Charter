@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { CheckCircle, Clock, Users, Save, AlertCircle } from "lucide-react"
+import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 // Conditional Liveblocks imports with error handling
@@ -50,6 +50,7 @@ export function CollaborativeTextEditor({
   planId,
   currentUser,
 }: CollaborativeTextEditorProps) {
+  const room = useRoom ? useRoom() : null
   const [localContent, setLocalContent] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -57,9 +58,12 @@ export function CollaborativeTextEditor({
   const [isCompleting, setIsCompleting] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
   const [isCollaborative, setIsCollaborative] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(true)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
-  const room = useRoom ? useRoom() : null
+
+  // Initialize collaborative hooks only if we're in a room
   const collaborativeHooks = room
     ? {
         myPresence: useMyPresence ? useMyPresence() : [null, () => {}],
@@ -115,20 +119,39 @@ export function CollaborativeTextEditor({
           : null,
       }
     : null
+
+  // Get collaborative users
   const usersTyping = isCollaborative
     ? collaborativeHooks?.others?.filter(
         (user: any) =>
           user.presence?.isTyping?.sectionId === sectionId && Date.now() - user.presence.isTyping.timestamp < 3000,
       ) || []
     : []
+
   const usersInSection = isCollaborative
     ? collaborativeHooks?.others?.filter((user: any) => user.presence?.selectedSection === sectionId) || []
     : []
 
+  // Check online status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [])
+
+  // Set collaborative mode
   useEffect(() => {
     setIsCollaborative(!!room)
   }, [room])
 
+  // Update presence when in collaborative mode
   useEffect(() => {
     if (!collaborativeHooks) return
 
@@ -147,10 +170,20 @@ export function CollaborativeTextEditor({
     }
   }, [sectionId, currentUser, collaborativeHooks])
 
+  // Save to Airtable with better error handling
   const saveToAirtable = useCallback(
     async (content: string) => {
+      if (!isOnline) {
+        setSaveError("You're offline. Changes will be saved locally.")
+        return
+      }
+
       try {
         setIsSaving(true)
+        setSaveError(null)
+
+        console.log(`[saveToAirtable] Saving section ${sectionId} for plan ${planId}`)
+
         const response = await fetch(`/api/business-plans/${planId}/sections`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -161,42 +194,83 @@ export function CollaborativeTextEditor({
           }),
         })
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to save")
+        // Check if response is JSON
+        const contentType = response.headers.get("content-type")
+        if (!contentType || !contentType.includes("application/json")) {
+          const textResponse = await response.text()
+          console.error("[saveToAirtable] Non-JSON response:", textResponse)
+          throw new Error("Server returned an invalid response. Please try again.")
         }
 
-        setLastSaved(new Date())
-        toast({
-          title: "Section saved",
-          description: "Your changes have been saved successfully.",
-        })
+        const result = await response.json()
+
+        if (!response.ok) {
+          throw new Error(result.error || `Server error: ${response.status}`)
+        }
+
+        if (result.success) {
+          setLastSaved(new Date())
+          setSaveError(null)
+          toast({
+            title: "Section saved",
+            description: "Your changes have been saved successfully.",
+          })
+        } else {
+          throw new Error(result.error || "Unknown error occurred")
+        }
       } catch (error) {
         console.error("Failed to save to Airtable:", error)
-        toast({
-          title: "Save failed",
-          description: error instanceof Error ? error.message : "Failed to save changes. Working in local mode.",
-          variant: "destructive",
-        })
+
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+        setSaveError(errorMessage)
+
+        // Show different messages based on error type
+        if (errorMessage.includes("table not found")) {
+          toast({
+            title: "Airtable Setup Required",
+            description: "Please create the Business Plan Sections table in your Airtable base or check your settings.",
+            variant: "destructive",
+          })
+        } else if (errorMessage.includes("API key") || errorMessage.includes("401")) {
+          toast({
+            title: "Authentication Error",
+            description: "Please check your Airtable API key in Settings.",
+            variant: "destructive",
+          })
+        } else if (errorMessage.includes("Permission denied") || errorMessage.includes("403")) {
+          toast({
+            title: "Permission Error",
+            description: "Your API key doesn't have permission to modify this base.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Save failed",
+            description: "Working in local mode. Check your connection and Airtable settings.",
+            variant: "destructive",
+          })
+        }
       } finally {
         setIsSaving(false)
       }
     },
-    [planId, sectionId, currentUser.email, toast],
+    [planId, sectionId, currentUser.email, toast, isOnline],
   )
 
+  // Handle content changes
   const handleContentChange = useCallback(
     (content: string) => {
       setLocalContent(content)
 
-      if (!isCollaborative) {
-        localStorage.setItem(`section-${planId}-${sectionId}`, content)
-      }
+      // Always save to localStorage as backup
+      localStorage.setItem(`section-${planId}-${sectionId}`, content)
 
+      // Update collaborative storage if available
       if (collaborativeHooks?.updateSection) {
         collaborativeHooks.updateSection(content)
       }
 
+      // Broadcast changes if collaborative
       if (collaborativeHooks?.broadcast) {
         collaborativeHooks.broadcast({
           type: "TEXT_CHANGE",
@@ -206,6 +280,7 @@ export function CollaborativeTextEditor({
         })
       }
 
+      // Update typing presence
       if (collaborativeHooks) {
         const [, updateMyPresence] = collaborativeHooks.myPresence
         updateMyPresence({
@@ -213,6 +288,7 @@ export function CollaborativeTextEditor({
         })
       }
 
+      // Debounced save to Airtable
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current)
       }
@@ -220,23 +296,25 @@ export function CollaborativeTextEditor({
         saveToAirtable(content)
       }, 2000)
     },
-    [isCollaborative, planId, sectionId, collaborativeHooks, currentUser.email, saveToAirtable],
+    [planId, sectionId, collaborativeHooks, currentUser.email, saveToAirtable],
   )
 
+  // Handle mark as complete
   const handleMarkComplete = async () => {
     try {
       setIsCompleting(true)
+      setSaveError(null)
 
+      // Update local state
       setIsCompleted(true)
+      localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(true))
 
-      if (!isCollaborative) {
-        localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(true))
-      }
-
+      // Update collaborative storage
       if (collaborativeHooks?.markSectionComplete) {
         collaborativeHooks.markSectionComplete()
       }
 
+      // Save to Airtable
       const response = await fetch(`/api/business-plans/${planId}/sections/${sectionId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -245,46 +323,56 @@ export function CollaborativeTextEditor({
         }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to mark as complete")
-      }
+      if (response.ok) {
+        // Broadcast completion
+        if (collaborativeHooks?.broadcast) {
+          collaborativeHooks.broadcast({
+            type: "SECTION_COMPLETED",
+            sectionId,
+            userId: currentUser.email,
+          })
+        }
 
-      if (collaborativeHooks?.broadcast) {
-        collaborativeHooks.broadcast({
-          type: "SECTION_COMPLETED",
-          sectionId,
-          userId: currentUser.email,
+        toast({
+          title: "Section completed!",
+          description: `${sectionTitle} has been marked as complete and submitted for review.`,
+        })
+      } else {
+        // Handle API error but don't revert local state
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+        console.warn("Failed to save completion to Airtable:", errorData.error)
+
+        toast({
+          title: "Section completed locally",
+          description: "Completion saved locally. Check your Airtable connection in Settings.",
+          variant: "default",
         })
       }
-
-      toast({
-        title: "Section completed!",
-        description: `${sectionTitle} has been marked as complete and submitted for review.`,
-      })
     } catch (error) {
       console.error("Failed to mark as complete:", error)
-      setIsCompleted(false)
-      if (!isCollaborative) {
-        localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(false))
-      }
+
+      // Don't revert local state, just show warning
       toast({
-        title: "Failed to mark as complete",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
+        title: "Section completed locally",
+        description: "Completion saved locally. Check your connection and try again later.",
+        variant: "default",
       })
     } finally {
       setIsCompleting(false)
     }
   }
 
+  // Load initial content
   useEffect(() => {
+    // Load from collaborative storage first
     if (collaborativeHooks?.sections && collaborativeHooks.sections[sectionId]) {
       setLocalContent(collaborativeHooks.sections[sectionId].content || "")
       setIsCompleted(collaborativeHooks.sections[sectionId].isCompleted || false)
     } else {
+      // Fallback to localStorage
       const savedContent = localStorage.getItem(`section-${planId}-${sectionId}`)
       const savedCompletion = localStorage.getItem(`section-${planId}-${sectionId}-completed`)
+
       if (savedContent) {
         setLocalContent(savedContent)
       }
@@ -295,6 +383,7 @@ export function CollaborativeTextEditor({
     setIsLoading(false)
   }, [collaborativeHooks?.sections, sectionId, planId])
 
+  // Determine final completion state
   const currentSection = collaborativeHooks?.sections?.[sectionId]
   const completedFromStorage =
     collaborativeHooks?.completedSections?.[sectionId] || currentSection?.isCompleted || false
@@ -340,9 +429,15 @@ export function CollaborativeTextEditor({
                   Live
                 </Badge>
               )}
+              {!isOnline && (
+                <Badge variant="destructive" className="text-xs">
+                  Offline
+                </Badge>
+              )}
             </CardTitle>
 
             <div className="flex items-center gap-2">
+              {/* Collaborative users */}
               {isCollaborative && usersInSection.length > 0 && (
                 <div className="flex items-center gap-1">
                   <Users className="w-4 h-4 text-muted-foreground" />
@@ -371,12 +466,30 @@ export function CollaborativeTextEditor({
                 </div>
               )}
 
+              {/* Save status */}
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                {isSaving ? (
+                {!isOnline ? (
+                  <>
+                    <WifiOff className="w-4 h-4 text-red-500" />
+                    <span>Offline</span>
+                  </>
+                ) : isSaving ? (
                   <>
                     <Save className="w-4 h-4 animate-spin" />
                     <span>Saving...</span>
                   </>
+                ) : saveError ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <span>Error</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{saveError}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 ) : lastSaved ? (
                   <>
                     <CheckCircle className="w-4 h-4 text-green-500" />
@@ -384,14 +497,15 @@ export function CollaborativeTextEditor({
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="w-4 h-4 text-yellow-500" />
-                    <span>Unsaved</span>
+                    <Wifi className="w-4 h-4 text-blue-500" />
+                    <span>Local</span>
                   </>
                 )}
               </div>
             </div>
           </div>
 
+          {/* Typing indicators */}
           {isCollaborative && usersTyping.length > 0 && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="flex -space-x-1">

@@ -3,28 +3,58 @@ import { updateBusinessPlanSectionWithUserCreds } from "@/lib/airtable-user"
 
 export async function POST(request: NextRequest, { params }: { params: { planId: string } }) {
   try {
+    console.log(`[API] Updating section for planId: ${params.planId}`)
+
     const body = await request.json()
-    const { sectionName, sectionContent, modifiedBy } = body
+    const { sectionName, sectionContent, userEmail } = body
+
+    // Validate required fields
+    if (!sectionName || !userEmail) {
+      console.error("[API] Missing required fields:", { sectionName, userEmail })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields: sectionName and userEmail are required",
+        },
+        { status: 400 },
+      )
+    }
+
+    console.log(`[API] Processing section update:`, {
+      planId: params.planId,
+      sectionName,
+      userEmail,
+      contentLength: sectionContent?.length || 0,
+    })
 
     // Use user-specific credentials instead of global ones
     await updateBusinessPlanSectionWithUserCreds(
       {
         planId: params.planId,
         sectionName,
-        sectionContent,
+        sectionContent: sectionContent || "",
         lastModified: new Date().toISOString(),
-        modifiedBy,
+        modifiedBy: userEmail,
       },
-      modifiedBy,
-    ) // modifiedBy is the user email
+      userEmail,
+    )
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Failed to update section:", error)
-    // Don't return 500 - the app should continue working even if Airtable fails
+    console.log(`[API] Successfully updated section: ${sectionName}`)
     return NextResponse.json({
-      success: false,
-      message: "Section saved locally. Check your Airtable connection in Settings.",
+      success: true,
+      message: "Section updated successfully",
     })
+  } catch (error) {
+    console.error("[API] Failed to update section:", error)
+
+    // Return proper JSON error response
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Internal server error occurred while saving section",
+        details: "Check your Airtable connection in Settings or continue working in local mode.",
+      },
+      { status: 500 },
+    )
   }
 }
