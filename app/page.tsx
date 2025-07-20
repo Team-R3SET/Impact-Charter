@@ -48,7 +48,8 @@ export default function HomePage() {
         description: "Business plan created successfully!",
       })
 
-      router.push(`/plan/${plan.id}`)
+      // Pass the name via query-string so the editor can use it
+      router.push(`/plan/${plan.id}?name=${encodeURIComponent(plan.planName)}`)
     } catch (error) {
       console.error("Failed to create business plan:", error)
       toast({

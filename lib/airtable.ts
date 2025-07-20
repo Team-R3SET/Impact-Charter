@@ -72,23 +72,55 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
   })
 }
 
+/**
+ * Try to fetch the plan from Airtable.
+ * - If Airtable is not configured **or** the record is missing (404),
+ *   return a minimal fallback object so the page can still render locally.
+ */
 export async function getBusinessPlan(planId: string): Promise<BusinessPlan | null> {
+  // 1️⃣ Skip the request entirely when Airtable creds are missing
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    return {
+      id: planId,
+      planName: "Untitled Plan",
+      createdDate: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      ownerEmail: "local@example.com",
+      status: "Draft",
+    }
+  }
+
   try {
-    const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-      },
+    const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
+      headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
     })
 
-    if (!response.ok) return null
-
-    const data = await response.json()
-    return {
-      id: data.id,
-      ...data.fields,
+    if (res.status === 404) {
+      // 2️⃣  Gracefully handle missing records instead of returning null
+      return {
+        id: planId,
+        planName: "Untitled Plan",
+        createdDate: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        ownerEmail: "local@example.com",
+        status: "Draft",
+      }
     }
+
+    if (!res.ok) throw new Error("Airtable request failed")
+
+    const data = await res.json()
+    return { id: data.id, ...data.fields }
   } catch (error) {
     console.error("Error fetching business plan:", error)
-    return null
+    // 3️⃣  Last-chance fallback
+    return {
+      id: planId,
+      planName: "Untitled Plan",
+      createdDate: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      ownerEmail: "local@example.com",
+      status: "Draft",
+    }
   }
 }
