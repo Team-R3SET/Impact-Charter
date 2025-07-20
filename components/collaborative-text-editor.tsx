@@ -49,6 +49,9 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
     return typing && typing.sectionId === sectionId && Date.now() - typing.timestamp < 3000
   })
 
+  // Liveblocks storage is `undefined` until it finishes loading
+  const storageReady = useStorage((root) => (root === undefined ? false : true)) as boolean
+
   const updateSection = useMutation(
     ({ storage }, content: string) => {
       const sections = storage.get("sections") || {}
@@ -140,6 +143,8 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
 
   const handleContentChange = useCallback(
     (content: string) => {
+      if (!storageReady) return // wait until Liveblocks storage has loaded
+
       setLocalContent(content)
       updateSection(content)
 
@@ -177,7 +182,7 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
         saveToAirtable(content)
       }, 2000)
     },
-    [updateSection, broadcast, sectionId, userEmail, updateMyPresence],
+    [updateSection, broadcast, sectionId, userEmail, updateMyPresence, storageReady],
   )
 
   const handleCursorChange = useCallback(() => {
@@ -209,7 +214,10 @@ export function CollaborativeTextEditor({ sectionId, placeholder, planId, userEm
           <Button
             variant={isCompleted ? "default" : "outline"}
             size="sm"
-            onClick={() => toggleCompletion(sectionId, !isCompleted)}
+            onClick={() => {
+              if (!storageReady) return
+              toggleCompletion(sectionId, !isCompleted)
+            }}
             className="gap-2"
           >
             {isCompleted ? (
