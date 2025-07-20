@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -37,22 +37,45 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
 
   // Load completed sections from localStorage
   useEffect(() => {
-    const completed = new Set<string>()
-    businessPlanSections.forEach((section) => {
-      const isCompleted = localStorage.getItem(`section-${planId}-${section.id}-completed`)
-      if (isCompleted === "true") {
-        completed.add(section.id)
+    const loadCompletedSections = () => {
+      const completed = new Set<string>()
+      businessPlanSections.forEach((section) => {
+        const isCompleted = localStorage.getItem(`section-${planId}-${section.id}-completed`)
+        if (isCompleted === "true") {
+          completed.add(section.id)
+        }
+      })
+      setCompletedSections(completed)
+    }
+
+    loadCompletedSections()
+
+    // Listen for storage changes to update completion state
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key?.includes(`section-${planId}-`) && e.key?.includes("-completed")) {
+        loadCompletedSections()
       }
-    })
-    setCompletedSections(completed)
+    }
+
+    window.addEventListener("storage", handleStorageChange)
+    return () => window.removeEventListener("storage", handleStorageChange)
   }, [planId])
 
   const currentSectionData = businessPlanSections.find((section) => section.id === selectedSection)
   const completionPercentage = Math.round((completedSections.size / businessPlanSections.length) * 100)
 
-  const handleSectionComplete = (sectionId: string) => {
-    setCompletedSections((prev) => new Set([...prev, sectionId]))
-  }
+  // Handle section completion from the editor
+  const handleSectionComplete = useCallback((sectionId: string, isComplete: boolean) => {
+    setCompletedSections((prev) => {
+      const newSet = new Set(prev)
+      if (isComplete) {
+        newSet.add(sectionId)
+      } else {
+        newSet.delete(sectionId)
+      }
+      return newSet
+    })
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -127,6 +150,7 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
                 sectionTitle={currentSectionData.title}
                 planId={planId}
                 currentUser={currentUser}
+                onSectionComplete={handleSectionComplete}
               />
             )}
           </div>

@@ -4,16 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, Clock, FileText } from "lucide-react"
+import { CheckCircle, Clock } from "lucide-react"
 import type { BusinessPlanSection } from "@/lib/business-plan-sections"
 
 interface SectionNavigatorProps {
   sections: BusinessPlanSection[]
-  /* the currently-open section */
   selectedSection: string
-  /* set of completed section IDs */
   completedSections: Set<string>
-  /* callback fired when the user picks a new section */
   onSectionSelect: (sectionId: string) => void
 }
 
@@ -23,9 +20,6 @@ export function SectionNavigator({
   completedSections,
   onSectionSelect,
 }: SectionNavigatorProps) {
-  // Fallback: if a parent still passes `onSectionChange`, use it.
-  const handleSelect = onSectionSelect ?? null
-
   const completionPercentage = Math.round((completedSections.size / sections.length) * 100)
 
   return (
@@ -43,7 +37,7 @@ export function SectionNavigator({
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        {sections.map((section) => {
+        {sections.map((section, index) => {
           const isCompleted = completedSections.has(section.id)
           const isCurrent = selectedSection === section.id
 
@@ -51,24 +45,39 @@ export function SectionNavigator({
             <Button
               key={section.id}
               variant={isCurrent ? "default" : "ghost"}
-              className={`w-full justify-start text-left h-auto p-3 ${
-                isCurrent ? "bg-blue-600 text-white" : ""
-              } ${isCompleted && !isCurrent ? "bg-green-50 text-green-700 hover:bg-green-100" : ""}`}
-              onClick={() => handleSelect(section.id)}
+              className={`w-full justify-start text-left h-auto p-3 transition-all duration-200 ${
+                isCurrent
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : isCompleted
+                    ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+              onClick={() => onSectionSelect(section.id)}
             >
               <div className="flex items-start gap-3 w-full">
                 <div className="flex-shrink-0 mt-0.5">
                   {isCompleted ? (
-                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <CheckCircle className={`w-4 h-4 ${isCurrent ? "text-white" : "text-green-600"}`} />
                   ) : isCurrent ? (
-                    <Clock className="w-4 h-4" />
+                    <Clock className="w-4 h-4 text-white" />
                   ) : (
-                    <FileText className="w-4 h-4 text-gray-400" />
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm leading-tight">{section.title}</div>
-                  <div className="text-xs opacity-75 mt-1 line-clamp-2">{section.description}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium opacity-75">{index + 1}.</span>
+                    <div className="font-medium text-sm leading-tight flex-1">{section.title}</div>
+                    {isCompleted && !isCurrent && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                      >
+                        ✓
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-xs opacity-75 mt-1 line-clamp-2 ml-6">{section.description}</div>
                 </div>
               </div>
             </Button>

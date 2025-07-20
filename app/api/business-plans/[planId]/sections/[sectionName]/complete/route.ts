@@ -8,9 +8,7 @@ export async function POST(request: NextRequest, { params }: { params: { planId:
     const body = await request.json()
     const { userEmail } = body
 
-    // Validate required fields
     if (!userEmail) {
-      console.error("[API] Missing required field: userEmail")
       return NextResponse.json(
         {
           success: false,
@@ -19,12 +17,6 @@ export async function POST(request: NextRequest, { params }: { params: { planId:
         { status: 400 },
       )
     }
-
-    console.log(`[API] Processing completion for:`, {
-      planId: params.planId,
-      sectionName: params.sectionName,
-      userEmail,
-    })
 
     // Mark section as complete using user credentials
     await markSectionAsCompleteWithUserCreds(params.planId, params.sectionName, userEmail)
@@ -35,14 +27,11 @@ export async function POST(request: NextRequest, { params }: { params: { planId:
       message: "Section marked as complete successfully",
     })
   } catch (error) {
-    console.error("[API] Failed to mark section as complete:", error)
-
-    // Return proper JSON error response
+    console.error("[API] Failed to mark section complete:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Internal server error occurred while marking section complete",
-        details: "Check your Airtable connection in Settings or continue working in local mode.",
+        error: error instanceof Error ? error.message : "Failed to mark section as complete",
       },
       { status: 500 },
     )

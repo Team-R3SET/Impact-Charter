@@ -58,3 +58,24 @@ export async function POST(request: NextRequest, { params }: { params: { planId:
     )
   }
 }
+
+export async function GET(request: NextRequest, { params }: { params: { planId: string } }) {
+  try {
+    console.log(`[API] Getting sections for planId: ${params.planId}`)
+
+    // For now, return empty sections - this can be expanded later
+    return NextResponse.json({
+      success: true,
+      sections: [],
+    })
+  } catch (error) {
+    console.error("[API] Failed to get sections:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to retrieve sections",
+      },
+      { status: 500 },
+    )
+  }
+}

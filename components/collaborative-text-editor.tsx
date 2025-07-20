@@ -42,6 +42,7 @@ interface CollaborativeTextEditorProps {
     email: string
     avatar?: string
   }
+  onSectionComplete?: (sectionId: string, isComplete: boolean) => void
 }
 
 export function CollaborativeTextEditor({
@@ -49,8 +50,9 @@ export function CollaborativeTextEditor({
   sectionTitle,
   planId,
   currentUser,
+  onSectionComplete,
 }: CollaborativeTextEditorProps) {
-  const room = useRoom ? useRoom() : null
+  const room = useRoom()
   const [localContent, setLocalContent] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -63,73 +65,68 @@ export function CollaborativeTextEditor({
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
 
-  // Initialize collaborative hooks only if we're in a room
-  const collaborativeHooks = room
-    ? {
-        myPresence: useMyPresence ? useMyPresence() : [null, () => {}],
-        others: useOthers ? useOthers() : [],
-        sections: useStorage ? useStorage((root) => root?.sections) : null,
-        completedSections: useStorage ? useStorage((root) => root?.completedSections) : null,
-        broadcast: useBroadcastEvent ? useBroadcastEvent() : () => {},
-        updateSection: useMutation
-          ? useMutation(
-              ({ storage }, content: string) => {
-                if (!storage.get("sections")) {
-                  storage.set("sections", new Map())
-                }
-                if (!storage.get("completedSections")) {
-                  storage.set("completedSections", new Map())
-                }
+  const [myPresence, updateMyPresence] = useMyPresence ? useMyPresence() : [null, () => {}]
+  const others = useOthers ? useOthers() : []
+  const sections = useStorage ? useStorage((root) => root?.sections) : null
+  const completedSections = useStorage ? useStorage((root) => root?.completedSections) : null
+  const broadcast = useBroadcastEvent ? useBroadcastEvent() : () => {}
+  const updateSection = useMutation
+    ? useMutation(
+        ({ storage }, content: string) => {
+          if (!storage.get("sections")) {
+            storage.set("sections", new Map())
+          }
+          if (!storage.get("completedSections")) {
+            storage.set("completedSections", new Map())
+          }
 
-                const sectionsMap = storage.get("sections")
-                sectionsMap.set(sectionId, {
-                  title: sectionTitle,
-                  content,
-                  lastModified: new Date().toISOString(),
-                  modifiedBy: currentUser.email,
-                  isCompleted: false,
-                })
-              },
-              [sectionId, sectionTitle, currentUser.email],
-            )
-          : null,
-        markSectionComplete: useMutation
-          ? useMutation(
-              ({ storage }) => {
-                if (!storage.get("completedSections")) {
-                  storage.set("completedSections", new Map())
-                }
+          const sectionsMap = storage.get("sections")
+          sectionsMap.set(sectionId, {
+            title: sectionTitle,
+            content,
+            lastModified: new Date().toISOString(),
+            modifiedBy: currentUser.email,
+            isCompleted: false,
+          })
+        },
+        [sectionId, sectionTitle, currentUser.email],
+      )
+    : null
+  const markSectionComplete = useMutation
+    ? useMutation(
+        ({ storage }) => {
+          if (!storage.get("completedSections")) {
+            storage.set("completedSections", new Map())
+          }
 
-                const completedMap = storage.get("completedSections")
-                completedMap.set(sectionId, true)
+          const completedMap = storage.get("completedSections")
+          completedMap.set(sectionId, true)
 
-                const sectionsMap = storage.get("sections")
-                if (sectionsMap && sectionsMap.get(sectionId)) {
-                  const section = sectionsMap.get(sectionId)
-                  sectionsMap.set(sectionId, {
-                    ...section,
-                    isCompleted: true,
-                    lastModified: new Date().toISOString(),
-                    modifiedBy: currentUser.email,
-                  })
-                }
-              },
-              [sectionId, currentUser.email],
-            )
-          : null,
-      }
+          const sectionsMap = storage.get("sections")
+          if (sectionsMap && sectionsMap.get(sectionId)) {
+            const section = sectionsMap.get(sectionId)
+            sectionsMap.set(sectionId, {
+              ...section,
+              isCompleted: true,
+              lastModified: new Date().toISOString(),
+              modifiedBy: currentUser.email,
+            })
+          }
+        },
+        [sectionId, currentUser.email],
+      )
     : null
 
   // Get collaborative users
   const usersTyping = isCollaborative
-    ? collaborativeHooks?.others?.filter(
+    ? others.filter(
         (user: any) =>
           user.presence?.isTyping?.sectionId === sectionId && Date.now() - user.presence.isTyping.timestamp < 3000,
       ) || []
     : []
 
   const usersInSection = isCollaborative
-    ? collaborativeHooks?.others?.filter((user: any) => user.presence?.selectedSection === sectionId) || []
+    ? others.filter((user: any) => user.presence?.selectedSection === sectionId) || []
     : []
 
   // Check online status
@@ -153,9 +150,8 @@ export function CollaborativeTextEditor({
 
   // Update presence when in collaborative mode
   useEffect(() => {
-    if (!collaborativeHooks) return
+    if (!room) return
 
-    const [, updateMyPresence] = collaborativeHooks.myPresence
     updateMyPresence({
       selectedSection: sectionId,
       user: {
@@ -168,7 +164,7 @@ export function CollaborativeTextEditor({
     return () => {
       updateMyPresence({ selectedSection: null })
     }
-  }, [sectionId, currentUser, collaborativeHooks])
+  }, [sectionId, currentUser, room, updateMyPresence])
 
   // Save to Airtable with better error handling
   const saveToAirtable = useCallback(
@@ -266,13 +262,13 @@ export function CollaborativeTextEditor({
       localStorage.setItem(`section-${planId}-${sectionId}`, content)
 
       // Update collaborative storage if available
-      if (collaborativeHooks?.updateSection) {
-        collaborativeHooks.updateSection(content)
+      if (updateSection) {
+        updateSection(content)
       }
 
       // Broadcast changes if collaborative
-      if (collaborativeHooks?.broadcast) {
-        collaborativeHooks.broadcast({
+      if (broadcast) {
+        broadcast({
           type: "TEXT_CHANGE",
           sectionId,
           content,
@@ -281,8 +277,7 @@ export function CollaborativeTextEditor({
       }
 
       // Update typing presence
-      if (collaborativeHooks) {
-        const [, updateMyPresence] = collaborativeHooks.myPresence
+      if (room) {
         updateMyPresence({
           isTyping: { sectionId, timestamp: Date.now() },
         })
@@ -296,7 +291,7 @@ export function CollaborativeTextEditor({
         saveToAirtable(content)
       }, 2000)
     },
-    [planId, sectionId, collaborativeHooks, currentUser.email, saveToAirtable],
+    [planId, sectionId, updateSection, broadcast, room, updateMyPresence, saveToAirtable],
   )
 
   // Handle mark as complete
@@ -309,9 +304,12 @@ export function CollaborativeTextEditor({
       setIsCompleted(true)
       localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(true))
 
+      // Notify parent component
+      onSectionComplete?.(sectionId, true)
+
       // Update collaborative storage
-      if (collaborativeHooks?.markSectionComplete) {
-        collaborativeHooks.markSectionComplete()
+      if (markSectionComplete) {
+        markSectionComplete()
       }
 
       // Save to Airtable
@@ -325,8 +323,8 @@ export function CollaborativeTextEditor({
 
       if (response.ok) {
         // Broadcast completion
-        if (collaborativeHooks?.broadcast) {
-          collaborativeHooks.broadcast({
+        if (broadcast) {
+          broadcast({
             type: "SECTION_COMPLETED",
             sectionId,
             userId: currentUser.email,
@@ -362,12 +360,12 @@ export function CollaborativeTextEditor({
     }
   }
 
-  // Load initial content
+  // Load initial content and completion state
   useEffect(() => {
     // Load from collaborative storage first
-    if (collaborativeHooks?.sections && collaborativeHooks.sections[sectionId]) {
-      setLocalContent(collaborativeHooks.sections[sectionId].content || "")
-      setIsCompleted(collaborativeHooks.sections[sectionId].isCompleted || false)
+    if (sections && sections[sectionId]) {
+      setLocalContent(sections[sectionId].content || "")
+      setIsCompleted(sections[sectionId].isCompleted || false)
     } else {
       // Fallback to localStorage
       const savedContent = localStorage.getItem(`section-${planId}-${sectionId}`)
@@ -377,16 +375,18 @@ export function CollaborativeTextEditor({
         setLocalContent(savedContent)
       }
       if (savedCompletion) {
-        setIsCompleted(JSON.parse(savedCompletion))
+        const completed = JSON.parse(savedCompletion)
+        setIsCompleted(completed)
+        // Notify parent of initial completion state
+        onSectionComplete?.(sectionId, completed)
       }
     }
     setIsLoading(false)
-  }, [collaborativeHooks?.sections, sectionId, planId])
+  }, [sections, sectionId, planId, onSectionComplete])
 
   // Determine final completion state
-  const currentSection = collaborativeHooks?.sections?.[sectionId]
-  const completedFromStorage =
-    collaborativeHooks?.completedSections?.[sectionId] || currentSection?.isCompleted || false
+  const currentSection = sections?.[sectionId]
+  const completedFromStorage = completedSections?.[sectionId] || currentSection?.isCompleted || false
   const finalIsCompleted = isCollaborative ? completedFromStorage : isCompleted
 
   if (isLoading) {
