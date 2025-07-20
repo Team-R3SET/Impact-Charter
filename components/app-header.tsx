@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { FileText, Plus, User, Settings, LogOut, Home } from "lucide-react"
+import { ThemeSwitcher } from "@/components/theme-switcher"
 import type { BusinessPlan } from "@/lib/airtable"
 
 interface AppHeaderProps {
@@ -75,7 +76,7 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
 
   return (
     <TooltipProvider>
-      <header className="border-b bg-gradient-to-r from-blue-600 to-indigo-700 text-white sticky top-0 z-50 shadow-lg">
+      <header className="border-b bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-800 dark:to-indigo-900 text-white sticky top-0 z-50 shadow-lg">
         <div className="flex h-16 items-center px-6 gap-6">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 font-bold text-xl hover:opacity-80 transition-opacity">
@@ -152,6 +153,9 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
                 <p>New Plan</p>
               </TooltipContent>
             </Tooltip>
+
+            {/* Theme Switcher */}
+            <ThemeSwitcher />
           </nav>
 
           {/* User Menu */}
