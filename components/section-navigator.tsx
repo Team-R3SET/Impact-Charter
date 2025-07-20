@@ -9,17 +9,23 @@ import type { BusinessPlanSection } from "@/lib/business-plan-sections"
 
 interface SectionNavigatorProps {
   sections: BusinessPlanSection[]
-  currentSectionId: string
+  /* the currently-open section */
+  selectedSection: string
+  /* set of completed section IDs */
   completedSections: Set<string>
-  onSectionChange: (sectionId: string) => void
+  /* callback fired when the user picks a new section */
+  onSectionSelect: (sectionId: string) => void
 }
 
 export function SectionNavigator({
   sections,
-  currentSectionId,
+  selectedSection,
   completedSections,
-  onSectionChange,
+  onSectionSelect,
 }: SectionNavigatorProps) {
+  // Fallback: if a parent still passes `onSectionChange`, use it.
+  const handleSelect = onSectionSelect ?? null
+
   const completionPercentage = Math.round((completedSections.size / sections.length) * 100)
 
   return (
@@ -39,7 +45,7 @@ export function SectionNavigator({
       <CardContent className="space-y-2">
         {sections.map((section) => {
           const isCompleted = completedSections.has(section.id)
-          const isCurrent = currentSectionId === section.id
+          const isCurrent = selectedSection === section.id
 
           return (
             <Button
@@ -48,7 +54,7 @@ export function SectionNavigator({
               className={`w-full justify-start text-left h-auto p-3 ${
                 isCurrent ? "bg-blue-600 text-white" : ""
               } ${isCompleted && !isCurrent ? "bg-green-50 text-green-700 hover:bg-green-100" : ""}`}
-              onClick={() => onSectionChange(section.id)}
+              onClick={() => handleSelect(section.id)}
             >
               <div className="flex items-start gap-3 w-full">
                 <div className="flex-shrink-0 mt-0.5">
