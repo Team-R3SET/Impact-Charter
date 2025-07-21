@@ -61,7 +61,6 @@ const navigationItems: NavigationItem[] = [
     href: "/admin/logs",
     icon: Activity,
     description: "View system activity logs",
-    badge: "Soon",
   },
   {
     id: "settings",

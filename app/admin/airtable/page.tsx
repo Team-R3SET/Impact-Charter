@@ -1,11 +1,13 @@
+"use client"
+
 import { AdminLayout } from "@/components/admin-layout"
 import { AirtableAdmin } from "@/components/airtable-admin"
 
-export default function AirtableAdminPage() {
+export default function AdminAirtablePage() {
   return (
     <AdminLayout
-      title="Airtable Debug Console"
-      description="Debug and monitor Airtable connections, test API calls, and view table structures"
+      title="Airtable Administration"
+      description="Debug Airtable connections, browse tables, and test API calls"
     >
       <AirtableAdmin />
     </AdminLayout>

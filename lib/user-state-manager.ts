@@ -1,266 +1,253 @@
-import type { User } from "@/lib/user-types"
-
-export interface UserPreferences {
-  theme: "light" | "dark" | "system"
-  notifications: boolean
-  autoSave: boolean
-  collaborationMode: "real-time" | "manual"
-  language: string
-  timezone: string
-  sidebarCollapsed: boolean
-  defaultPlanView: "grid" | "list"
-}
-
-export interface UserSession {
-  id: string
-  userId: string
-  createdAt: string
-  expiresAt: string
-  lastActivity: string
-  isActive: boolean
-}
+import type { User, UserPreferences } from "@/lib/user-types"
 
 export interface UserState {
   user: User | null
   preferences: UserPreferences
-  session: UserSession | null
+  sessionId: string | null
+  sessionExpiry: number | null
   isAuthenticated: boolean
-  isLoading: boolean
+  lastActivity: number
 }
 
-type StateChangeListener = (state: UserState) => void
+export interface StorageData {
+  userState: UserState
+  version: string
+}
 
 class UserStateManager {
   private static instance: UserStateManager
-  private state: UserState
-  private listeners: Set<StateChangeListener> = new Set()
   private storageKey = "user-state"
-  private sessionCheckInterval: NodeJS.Timeout | null = null
+  private version = "1.0.0"
+  private listeners: Array<(state: UserState) => void> = []
+  private activityTimer: NodeJS.Timeout | null = null
+  private warningTimer: NodeJS.Timeout | null = null
+  private sessionDuration = 24 * 60 * 60 * 1000 // 24 hours
+  private warningTime = 5 * 60 * 1000 // 5 minutes before expiry
 
   private constructor() {
-    this.state = {
-      user: null,
-      preferences: {
-        theme: "system",
-        notifications: true,
-        autoSave: true,
-        collaborationMode: "real-time",
-        language: "en",
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        sidebarCollapsed: false,
-        defaultPlanView: "grid",
-      },
-      session: null,
-      isAuthenticated: false,
-      isLoading: true,
-    }
-
-    this.initializeState()
-    this.startSessionCheck()
-    this.setupStorageListener()
+    this.initializeStorageListener()
+    this.startActivityTracking()
   }
 
-  static getInstance(): UserStateManager {
+  public static getInstance(): UserStateManager {
     if (!UserStateManager.instance) {
       UserStateManager.instance = new UserStateManager()
     }
     return UserStateManager.instance
   }
 
-  private initializeState() {
-    try {
-      const stored = localStorage.getItem(this.storageKey)
-      if (stored) {
-        const parsedState = JSON.parse(stored)
-
-        // Validate session
-        if (parsedState.session && this.isSessionValid(parsedState.session)) {
-          this.state = {
-            ...this.state,
-            ...parsedState,
-            isLoading: false,
-            isAuthenticated: true,
-          }
-        } else {
-          // Session expired, clear it
-          this.clearSession()
-        }
-      } else {
-        this.state.isLoading = false
-      }
-    } catch (error) {
-      console.error("Failed to initialize user state:", error)
-      this.state.isLoading = false
-    }
-
-    this.notifyListeners()
-  }
-
-  private isSessionValid(session: UserSession): boolean {
-    return new Date(session.expiresAt) > new Date() && session.isActive
-  }
-
-  private createSession(userId: string): UserSession {
-    const now = new Date()
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000) // 24 hours
-
-    return {
-      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      userId,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      lastActivity: now.toISOString(),
-      isActive: true,
-    }
-  }
-
-  private saveState() {
-    try {
-      localStorage.setItem(
-        this.storageKey,
-        JSON.stringify({
-          user: this.state.user,
-          preferences: this.state.preferences,
-          session: this.state.session,
-        }),
-      )
-    } catch (error) {
-      console.error("Failed to save user state:", error)
-    }
-  }
-
-  private clearSession() {
-    this.state = {
-      ...this.state,
-      user: null,
-      session: null,
-      isAuthenticated: false,
-    }
-    this.saveState()
-  }
-
-  private startSessionCheck() {
-    this.sessionCheckInterval = setInterval(() => {
-      if (this.state.session && !this.isSessionValid(this.state.session)) {
-        this.logout()
-      }
-    }, 60000) // Check every minute
-  }
-
-  private setupStorageListener() {
+  private initializeStorageListener() {
     if (typeof window !== "undefined") {
       window.addEventListener("storage", (e) => {
-        if (e.key === this.storageKey && e.newValue) {
-          try {
-            const newState = JSON.parse(e.newValue)
-            this.state = {
-              ...this.state,
-              ...newState,
-              isAuthenticated: newState.session && this.isSessionValid(newState.session),
-            }
-            this.notifyListeners()
-          } catch (error) {
-            console.error("Failed to sync state from storage:", error)
-          }
+        if (e.key === this.storageKey) {
+          const state = this.getState()
+          this.notifyListeners(state)
         }
       })
     }
   }
 
-  private notifyListeners() {
-    this.listeners.forEach((listener) => listener(this.state))
+  private startActivityTracking() {
+    if (typeof window !== "undefined") {
+      const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart", "click"]
+
+      const updateActivity = () => {
+        const state = this.getState()
+        if (state.isAuthenticated) {
+          this.updateLastActivity()
+        }
+      }
+
+      events.forEach((event) => {
+        document.addEventListener(event, updateActivity, true)
+      })
+    }
   }
 
-  subscribe(listener: StateChangeListener): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+  private updateLastActivity() {
+    const state = this.getState()
+    if (state.isAuthenticated) {
+      const now = Date.now()
+      const updatedState = {
+        ...state,
+        lastActivity: now,
+        sessionExpiry: now + this.sessionDuration,
+      }
+      this.setState(updatedState)
+      this.scheduleSessionWarning(updatedState)
+    }
   }
 
-  login(user: User) {
-    const session = this.createSession(user.id)
-    this.state = {
-      ...this.state,
+  private scheduleSessionWarning(state: UserState) {
+    if (this.warningTimer) {
+      clearTimeout(this.warningTimer)
+    }
+
+    if (state.sessionExpiry) {
+      const timeUntilWarning = state.sessionExpiry - Date.now() - this.warningTime
+
+      if (timeUntilWarning > 0) {
+        this.warningTimer = setTimeout(() => {
+          this.showSessionWarning()
+        }, timeUntilWarning)
+      }
+    }
+  }
+
+  private showSessionWarning() {
+    if (typeof window !== "undefined") {
+      const extend = confirm("Your session will expire in 5 minutes. Would you like to extend it?")
+      if (extend) {
+        this.updateLastActivity()
+      }
+    }
+  }
+
+  public subscribe(listener: (state: UserState) => void): () => void {
+    this.listeners.push(listener)
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== listener)
+    }
+  }
+
+  private notifyListeners(state: UserState) {
+    this.listeners.forEach((listener) => listener(state))
+  }
+
+  public getState(): UserState {
+    try {
+      if (typeof window === "undefined") {
+        return this.getDefaultState()
+      }
+
+      const stored = localStorage.getItem(this.storageKey)
+      if (!stored) {
+        return this.getDefaultState()
+      }
+
+      const data: StorageData = JSON.parse(stored)
+
+      // Check version compatibility
+      if (data.version !== this.version) {
+        this.clearState()
+        return this.getDefaultState()
+      }
+
+      // Check session expiry
+      if (data.userState.sessionExpiry && Date.now() > data.userState.sessionExpiry) {
+        this.clearState()
+        return this.getDefaultState()
+      }
+
+      return data.userState
+    } catch (error) {
+      console.error("Error reading user state:", error)
+      return this.getDefaultState()
+    }
+  }
+
+  public setState(state: UserState): void {
+    try {
+      if (typeof window === "undefined") return
+
+      const data: StorageData = {
+        userState: state,
+        version: this.version,
+      }
+
+      localStorage.setItem(this.storageKey, JSON.stringify(data))
+      this.notifyListeners(state)
+
+      // Schedule session warning if authenticated
+      if (state.isAuthenticated) {
+        this.scheduleSessionWarning(state)
+      }
+    } catch (error) {
+      console.error("Error saving user state:", error)
+    }
+  }
+
+  public updateUser(user: User): void {
+    const currentState = this.getState()
+    this.setState({
+      ...currentState,
       user,
-      session,
+      lastActivity: Date.now(),
+    })
+  }
+
+  public updatePreferences(preferences: Partial<UserPreferences>): void {
+    const currentState = this.getState()
+    this.setState({
+      ...currentState,
+      preferences: {
+        ...currentState.preferences,
+        ...preferences,
+      },
+      lastActivity: Date.now(),
+    })
+  }
+
+  public login(user: User): void {
+    const now = Date.now()
+    const sessionId = `session_${now}_${Math.random().toString(36).substr(2, 9)}`
+
+    const state: UserState = {
+      user,
+      preferences: this.getDefaultPreferences(),
+      sessionId,
+      sessionExpiry: now + this.sessionDuration,
       isAuthenticated: true,
-      isLoading: false,
+      lastActivity: now,
     }
-    this.saveState()
-    this.notifyListeners()
+
+    this.setState(state)
   }
 
-  logout() {
-    this.clearSession()
-    this.notifyListeners()
+  public logout(): void {
+    this.clearState()
+    if (this.warningTimer) {
+      clearTimeout(this.warningTimer)
+      this.warningTimer = null
+    }
   }
 
-  updateUser(updates: Partial<User>) {
-    if (this.state.user) {
-      this.state = {
-        ...this.state,
-        user: { ...this.state.user, ...updates },
+  public clearState(): void {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(this.storageKey)
       }
-      this.saveState()
-      this.notifyListeners()
+      this.notifyListeners(this.getDefaultState())
+    } catch (error) {
+      console.error("Error clearing user state:", error)
     }
   }
 
-  updatePreferences(updates: Partial<UserPreferences>) {
-    this.state = {
-      ...this.state,
-      preferences: { ...this.state.preferences, ...updates },
-    }
-    this.saveState()
-    this.notifyListeners()
+  public isSessionValid(): boolean {
+    const state = this.getState()
+    return state.isAuthenticated && state.sessionExpiry !== null && Date.now() < state.sessionExpiry
   }
 
-  extendSession() {
-    if (this.state.session && this.isSessionValid(this.state.session)) {
-      const now = new Date()
-      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000) // Extend by 24 hours
-
-      this.state = {
-        ...this.state,
-        session: {
-          ...this.state.session,
-          lastActivity: now.toISOString(),
-          expiresAt: expiresAt.toISOString(),
-        },
-      }
-      this.saveState()
-      this.notifyListeners()
-    }
-  }
-
-  getSessionInfo() {
-    if (!this.state.session) {
-      return {
-        isActive: false,
-        timeRemaining: 0,
-        lastActivity: null,
-      }
-    }
-
-    const now = new Date()
-    const expiresAt = new Date(this.state.session.expiresAt)
-    const timeRemaining = Math.max(0, expiresAt.getTime() - now.getTime())
-
+  private getDefaultState(): UserState {
     return {
-      isActive: this.state.session.isActive && timeRemaining > 0,
-      timeRemaining,
-      lastActivity: this.state.session.lastActivity,
+      user: null,
+      preferences: this.getDefaultPreferences(),
+      sessionId: null,
+      sessionExpiry: null,
+      isAuthenticated: false,
+      lastActivity: Date.now(),
     }
   }
 
-  getState(): UserState {
-    return { ...this.state }
-  }
-
-  destroy() {
-    if (this.sessionCheckInterval) {
-      clearInterval(this.sessionCheckInterval)
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: "system",
+      notifications: true,
+      autoSave: true,
+      language: "en",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     }
   }
 }
 
-export default UserStateManager
+export const userStateManager = UserStateManager.getInstance()

@@ -3,16 +3,16 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
 import { UserProvider } from "@/contexts/user-context"
 import { SessionManager } from "@/components/session-manager"
 import { UserStateDebug } from "@/components/user-state-debug"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Business Plan Builder",
-  description: "Collaborative business plan creation tool",
+  title: "Business Planning App",
+  description: "Collaborative business planning with real-time editing",
     generator: 'v0.dev'
 }
 
@@ -26,8 +26,8 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <UserProvider>
-            {children}
             <SessionManager />
+            {children}
             <UserStateDebug />
             <Toaster />
           </UserProvider>
