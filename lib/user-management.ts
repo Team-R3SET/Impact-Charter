@@ -100,3 +100,18 @@ export const getUserStats = async (): Promise<{
 
   return { total, active, administrators, regular, recentLogins }
 }
+
+// New function to get all available users for switching
+export const getAvailableUsers = async (): Promise<User[]> => {
+  return users.filter((u) => u.isActive)
+}
+
+// New function to switch user context (for demo purposes)
+export const switchUserContext = async (userId: string): Promise<User | null> => {
+  const user = users.find((u) => u.id === userId && u.isActive)
+  if (user) {
+    user.lastLoginDate = new Date().toISOString()
+    return user
+  }
+  return null
+}

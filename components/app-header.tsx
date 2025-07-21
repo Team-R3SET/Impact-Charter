@@ -18,20 +18,18 @@ import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw, Shield } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
+import { UserSwitcher } from "@/components/user-switcher"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
 import type { BusinessPlan } from "@/lib/airtable"
+import type { User as UserType } from "@/lib/user-types"
 
 interface AppHeaderProps {
-  currentUser?: {
-    name: string
-    email: string
-    avatar?: string
-    role?: "administrator" | "regular"
-  }
+  currentUser?: UserType
   currentPlanId?: string
+  onUserSwitch?: (user: UserType) => void
 }
 
-export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
+export function AppHeader({ currentUser, currentPlanId, onUserSwitch }: AppHeaderProps) {
   const [businessPlans, setBusinessPlans] = useState<BusinessPlan[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -40,10 +38,15 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
 
   // Default user if none provided
   const user = currentUser || {
+    id: "user-1",
     name: "Demo User",
     email: "user@example.com",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
     role: "regular" as const,
+    company: "Demo Company",
+    department: "Demo Department",
+    createdDate: new Date().toISOString(),
+    isActive: true,
   }
 
   // Check if we're on a plan page (for showing live features)
@@ -86,6 +89,16 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
     if (plan) {
       router.push(`/plan/${planId}?name=${encodeURIComponent(plan.planName)}`)
     }
+  }
+
+  const handleUserSwitch = (newUser: UserType) => {
+    if (onUserSwitch) {
+      onUserSwitch(newUser)
+    }
+    // Refresh plans for the new user
+    setTimeout(() => {
+      fetchPlans()
+    }, 100)
   }
 
   const getStatusColor = (status: string) => {
@@ -206,6 +219,9 @@ export function AppHeader({ currentUser, currentPlanId }: AppHeaderProps) {
                 <p>New Plan</p>
               </TooltipContent>
             </Tooltip>
+
+            {/* User Switcher - Demo Mode */}
+            <UserSwitcher currentUser={user} onUserSwitch={handleUserSwitch} />
 
             {/* Notifications - Only show on plan pages */}
             {isOnPlanPage && <NotificationsDropdown />}
