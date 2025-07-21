@@ -89,3 +89,8 @@ export function getSectionTitle(sectionId: string): string {
   const section = getSectionById(sectionId)
   return section?.title || "Unknown Section"
 }
+
+// ------------------------------------------------------------------
+// Temporary helper until the template/seed feature is redesigned.
+// It simply aliases the default array so nothing breaks at build time.
+export const businessPlanSectionsTemplate = businessPlanSections
