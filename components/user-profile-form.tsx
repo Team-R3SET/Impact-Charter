@@ -17,9 +17,10 @@ import type { UserProfile } from "@/lib/airtable"
 interface UserProfileFormProps {
   initialProfile: UserProfile | null
   userEmail: string
+  onProfileUpdate?: (profile: UserProfile) => void
 }
 
-export function UserProfileForm({ initialProfile, userEmail }: UserProfileFormProps) {
+export function UserProfileForm({ initialProfile, userEmail, onProfileUpdate }: UserProfileFormProps) {
   const [profile, setProfile] = useState({
     name: initialProfile?.name || "",
     email: userEmail,
@@ -62,10 +63,17 @@ export function UserProfileForm({ initialProfile, userEmail }: UserProfileFormPr
         throw new Error("Failed to save profile")
       }
 
+      const data = await response.json()
+
       toast({
         title: "Success",
         description: "Profile updated successfully!",
       })
+
+      // Call the callback to update parent state
+      if (onProfileUpdate && data.profile) {
+        onProfileUpdate(data.profile)
+      }
 
       // Refresh the page to show updated data
       router.refresh()

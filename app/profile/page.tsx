@@ -1,34 +1,86 @@
-import { getUserProfile } from "@/lib/airtable"
-import { UserProfileForm } from "@/components/user-profile-form"
-import { AppHeader } from "@/components/app-header"
+"use client"
 
-export default async function ProfilePage() {
-  // TODO: Replace with real auth
-  const userEmail = "user@example.com"
-  const currentUser = {
-    name: "Demo User",
-    email: userEmail,
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
+import { useState, useEffect } from "react"
+import { AppHeader } from "@/components/app-header"
+import { UserProfileForm } from "@/components/user-profile-form"
+import { useUser } from "@/contexts/user-context"
+import { getDemoUsers } from "@/lib/user-management"
+import type { UserProfile } from "@/lib/airtable"
+import type { User } from "@/lib/user-types"
+
+export default function ProfilePage() {
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const { user, login, updateUser } = useUser()
+
+  // Initialize with demo user if not authenticated
+  useEffect(() => {
+    if (!user) {
+      const demoUsers = getDemoUsers()
+      login(demoUsers[1]) // Default to regular user
+    }
+  }, [user, login])
+
+  const currentUser = user || getDemoUsers()[1]
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!currentUser?.email) return
+
+      try {
+        const response = await fetch(`/api/user-profile?email=${encodeURIComponent(currentUser.email)}`)
+        if (response.ok) {
+          const data = await response.json()
+          setProfile(data.profile)
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [currentUser?.email])
+
+  const handleUserChange = (newUser: User) => {
+    login(newUser)
   }
 
-  const profile = await getUserProfile(userEmail)
+  // Update user context when profile changes
+  const handleProfileUpdate = (updatedProfile: UserProfile) => {
+    updateUser({
+      name: updatedProfile.name,
+      avatar: updatedProfile.avatar,
+      company: updatedProfile.company,
+    })
+    setProfile(updatedProfile)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader currentUser={currentUser} onUserChange={handleUserChange} />
+        <main className="container mx-auto px-6 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
+            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
-    <>
-      <AppHeader currentUser={currentUser} />
-      <div className="container mx-auto py-8 px-4 max-w-2xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">User Profile</h1>
-          <p className="text-muted-foreground">Manage your personal information and preferences.</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader currentUser={currentUser} onUserChange={handleUserChange} />
+      <main className="container mx-auto px-6 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profile Settings</h1>
+          <p className="text-gray-600 dark:text-gray-300">Manage your personal information and preferences</p>
         </div>
-
-        <UserProfileForm initialProfile={profile} userEmail={userEmail} />
-      </div>
-    </>
+        <UserProfileForm initialProfile={profile} userEmail={currentUser.email} onProfileUpdate={handleProfileUpdate} />
+      </main>
+    </div>
   )
-}
-
-export const metadata = {
-  title: "Profile - Business Plan Builder",
-  description: "Manage your user profile and preferences",
 }

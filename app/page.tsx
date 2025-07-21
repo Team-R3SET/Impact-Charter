@@ -3,357 +3,339 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AppHeader } from "@/components/app-header"
 import { useUser } from "@/contexts/user-context"
 import { getDemoUsers } from "@/lib/user-management"
 import {
   FileText,
-  Plus,
   Users,
-  BarChart3,
-  Shield,
-  Database,
-  Activity,
-  CheckCircle,
-  XCircle,
+  TrendingUp,
+  Clock,
+  Plus,
   ArrowRight,
+  Zap,
+  Shield,
+  Globe,
+  CheckCircle,
+  Star,
+  BarChart3,
 } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
 import type { User } from "@/lib/user-types"
+import type { BusinessPlan } from "@/lib/airtable"
 
 export default function HomePage() {
-  const [planName, setPlanName] = useState("")
-  const [isCreating, setIsCreating] = useState(false)
-  const { user: currentUser, login, isLoading } = useUser()
+  const [businessPlans, setBusinessPlans] = useState<BusinessPlan[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const { user, login, isAuthenticated } = useUser()
   const router = useRouter()
 
   // Initialize with demo user if not authenticated
   useEffect(() => {
-    if (!isLoading && !currentUser) {
+    if (!isAuthenticated && !user) {
       const demoUsers = getDemoUsers()
       login(demoUsers[1]) // Default to regular user
     }
-  }, [currentUser, isLoading, login])
+  }, [isAuthenticated, user, login])
 
-  const handleCreatePlan = async () => {
-    if (!planName.trim()) {
-      toast({
-        title: "Plan name required",
-        description: "Please enter a name for your business plan.",
-        variant: "destructive",
-      })
-      return
-    }
+  const currentUser = user || getDemoUsers()[1]
 
-    if (!currentUser) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to create a business plan.",
-        variant: "destructive",
-      })
-      return
-    }
+  useEffect(() => {
+    const fetchPlans = async () => {
+      if (!currentUser?.email) return
 
-    setIsCreating(true)
-
-    try {
-      const response = await fetch("/api/business-plans", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          planName: planName.trim(),
-          ownerEmail: currentUser.email,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to create business plan")
+      try {
+        const response = await fetch(`/api/business-plans?owner=${encodeURIComponent(currentUser.email)}`)
+        if (response.ok) {
+          const data = await response.json()
+          setBusinessPlans(data.plans || [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch business plans:", error)
+      } finally {
+        setIsLoading(false)
       }
+    }
 
-      const data = await response.json()
-      const planId = data.plan.id
+    fetchPlans()
+  }, [currentUser?.email])
 
-      toast({
-        title: "Business plan created!",
-        description: `"${planName}" has been created successfully.`,
-      })
+  const handleUserChange = (newUser: User) => {
+    login(newUser)
+  }
 
-      // Navigate to the new plan
-      router.push(`/plan/${planId}?name=${encodeURIComponent(planName)}`)
-    } catch (error) {
-      console.error("Error creating business plan:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create business plan. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsCreating(false)
+  const handleCreatePlan = () => {
+    router.push("/plans")
+  }
+
+  const handleViewPlan = (planId: string, planName: string) => {
+    router.push(`/plan/${planId}?name=${encodeURIComponent(planName)}`)
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Complete":
+        return "bg-green-500"
+      case "In Progress":
+        return "bg-blue-500"
+      case "Submitted for Review":
+        return "bg-purple-500"
+      default:
+        return "bg-gray-500"
     }
   }
 
-  const handleUserChange = (user: User) => {
-    login(user)
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case "Complete":
+        return "default"
+      case "In Progress":
+        return "secondary"
+      case "Submitted for Review":
+        return "outline"
+      default:
+        return "secondary"
+    }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading your workspace...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <Card className="w-96">
-          <CardHeader>
-            <CardTitle>Authentication Required</CardTitle>
-            <CardDescription>Please select a demo user to continue</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {getDemoUsers().map((user) => (
-              <Button
-                key={user.id}
-                variant="outline"
-                className="w-full justify-start bg-transparent"
-                onClick={() => login(user)}
-              >
-                <div className="flex items-center gap-3">
-                  <img src={user.avatar || "/placeholder.svg"} alt={user.name} className="w-8 h-8 rounded-full" />
-                  <div className="text-left">
-                    <div className="font-medium">{user.name}</div>
-                    <div className="text-sm text-muted-foreground">{user.role}</div>
-                  </div>
-                </div>
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  const isAdmin = currentUser.role === "administrator"
-
-  const features = [
-    {
-      title: "Business Plan Creation",
-      description: "Create and edit comprehensive business plans",
-      icon: FileText,
-      available: true,
-      adminOnly: false,
-    },
-    {
-      title: "Real-time Collaboration",
-      description: "Work together with team members in real-time",
-      icon: Users,
-      available: true,
-      adminOnly: false,
-    },
-    {
-      title: "Progress Tracking",
-      description: "Monitor completion status of plan sections",
-      icon: BarChart3,
-      available: true,
-      adminOnly: false,
-    },
-    {
-      title: "User Management",
-      description: "Manage users, roles, and permissions",
-      icon: Shield,
-      available: isAdmin,
-      adminOnly: true,
-    },
-    {
-      title: "System Logs",
-      description: "View access logs and error tracking",
-      icon: Activity,
-      available: isAdmin,
-      adminOnly: true,
-    },
-    {
-      title: "Airtable Integration",
-      description: "Debug and manage database connections",
-      icon: Database,
-      available: isAdmin,
-      adminOnly: true,
-    },
-  ]
+  const recentPlans = businessPlans.slice(0, 3)
+  const completedPlans = businessPlans.filter((plan) => plan.status === "Complete").length
+  const inProgressPlans = businessPlans.filter((plan) => plan.status === "In Progress").length
 
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
       <AppHeader currentUser={currentUser} onUserChange={handleUserChange} />
 
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="container mx-auto px-4 py-12">
-          {/* Hero Section */}
-          <div className="text-center mb-12">
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <div className="p-3 bg-blue-600 rounded-xl">
-                <FileText className="w-8 h-8 text-white" />
-              </div>
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Business Plan Builder</h1>
+      <main className="container mx-auto px-6 py-8">
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Avatar className="h-16 w-16 ring-4 ring-blue-100 dark:ring-blue-900">
+              <AvatarImage src={currentUser.avatar || "/placeholder.svg"} alt={currentUser.name} />
+              <AvatarFallback className="text-lg font-semibold bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                {currentUser.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome back, {currentUser.name}!</h1>
+              <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                <Badge variant={currentUser.role === "administrator" ? "destructive" : "secondary"}>
+                  {currentUser.role === "administrator" ? "Admin" : "User"}
+                </Badge>
+                {currentUser.company && <span>• {currentUser.company}</span>}
+              </p>
             </div>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Create, collaborate, and manage your business plans with our comprehensive platform
-            </p>
           </div>
+        </div>
 
-          {/* Current User Display */}
-          <Card className="mb-8 max-w-md mx-auto">
-            <CardHeader className="text-center">
-              <div className="flex items-center justify-center gap-3 mb-2">
-                <img
-                  src={currentUser.avatar || "/placeholder.svg"}
-                  alt={currentUser.name}
-                  className="w-12 h-12 rounded-full"
-                />
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg">{currentUser.name}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={isAdmin ? "destructive" : "secondary"}>
-                      {isAdmin ? "Administrator" : "Regular User"}
-                    </Badge>
-                  </div>
+                  <p className="text-blue-100 text-sm font-medium">Total Plans</p>
+                  <p className="text-3xl font-bold">{businessPlans.length}</p>
                 </div>
-              </div>
-              <CardDescription>{currentUser.email}</CardDescription>
-            </CardHeader>
-          </Card>
-
-          {/* Create New Plan Section */}
-          <Card className="mb-12 max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="w-5 h-5" />
-                Create New Business Plan
-              </CardTitle>
-              <CardDescription>Start building your business plan with our guided process</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4">
-                <Input
-                  placeholder="Enter your business plan name..."
-                  value={planName}
-                  onChange={(e) => setPlanName(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      handleCreatePlan()
-                    }
-                  }}
-                  className="flex-1"
-                />
-                <Button onClick={handleCreatePlan} disabled={isCreating || !planName.trim()} className="px-6">
-                  {isCreating ? "Creating..." : "Create Plan"}
-                </Button>
+                <FileText className="h-8 w-8 text-blue-200" />
               </div>
             </CardContent>
           </Card>
 
-          {/* Features Grid */}
-          <div className="mb-12">
-            <h2 className="text-2xl font-bold text-center mb-8 text-gray-900 dark:text-white">Platform Features</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {features.map((feature, index) => (
-                <Card key={index} className={`relative ${!feature.available ? "opacity-60" : ""}`}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <feature.icon className={`w-8 h-8 ${feature.available ? "text-blue-600" : "text-gray-400"}`} />
-                      {feature.available ? (
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                      ) : (
-                        <XCircle className="w-5 h-5 text-red-500" />
-                      )}
-                    </div>
-                    <CardTitle className="text-lg">{feature.title}</CardTitle>
-                    {feature.adminOnly && (
-                      <Badge variant="outline" className="w-fit">
-                        Admin Only
-                      </Badge>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription>{feature.description}</CardDescription>
-                    {!feature.available && feature.adminOnly && (
-                      <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
-                        Switch to Administrator role to access this feature
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm font-medium">Completed</p>
+                  <p className="text-3xl font-bold">{completedPlans}</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-green-200" />
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Admin Access Section */}
-          {isAdmin && (
-            <Card className="max-w-2xl mx-auto bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-red-200 dark:border-red-800">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
-                  <Shield className="w-5 h-5" />
-                  Administrator Access
-                </CardTitle>
-                <CardDescription>
-                  You have administrator privileges. Access advanced features and system management.
-                </CardDescription>
+          <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-100 text-sm font-medium">In Progress</p>
+                  <p className="text-3xl font-bold">{inProgressPlans}</p>
+                </div>
+                <Clock className="h-8 w-8 text-orange-200" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm font-medium">Success Rate</p>
+                  <p className="text-3xl font-bold">
+                    {businessPlans.length > 0 ? Math.round((completedPlans / businessPlans.length) * 100) : 0}%
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-purple-200" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Recent Plans */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Recent Business Plans
+                  </CardTitle>
+                  <CardDescription>Your latest business planning projects</CardDescription>
+                </div>
+                <Button onClick={handleCreatePlan} className="bg-gradient-to-r from-blue-600 to-indigo-600">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Plan
+                </Button>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button asChild variant="destructive" className="flex-1">
-                    <a href="/admin" className="flex items-center gap-2">
-                      <Shield className="w-4 h-4" />
-                      Access Admin Dashboard
-                      <ArrowRight className="w-4 h-4" />
-                    </a>
+                {isLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : recentPlans.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentPlans.map((plan) => (
+                      <div
+                        key={plan.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                        onClick={() => handleViewPlan(plan.id!, plan.planName)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${getStatusColor(plan.status)}`} />
+                          <div>
+                            <h3 className="font-medium text-gray-900 dark:text-white">{plan.planName}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Updated {new Date(plan.lastModified).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={getStatusVariant(plan.status)}>{plan.status}</Badge>
+                          <ArrowRight className="h-4 w-4 text-gray-400" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No business plans yet</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
+                      Get started by creating your first business plan
+                    </p>
+                    <Button onClick={handleCreatePlan} className="bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Your First Plan
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Quick Actions & Features */}
+          <div className="space-y-6">
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5" />
+                  Quick Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => router.push("/plans")}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  View All Plans
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => router.push("/profile")}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => router.push("/settings")}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+                {currentUser.role === "administrator" && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start bg-transparent"
+                    onClick={() => router.push("/admin")}
+                  >
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Admin Dashboard
                   </Button>
-                  <Button asChild variant="outline" className="flex-1 bg-transparent">
-                    <a href="/admin/airtable" className="flex items-center gap-2">
-                      <Database className="w-4 h-4" />
-                      Airtable Debug Tools
-                      <ArrowRight className="w-4 h-4" />
-                    </a>
-                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Features */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="h-5 w-5" />
+                  Platform Features
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Users className="h-5 w-5 text-blue-500 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-sm">Real-time Collaboration</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Work together with your team in real-time
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Globe className="h-5 w-5 text-green-500 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-sm">Cloud Storage</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Access your plans from anywhere</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Shield className="h-5 w-5 text-purple-500 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-sm">Secure & Private</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Your data is encrypted and protected</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* Quick Actions */}
-          <div className="mt-12 text-center">
-            <h3 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Quick Actions</h3>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Button asChild variant="outline">
-                <a href="/plans" className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  View My Plans
-                </a>
-              </Button>
-              <Button asChild variant="outline">
-                <a href="/profile" className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Edit Profile
-                </a>
-              </Button>
-              <Button asChild variant="outline">
-                <a href="/settings" className="flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Settings
-                </a>
-              </Button>
-            </div>
           </div>
         </div>
-      </div>
-    </>
+      </main>
+    </div>
   )
 }
