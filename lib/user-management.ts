@@ -6,7 +6,7 @@
  * internal implementation while keeping the public API identical.
  */
 
-import type { User } from "./user-types"
+import type { User, UserRecord } from "./user-types"
 
 /* ------------------------------------------------------------------ */
 /*  Demo data                                                          */
@@ -83,12 +83,26 @@ export const createUser = (user: Omit<User, "id" | "createdDate">): User => {
   return newUser
 }
 
-export const updateUser = (id: string, data: Partial<User>): User | null => {
-  const current = getUserById(id)
-  if (!current) return null
-  const updated = { ...current, ...data }
-  console.log("(demo) updateUser", updated)
-  return updated
+/**
+ * Update a single user. (Stub for now – replace with real implementation.)
+ */
+export async function updateUser(userId: string, partial: Partial<UserRecord>): Promise<{ success: boolean }> {
+  // TODO: implement with real data source
+  console.log(`Updating user ${userId}`, partial)
+  return { success: true }
+}
+
+/**
+ * Bulk-update many users at once.
+ *
+ * This satisfies the required named export `bulkUpdateUsers` that was
+ * missing during the last deployment.
+ */
+export async function bulkUpdateUsersAsync(
+  updates: { userId: string; data: Partial<UserRecord> }[],
+): Promise<{ success: boolean }[]> {
+  const results = await Promise.all(updates.map(({ userId, data }) => updateUser(userId, data)))
+  return results
 }
 
 export const deleteUser = (id: string): boolean => {

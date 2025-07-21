@@ -23,6 +23,10 @@ Before you begin, ensure you have:
 - A Vercel account
 - An Airtable account (free tier works)
 
+➡️ Environment variables  
+Create the variables in your Vercel dashboard (Project → Settings → Environment Variables).  
+See the in-app `/settings` page for the exact keys you need.
+
 ### 1. Fork and Clone the Repository
 
 1. **Fork this repository** to your GitHub account by clicking the "Fork" button
@@ -100,22 +104,7 @@ Before you begin, ensure you have:
    - Copy the **Public Key** (starts with \`pk_\`)
    - Copy the **Secret Key** (starts with \`sk_\`)
 
-### 4. Configure Environment Variables
-
-1. **Create a \`.env.local\` file** in your project root:
-   \`\`\`bash
-   # Airtable Configuration
-   AIRTABLE_API_KEY=your_personal_access_token_here
-   AIRTABLE_BASE_ID=your_base_id_here
-   
-   # Liveblocks Configuration
-   NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY=your_liveblocks_public_key_here
-   LIVEBLOCKS_SECRET_KEY=your_liveblocks_secret_key_here
-   \`\`\`
-
-2. **Replace the placeholder values** with your actual credentials
-
-### 5. Test Locally
+### 4. Test Locally
 
 1. **Start the development server**:
    \`\`\`bash
@@ -130,7 +119,7 @@ Before you begin, ensure you have:
    - Check if data saves to Airtable
    - Test the "Mark as Complete" functionality
 
-### 6. Deploy to Vercel
+### 5. Deploy to Vercel
 
 #### Option A: Deploy via Vercel Dashboard (Recommended)
 
