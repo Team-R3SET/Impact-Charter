@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Plus, FileText, Store, Laptop, Utensils, Heart, Briefcase, Zap, Globe, Building } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -12,23 +14,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
-import {
-  Building2,
-  ShoppingCart,
-  Smartphone,
-  Utensils,
-  Heart,
-  GraduationCap,
-  Palette,
-  Wrench,
-  Loader2,
-  FileText,
-} from "lucide-react"
 
 interface CreatePlanDialogProps {
   open: boolean
@@ -40,149 +27,138 @@ const businessTemplates = [
   {
     id: "tech-startup",
     name: "Tech Startup",
-    description: "Software, apps, and technology solutions",
-    icon: Smartphone,
-    color: "bg-blue-500",
-    sections: [
-      "Executive Summary",
-      "Market Analysis",
-      "Product Development",
-      "Technology Stack",
-      "Go-to-Market Strategy",
-    ],
+    description: "Perfect for SaaS, mobile apps, and technology companies",
+    icon: <Laptop className="h-6 w-6" />,
+    color: "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300",
+  },
+  {
+    id: "restaurant",
+    name: "Restaurant & Food Service",
+    description: "Tailored for restaurants, cafes, and food businesses",
+    icon: <Utensils className="h-6 w-6" />,
+    color: "bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300",
   },
   {
     id: "ecommerce",
     name: "E-commerce",
-    description: "Online retail and marketplace businesses",
-    icon: ShoppingCart,
-    color: "bg-green-500",
-    sections: ["Executive Summary", "Market Analysis", "Product Catalog", "Supply Chain", "Digital Marketing"],
-  },
-  {
-    id: "restaurant",
-    name: "Restaurant",
-    description: "Food service and hospitality businesses",
-    icon: Utensils,
-    color: "bg-orange-500",
-    sections: ["Executive Summary", "Market Analysis", "Menu & Pricing", "Location Strategy", "Operations Plan"],
+    description: "Online retail, marketplace, and digital commerce",
+    icon: <Store className="h-6 w-6" />,
+    color: "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300",
   },
   {
     id: "healthcare",
-    name: "Healthcare",
-    description: "Medical services and health technology",
-    icon: Heart,
-    color: "bg-red-500",
-    sections: [
-      "Executive Summary",
-      "Market Analysis",
-      "Service Offerings",
-      "Regulatory Compliance",
-      "Patient Care Model",
-    ],
-  },
-  {
-    id: "education",
-    name: "Education",
-    description: "Educational services and EdTech platforms",
-    icon: GraduationCap,
-    color: "bg-purple-500",
-    sections: ["Executive Summary", "Market Analysis", "Curriculum Design", "Learning Platform", "Student Acquisition"],
-  },
-  {
-    id: "creative",
-    name: "Creative Agency",
-    description: "Design, marketing, and creative services",
-    icon: Palette,
-    color: "bg-pink-500",
-    sections: ["Executive Summary", "Market Analysis", "Service Portfolio", "Creative Process", "Client Acquisition"],
+    name: "Healthcare & Wellness",
+    description: "Medical practices, wellness centers, and health services",
+    icon: <Heart className="h-6 w-6" />,
+    color: "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300",
   },
   {
     id: "consulting",
-    name: "Consulting",
-    description: "Professional services and expertise",
-    icon: Building2,
-    color: "bg-indigo-500",
-    sections: ["Executive Summary", "Market Analysis", "Service Methodology", "Expertise Areas", "Client Engagement"],
+    name: "Consulting & Services",
+    description: "Professional services, consulting, and B2B solutions",
+    icon: <Briefcase className="h-6 w-6" />,
+    color: "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300",
   },
   {
     id: "manufacturing",
     name: "Manufacturing",
-    description: "Production and industrial businesses",
-    icon: Wrench,
-    color: "bg-gray-500",
-    sections: ["Executive Summary", "Market Analysis", "Production Process", "Supply Chain", "Quality Control"],
+    description: "Production, manufacturing, and industrial businesses",
+    icon: <Building className="h-6 w-6" />,
+    color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+  },
+  {
+    id: "energy",
+    name: "Energy & Sustainability",
+    description: "Renewable energy, green tech, and sustainable solutions",
+    icon: <Zap className="h-6 w-6" />,
+    color: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-300",
+  },
+  {
+    id: "nonprofit",
+    name: "Non-Profit",
+    description: "NGOs, charities, and social impact organizations",
+    icon: <Globe className="h-6 w-6" />,
+    color: "bg-teal-100 text-teal-600 dark:bg-teal-900 dark:text-teal-300",
   },
   {
     id: "blank",
     name: "Blank Template",
-    description: "Start from scratch with standard sections",
-    icon: FileText,
-    color: "bg-slate-500",
-    sections: ["Executive Summary", "Market Analysis", "Business Model", "Marketing Strategy", "Financial Projections"],
+    description: "Start from scratch with a customizable template",
+    icon: <FileText className="h-6 w-6" />,
+    color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
   },
 ]
 
 export function CreatePlanDialog({ open, onOpenChange, userEmail }: CreatePlanDialogProps) {
   const [step, setStep] = useState<"template" | "details">("template")
-  const [selectedTemplate, setSelectedTemplate] = useState<(typeof businessTemplates)[0] | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [planName, setPlanName] = useState("")
-  const [description, setDescription] = useState("")
   const [isCreating, setIsCreating] = useState(false)
-  const { toast } = useToast()
   const router = useRouter()
+  const { toast } = useToast()
 
-  const handleTemplateSelect = (template: (typeof businessTemplates)[0]) => {
-    setSelectedTemplate(template)
-    setPlanName(template.name === "Blank Template" ? "" : `My ${template.name} Business`)
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplate(templateId)
     setStep("details")
+
+    // Auto-generate a plan name based on template
+    const template = businessTemplates.find((t) => t.id === templateId)
+    if (template && template.id !== "blank") {
+      setPlanName(`My ${template.name} Plan`)
+    } else {
+      setPlanName("")
+    }
   }
 
-  const handleBack = () => {
-    setStep("template")
-    setSelectedTemplate(null)
-  }
+  const handleCreatePlan = async () => {
+    if (!planName.trim()) {
+      toast({
+        title: "Plan name required",
+        description: "Please enter a name for your business plan.",
+        variant: "destructive",
+      })
+      return
+    }
 
-  const handleCreate = async () => {
-    if (!selectedTemplate || !planName.trim()) return
-
-    setIsCreating(true)
     try {
+      setIsCreating(true)
+
       const response = await fetch("/api/business-plans", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           planName: planName.trim(),
           ownerEmail: userEmail,
-          template: selectedTemplate.id,
-          description: description.trim() || undefined,
+          status: "Draft",
+          template: selectedTemplate,
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create business plan")
+        throw new Error("Failed to create plan")
       }
 
       const newPlan = await response.json()
 
       toast({
-        title: "Business plan created!",
-        description: `"${planName}" has been created successfully.`,
+        title: "Plan created successfully!",
+        description: `"${planName}" has been created and is ready for editing.`,
       })
 
-      // Reset form
-      setStep("template")
-      setSelectedTemplate(null)
-      setPlanName("")
-      setDescription("")
+      // Close dialog and reset state
       onOpenChange(false)
+      setStep("template")
+      setSelectedTemplate("")
+      setPlanName("")
 
       // Navigate to the new plan
-      router.push(`/plan/${newPlan.id}?name=${encodeURIComponent(planName)}`)
+      router.push(`/plan/${newPlan.id}`)
     } catch (error) {
-      console.error("Failed to create plan:", error)
+      console.error("Error creating plan:", error)
       toast({
-        title: "Failed to create plan",
+        title: "Error creating plan",
         description: "There was an error creating your business plan. Please try again.",
         variant: "destructive",
       })
@@ -191,129 +167,107 @@ export function CreatePlanDialog({ open, onOpenChange, userEmail }: CreatePlanDi
     }
   }
 
-  const handleClose = () => {
-    if (!isCreating) {
-      setStep("template")
-      setSelectedTemplate(null)
-      setPlanName("")
-      setDescription("")
-      onOpenChange(false)
-    }
+  const handleBack = () => {
+    setStep("template")
+    setSelectedTemplate("")
   }
+
+  const handleClose = () => {
+    onOpenChange(false)
+    setStep("template")
+    setSelectedTemplate("")
+    setPlanName("")
+  }
+
+  const selectedTemplateData = businessTemplates.find((t) => t.id === selectedTemplate)
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         {step === "template" ? (
           <>
             <DialogHeader>
-              <DialogTitle>Choose a Business Plan Template</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Create New Business Plan
+              </DialogTitle>
               <DialogDescription>
-                Select a template that best matches your business type. You can customize it later.
+                Choose a template that best matches your business type to get started with pre-built sections and
+                guidance.
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
-              {businessTemplates.map((template) => {
-                const IconComponent = template.icon
-                return (
-                  <Card
-                    key={template.id}
-                    className="cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-105"
-                    onClick={() => handleTemplateSelect(template)}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${template.color} text-white`}>
-                          <IconComponent className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-sm">{template.name}</CardTitle>
-                          <CardDescription className="text-xs">{template.description}</CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground">Includes sections:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {template.sections.slice(0, 3).map((section) => (
-                            <Badge key={section} variant="secondary" className="text-xs">
-                              {section}
-                            </Badge>
-                          ))}
-                          {template.sections.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{template.sections.length - 3} more
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+              {businessTemplates.map((template) => (
+                <Card
+                  key={template.id}
+                  className="cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-105"
+                  onClick={() => handleTemplateSelect(template.id)}
+                >
+                  <CardContent className="p-6 text-center space-y-4">
+                    <div className={`w-12 h-12 rounded-lg ${template.color} flex items-center justify-center mx-auto`}>
+                      {template.icon}
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-sm">{template.name}</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{template.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Create Your Business Plan</DialogTitle>
-              <DialogDescription>
-                Customize your {selectedTemplate?.name} business plan with your details.
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2">
+                {selectedTemplateData && (
+                  <div className={`w-8 h-8 rounded-lg ${selectedTemplateData.color} flex items-center justify-center`}>
+                    {selectedTemplateData.icon}
+                  </div>
+                )}
+                {selectedTemplateData?.name} Plan Details
+              </DialogTitle>
+              <DialogDescription>Customize your business plan with a name and initial settings.</DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-4">
+            <div className="space-y-6 py-4">
               <div className="space-y-2">
-                <Label htmlFor="planName">Business Plan Name *</Label>
+                <Label htmlFor="planName">Plan Name</Label>
                 <Input
                   id="planName"
+                  placeholder="Enter your business plan name..."
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
-                  placeholder="Enter your business plan name"
-                  disabled={isCreating}
+                  className="text-lg"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description of your business plan"
-                  rows={3}
-                  disabled={isCreating}
-                />
-              </div>
-
-              {selectedTemplate && (
-                <div className="space-y-2">
-                  <Label>Template Sections</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTemplate.sections.map((section) => (
-                      <Badge key={section} variant="outline">
-                        {section}
-                      </Badge>
-                    ))}
-                  </div>
+              {selectedTemplateData && selectedTemplateData.id !== "blank" && (
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                  <h4 className="font-medium text-sm">Template Features:</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Pre-built sections tailored for {selectedTemplateData.name.toLowerCase()}</li>
+                    <li>• Industry-specific guidance and examples</li>
+                    <li>• Financial templates and projections</li>
+                    <li>• Market analysis frameworks</li>
+                  </ul>
                 </div>
               )}
             </div>
 
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={handleBack} disabled={isCreating}>
-                Back
+              <Button variant="outline" onClick={handleBack}>
+                Back to Templates
               </Button>
-              <Button onClick={handleCreate} disabled={!planName.trim() || isCreating}>
+              <Button onClick={handleCreatePlan} disabled={isCreating || !planName.trim()} className="gap-2">
                 {isCreating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
+                  <>Creating...</>
                 ) : (
-                  "Create Business Plan"
+                  <>
+                    <Plus className="h-4 w-4" />
+                    Create Plan
+                  </>
                 )}
               </Button>
             </DialogFooter>

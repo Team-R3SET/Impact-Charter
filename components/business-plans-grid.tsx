@@ -3,91 +3,82 @@
 import { useState } from "react"
 import { PlanCard } from "./plan-card"
 import { PlansEmptyState } from "./plans-empty-state"
-import { RenamePlanDialog } from "./rename-plan-dialog"
-import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
+import { RefreshCw } from "lucide-react"
 import type { BusinessPlan } from "@/lib/airtable"
 
 interface BusinessPlansGridProps {
   plans: BusinessPlan[]
-  viewMode: "grid" | "list"
-  onCreatePlan: () => void
-  onRefresh: () => void
+  viewMode?: "grid" | "list"
+  isLoading?: boolean
+  onCreatePlan?: () => void
+  onRefresh?: () => void
 }
 
-export function BusinessPlansGrid({ plans, viewMode, onCreatePlan, onRefresh }: BusinessPlansGridProps) {
-  const [renameDialog, setRenameDialog] = useState<{ open: boolean; planId: string; currentName: string }>({
-    open: false,
-    planId: "",
-    currentName: "",
-  })
-  const { toast } = useToast()
+export function BusinessPlansGrid({
+  plans,
+  viewMode = "grid",
+  isLoading = false,
+  onCreatePlan,
+  onRefresh,
+}: BusinessPlansGridProps) {
+  const [refreshing, setRefreshing] = useState(false)
 
-  const handleRename = (planId: string, currentName: string) => {
-    setRenameDialog({ open: true, planId, currentName })
-  }
-
-  const handleRenameConfirm = async (newName: string) => {
-    try {
-      const response = await fetch(`/api/business-plans/${renameDialog.planId}/rename`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planName: newName }),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Plan renamed",
-          description: `Plan has been renamed to "${newName}".`,
-        })
-        onRefresh()
-      } else {
-        throw new Error("Failed to rename plan")
-      }
-    } catch (error) {
-      toast({
-        title: "Failed to rename",
-        description: "There was an error renaming the plan.",
-        variant: "destructive",
-      })
-    } finally {
-      setRenameDialog({ open: false, planId: "", currentName: "" })
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      setRefreshing(true)
+      await onRefresh()
+      setRefreshing(false)
     }
   }
 
-  const handleDelete = async (planId: string) => {
-    try {
-      const response = await fetch(`/api/business-plans/${planId}`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        onRefresh()
-      } else {
-        throw new Error("Failed to delete plan")
-      }
-    } catch (error) {
-      throw error // Re-throw to be handled by PlanCard
-    }
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-10 w-24 bg-muted animate-pulse rounded" />
+        </div>
+        <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-64 bg-muted animate-pulse rounded-lg" />
+          ))}
+        </div>
+      </div>
+    )
   }
 
-  if (plans.length === 0) {
+  if (!plans || plans.length === 0) {
     return <PlansEmptyState onCreatePlan={onCreatePlan} />
   }
 
   return (
-    <>
-      <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
-        {plans.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} viewMode={viewMode} onRename={handleRename} onDelete={handleDelete} />
-        ))}
+    <div className="space-y-6">
+      {/* Results header */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {plans.length} {plans.length === 1 ? "plan" : "plans"} found
+        </div>
+        {onRefresh && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="gap-2 bg-transparent"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        )}
       </div>
 
-      <RenamePlanDialog
-        open={renameDialog.open}
-        onOpenChange={(open) => setRenameDialog({ ...renameDialog, open })}
-        currentName={renameDialog.currentName}
-        onConfirm={handleRenameConfirm}
-      />
-    </>
+      {/* Plans grid/list */}
+      <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+        {plans.map((plan) => (
+          <PlanCard key={plan.id} plan={plan} viewMode={viewMode} />
+        ))}
+      </div>
+    </div>
   )
 }
