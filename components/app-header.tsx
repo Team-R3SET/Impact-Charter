@@ -16,7 +16,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw, Shield, AlertTriangle } from "lucide-react"
+import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw, Shield, AlertTriangle, Database } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
 import { RoleSwitcher } from "@/components/role-switcher"
@@ -277,6 +277,12 @@ export function AppHeader({ currentUser, currentPlanId, onUserChange }: AppHeade
                     <Link href="/admin">
                       <Shield className="mr-2 h-4 w-4" />
                       <span>Admin Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/airtable">
+                      <Database className="mr-2 h-4 w-4" />
+                      <span>Airtable Debug</span>
                     </Link>
                   </DropdownMenuItem>
                 </>
