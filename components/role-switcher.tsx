@@ -12,33 +12,29 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
-import { UserCog, Shield, UserIcon, Check } from "lucide-react"
-import type { User } from "@/lib/user-types"
+import { Users, Check, Shield, User } from "lucide-react"
+import type { User as UserType } from "@/lib/user-types"
 
 interface RoleSwitcherProps {
-  currentUser: User
-  onUserChange: (user: User) => void
-  availableUsers: User[]
+  currentUser: UserType
+  onUserChange: (user: UserType) => void
+  availableUsers: UserType[]
 }
 
 export function RoleSwitcher({ currentUser, onUserChange, availableUsers }: RoleSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false)
 
-  const handleUserSwitch = (user: User) => {
+  const handleUserSwitch = (user: UserType) => {
     onUserChange(user)
     setIsOpen(false)
   }
 
-  const getRoleIcon = (role: string) => {
-    return role === "administrator" ? Shield : UserIcon
-  }
-
-  const getRoleBadgeVariant = (role: string) => {
+  const getRoleColor = (role: string) => {
     return role === "administrator" ? "destructive" : "secondary"
   }
 
-  const getRoleColor = (role: string) => {
-    return role === "administrator" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"
+  const getRoleIcon = (role: string) => {
+    return role === "administrator" ? Shield : User
   }
 
   return (
@@ -47,58 +43,51 @@ export function RoleSwitcher({ currentUser, onUserChange, availableUsers }: Role
         <TooltipTrigger asChild>
           <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 h-8 px-3 gap-2">
-                <UserCog className="w-4 h-4" />
-                <Badge variant={getRoleBadgeVariant(currentUser.role)} className="text-xs">
-                  {currentUser.role === "administrator" ? "Admin" : "User"}
-                </Badge>
+              <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 h-10 w-10">
+                <Users className="w-5 h-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">Switch User Role</p>
-                  <p className="text-xs text-muted-foreground">Demo mode - switch between user types</p>
-                </div>
+            <DropdownMenuContent className="w-64" align="end">
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Switch User Role (Demo)
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {availableUsers.map((user) => {
-                const Icon = getRoleIcon(user.role)
+                const RoleIcon = getRoleIcon(user.role)
                 const isActive = user.id === currentUser.id
 
                 return (
-                  <DropdownMenuItem key={user.id} onClick={() => handleUserSwitch(user)} className="cursor-pointer">
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-1.5 rounded-full ${user.role === "administrator" ? "bg-red-100 dark:bg-red-900/20" : "bg-blue-100 dark:bg-blue-900/20"}`}
-                        >
-                          <Icon className={`w-3 h-3 ${getRoleColor(user.role)}`} />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{user.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {user.role === "administrator" ? "Administrator" : "Regular User"}
-                          </span>
-                        </div>
+                  <DropdownMenuItem
+                    key={user.id}
+                    onClick={() => handleUserSwitch(user)}
+                    className="flex items-center gap-3 p-3 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                        {user.name.charAt(0)}
                       </div>
-                      {isActive && <Check className="w-4 h-4 text-green-600" />}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{user.name}</span>
+                          <Badge variant={getRoleColor(user.role)} className="text-xs">
+                            <RoleIcon className="w-3 h-3 mr-1" />
+                            {user.role === "administrator" ? "Admin" : "User"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                        {user.company && <p className="text-xs text-muted-foreground">{user.company}</p>}
+                      </div>
                     </div>
+                    {isActive && <Check className="w-4 h-4 text-green-600" />}
                   </DropdownMenuItem>
                 )
               })}
-              <DropdownMenuSeparator />
-              <div className="px-2 py-1.5">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Shield className="w-3 h-3" />
-                  <span>Current: {currentUser.role === "administrator" ? "Full Access" : "Limited Access"}</span>
-                </div>
-              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Switch user role (Demo mode)</p>
+          <p>Switch User Role (Demo)</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
