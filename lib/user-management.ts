@@ -96,6 +96,14 @@ export const deleteUser = (id: string): boolean => {
   return true
 }
 
+/**
+ * Bulk-update helper used by admin tools.
+ * Returns the updated user objects (skips users that weren’t found).
+ */
+export const bulkUpdateUsers = (updates: Array<{ id: string; data: Partial<User> }>): User[] => {
+  return updates.map(({ id, data }) => updateUser(id, data)).filter(Boolean) as User[]
+}
+
 /* ------------------------------------------------------------------ */
 /*  Extra helpers required by other pages                              */
 /* ------------------------------------------------------------------ */
