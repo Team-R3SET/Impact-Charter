@@ -7,7 +7,7 @@ export interface Database {
         Row: {
           completed_at: string | null
           id: string
-          is_complete: boolean | null
+          is_complete: boolean
           modified_by_email: string | null
           plan_id: string
           section_content: string | null
@@ -17,7 +17,7 @@ export interface Database {
         Insert: {
           completed_at?: string | null
           id?: string
-          is_complete?: boolean | null
+          is_complete?: boolean
           modified_by_email?: string | null
           plan_id: string
           section_content?: string | null
@@ -27,7 +27,7 @@ export interface Database {
         Update: {
           completed_at?: string | null
           id?: string
-          is_complete?: boolean | null
+          is_complete?: boolean
           modified_by_email?: string | null
           plan_id?: string
           section_content?: string | null
@@ -49,7 +49,7 @@ export interface Database {
           id: string
           owner_id: string
           plan_name: string
-          status: string | null
+          status: string
           updated_at: string
         }
         Insert: {
@@ -57,7 +57,7 @@ export interface Database {
           id?: string
           owner_id: string
           plan_name: string
-          status?: string | null
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -65,7 +65,7 @@ export interface Database {
           id?: string
           owner_id?: string
           plan_name?: string
-          status?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: [
@@ -82,30 +82,30 @@ export interface Database {
           avatar_url: string | null
           bio: string | null
           company: string | null
-          email: string | null
+          email: string
           id: string
           name: string | null
-          role: string | null
+          role: string
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
           company?: string | null
-          email?: string | null
+          email: string
           id: string
           name?: string | null
-          role?: string | null
+          role?: string
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
           company?: string | null
-          email?: string | null
+          email?: string
           id?: string
           name?: string | null
-          role?: string | null
+          role?: string
           updated_at?: string | null
         }
         Relationships: [
