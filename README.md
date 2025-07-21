@@ -141,7 +141,7 @@ See the in-app `/settings` page for the exact keys you need.
    - In the deployment settings, add all your environment variables:
      - \`AIRTABLE_API_KEY\`
      - \`AIRTABLE_BASE_ID\`
-     - \`NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY\`
+     - \`LIVEBLOCKS_PUBLIC_KEY\`
      - \`LIVEBLOCKS_SECRET_KEY\`
 
 5. **Deploy**:
@@ -170,7 +170,7 @@ See the in-app `/settings` page for the exact keys you need.
    \`\`\`bash
    vercel env add AIRTABLE_API_KEY
    vercel env add AIRTABLE_BASE_ID
-   vercel env add NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY
+   vercel env add LIVEBLOCKS_PUBLIC_KEY
    vercel env add LIVEBLOCKS_SECRET_KEY
    \`\`\`
 
