@@ -1,76 +1,58 @@
 /**
  * liveblocks.config.ts
  *
- * Central re-exports so Vercel’s build can resolve the required symbols.
- * Nothing else is needed here.
+ * Central Liveblocks configuration.
+ * Creates a client, a typed Room context, and re-exports the four symbols
+ * the rest of the codebase (and the Vercel build) expect.
  *
- * If you need to customise any Liveblocks behaviour later, you can
- * replace these re-exports with wrapper functions/components.
+ * If you need more Liveblocks hooks, simply add them to the export list at
+ * the bottom. The generic parameters give you full type-safety for presence,
+ * shared storage, user metadata and custom events.
  */
 
-import { createClient } from "@liveblocks/client"
+import { createClient, type LiveList, type LiveObject } from "@liveblocks/client"
 import { createRoomContext } from "@liveblocks/react"
-import type { BusinessPlanSection, UserProfile } from "./lib/types"
-import type { LiveList, LiveObject } from "@liveblocks/client"
+import type { UserProfile } from "@/lib/types"
+
+/* -------------------------------------------------------------------------- */
+/* Liveblocks client                                                          */
+/* -------------------------------------------------------------------------- */
 
 const client = createClient({
-  authEndpoint: "/api/liveblocks-auth",
-  // Get your public key from https://liveblocks.io/dashboard
   publicApiKey: process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY!,
 })
 
-// Presence represents the properties that exist on every user in the Room
-// and that will be broadcasted to every other user as they change.
+/* -------------------------------------------------------------------------- */
+/* Strongly-typed room setup (customise as your app evolves)                  */
+/* -------------------------------------------------------------------------- */
+
+// Information each connected user shares in real-time
 type Presence = {
   cursor: { x: number; y: number } | null
-  // ... and anything else you want to share about your users
 }
 
-// Optionally, Storage represents the shared document that persists in the
-// Room, even after all users leave. Fields under Storage typically are
-// LiveList, LiveMap, LiveObject instances, for which updates are
-// automatically persisted and synced to all connected clients.
+// Document-level shared state (persisted by Liveblocks)
 type Storage = {
-  sections: LiveList<LiveObject<BusinessPlanSection>>
+  // Example: a list of business-plan sections edited collaboratively
+  // You can delete/replace this when wiring up actual storage objects.
+  sections: LiveList<LiveObject<{ id: string; title: string; content: string }>>
 }
 
-// Optionally, UserMeta represents static/readonly metadata on every user,
-// like their name or avatar. This info is returned from your auth endpoint.
+// Extra static metadata returned from your auth endpoint
 type UserMeta = {
   id: string
-  info: UserProfile
+  info?: UserProfile
 }
 
-// Optionally, the type of custom events broadcasted and listened to in this
-// room. Use a union for multiple events. e.g. CustomEvent = ... |...
-type RoomEvent = {
-  // type: "YOUR_EVENT_NAME",
-  // payload: {...}
-}
+// Shape of custom broadcast events (unused for now)
+type RoomEvent = never
 
-export const {
-  RoomProvider,
-  useRoom,
-  useMyPresence,
-  useUpdateMyPresence,
-  useSelf,
-  useOthers,
-  useOthersMapped,
-  useOthersConnectionIds,
-  useOther,
-  useBroadcastEvent,
-  useEventListener,
-  useErrorListener,
-  useStorage,
-  useObject,
-  useMap,
-  useList,
-  useHistory,
-  useUndo,
-  useRedo,
-  useCanUndo,
-  useCanRedo,
-  useMutation,
-  useStatus,
-  useLostConnectionListener,
-} = createRoomContext<Presence, Storage, UserMeta, RoomEvent>(client)
+// createRoomContext returns every React hook you need.
+// We only export the four that the build currently requires, but you’re free
+// to re-export more.
+export const { RoomProvider, useRoom, useStorage, useMutation } = createRoomContext<
+  Presence,
+  Storage,
+  UserMeta,
+  RoomEvent
+>(client)
