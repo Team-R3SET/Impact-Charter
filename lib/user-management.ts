@@ -64,6 +64,12 @@ const mockUsers: User[] = [
   },
 ]
 
+// --- NEW: expose demo users for components like <RoleSwitcher /> ---
+export function getDemoUsers(): User[] {
+  // Return a shallow copy so consumers don’t mutate the source array
+  return [...mockUsers]
+}
+
 export async function getAllUsers(): Promise<User[]> {
   // Simulate API delay
   await new Promise((resolve) => setTimeout(resolve, 500))
