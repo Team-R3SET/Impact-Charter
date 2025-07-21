@@ -1,147 +1,188 @@
-import type { User } from "@/lib/user-types"
+import type { User, UserRole } from "./user-types"
 
-// Demo users for role switching
-export function getDemoUsers(): User[] {
-  return [
-    {
-      id: "admin-1",
-      name: "Demo Admin",
-      email: "admin@example.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=admin@example.com",
-      role: "administrator",
-      company: "System Administration",
-      department: "IT",
-      createdDate: new Date().toISOString(),
-      isActive: true,
+// Demo users for testing
+const DEMO_USERS: User[] = [
+  {
+    id: "admin-1",
+    email: "admin@example.com",
+    name: "Admin User",
+    role: "admin",
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    lastLoginAt: new Date("2024-01-20"),
+    preferences: {
+      theme: "light",
+      notifications: true,
+      autoSave: true,
     },
-    {
-      id: "user-1",
-      name: "John Doe",
-      email: "john@startup.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=john@startup.com",
-      role: "regular",
-      company: "Startup Inc",
-      department: "Business Development",
-      createdDate: new Date().toISOString(),
-      isActive: true,
+  },
+  {
+    id: "user-1",
+    email: "user@example.com",
+    name: "Regular User",
+    role: "user",
+    isActive: true,
+    createdAt: new Date("2024-01-15"),
+    lastLoginAt: new Date("2024-01-19"),
+    preferences: {
+      theme: "dark",
+      notifications: false,
+      autoSave: true,
     },
-    {
-      id: "user-2",
-      name: "Jane Smith",
-      email: "jane@innovation.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=jane@innovation.com",
-      role: "regular",
-      company: "Innovation Corp",
-      department: "Strategy",
-      createdDate: new Date().toISOString(),
-      isActive: true,
+  },
+  {
+    id: "user-2",
+    email: "jane@example.com",
+    name: "Jane Smith",
+    role: "user",
+    isActive: true,
+    createdAt: new Date("2024-01-10"),
+    lastLoginAt: new Date("2024-01-18"),
+    preferences: {
+      theme: "light",
+      notifications: true,
+      autoSave: false,
     },
-  ]
+  },
+]
+
+// Current user state (in a real app, this would come from your auth system)
+let currentUserId = "admin-1"
+
+export function getCurrentUser(email?: string): Promise<User | null> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      if (email) {
+        const user = DEMO_USERS.find((u) => u.email === email)
+        resolve(user || null)
+      } else {
+        const user = DEMO_USERS.find((u) => u.id === currentUserId)
+        resolve(user || null)
+      }
+    }, 100)
+  })
 }
 
-// ---- new code ----
-let users: User[] = getDemoUsers()
-// ------------------
+export function switchUser(userId: string): void {
+  const user = DEMO_USERS.find((u) => u.id === userId)
+  if (user) {
+    currentUserId = userId
+  }
+}
 
-// Role checking functions
-export function isAdministrator(user: User): boolean {
-  return user.role === "administrator"
+export function getAllUsers(): Promise<User[]> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([...DEMO_USERS])
+    }, 200)
+  })
 }
 
 export function canAccessAdminFeatures(user: User): boolean {
-  return isAdministrator(user)
+  return user.role === "admin" && user.isActive
 }
 
-export function canViewLogs(user: User): boolean {
-  return isAdministrator(user)
+export function canEditPlans(user: User): boolean {
+  return user.isActive && (user.role === "admin" || user.role === "user")
 }
 
-export function canManageUsers(user: User): boolean {
-  return isAdministrator(user)
+export function canViewAnalytics(user: User): boolean {
+  return user.role === "admin" && user.isActive
 }
 
-export async function getCurrentUser(email: string): Promise<User | null> {
-  const user = users.find((u) => u.email === email && u.isActive)
-  if (user) {
-    user.lastLoginDate = new Date().toISOString()
-  }
-  return user || null
+export function deactivateUser(userId: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const userIndex = DEMO_USERS.findIndex((u) => u.id === userId)
+      if (userIndex !== -1) {
+        DEMO_USERS[userIndex].isActive = false
+        resolve(true)
+      } else {
+        resolve(false)
+      }
+    }, 300)
+  })
 }
 
-export async function deactivateUser(userId: string): Promise<boolean> {
-  const idx = users.findIndex((u) => u.id === userId)
-  if (idx !== -1) {
-    users[idx].isActive = false
-    return true
-  }
-  return false
+export function activateUser(userId: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const userIndex = DEMO_USERS.findIndex((u) => u.id === userId)
+      if (userIndex !== -1) {
+        DEMO_USERS[userIndex].isActive = true
+        resolve(true)
+      } else {
+        resolve(false)
+      }
+    }, 300)
+  })
 }
 
-export async function getUserStats(): Promise<{
-  total: number
-  active: number
-  administrators: number
-  regular: number
+export function updateUserRole(userId: string, role: UserRole): Promise<boolean> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const userIndex = DEMO_USERS.findIndex((u) => u.id === userId)
+      if (userIndex !== -1) {
+        DEMO_USERS[userIndex].role = role
+        resolve(true)
+      } else {
+        resolve(false)
+      }
+    }, 300)
+  })
+}
+
+export function getUserStats(): Promise<{
+  totalUsers: number
+  activeUsers: number
+  adminUsers: number
   recentLogins: number
 }> {
-  const total = users.length
-  const active = users.filter((u) => u.isActive).length
-  const administrators = users.filter((u) => u.role === "administrator" && u.isActive).length
-  const regular = users.filter((u) => u.role === "regular" && u.isActive).length
-  const recentLogins = users.filter(
-    (u) => u.lastLoginDate && new Date(u.lastLoginDate) > new Date(Date.now() - 24 * 60 * 60 * 1000),
-  ).length
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const totalUsers = DEMO_USERS.length
+      const activeUsers = DEMO_USERS.filter((u) => u.isActive).length
+      const adminUsers = DEMO_USERS.filter((u) => u.role === "admin").length
+      const recentLogins = DEMO_USERS.filter((u) => {
+        const dayAgo = new Date()
+        dayAgo.setDate(dayAgo.getDate() - 1)
+        return u.lastLoginAt && u.lastLoginAt > dayAgo
+      }).length
 
-  return { total, active, administrators, regular, recentLogins }
+      resolve({
+        totalUsers,
+        activeUsers,
+        adminUsers,
+        recentLogins,
+      })
+    }, 250)
+  })
 }
 
-// User CRUD operations (demo implementation)
-export async function createUser(userData: Omit<User, "id" | "createdDate">): Promise<User> {
-  const newUser: User = {
-    ...userData,
-    id: `user-${Date.now()}`,
-    createdDate: new Date().toISOString(),
-  }
-
-  users.push(newUser)
-
-  // In a real app, this would save to a database
-  console.log("Creating user:", newUser)
-  return newUser
+export function createUser(userData: Omit<User, "id" | "createdAt">): Promise<User> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const newUser: User = {
+        ...userData,
+        id: `user-${Date.now()}`,
+        createdAt: new Date(),
+      }
+      DEMO_USERS.push(newUser)
+      resolve(newUser)
+    }, 400)
+  })
 }
 
-export async function updateUser(userId: string, updates: Partial<User>): Promise<User | null> {
-  // In a real app, this would update the database
-  console.log("Updating user:", userId, updates)
-
-  const userIndex = users.findIndex((u) => u.id === userId)
-
-  if (userIndex !== -1) {
-    users[userIndex] = { ...users[userIndex], ...updates }
-    return users[userIndex]
-  }
-
-  return null
-}
-
-export async function deleteUser(userId: string): Promise<boolean> {
-  // In a real app, this would delete from the database
-  console.log("Deleting user:", userId)
-  users = users.filter((user) => user.id !== userId)
-  return true
-}
-
-export async function getAllUsers(): Promise<User[]> {
-  // In a real app, this would fetch from the database
-  return users
-}
-
-export async function getUserById(userId: string): Promise<User | null> {
-  const user = users.find((user) => user.id === userId)
-  return user || null
-}
-
-export async function getUserByEmail(email: string): Promise<User | null> {
-  const user = users.find((user) => user.email === email)
-  return user || null
+export function updateUser(userId: string, updates: Partial<User>): Promise<User | null> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const userIndex = DEMO_USERS.findIndex((u) => u.id === userId)
+      if (userIndex !== -1) {
+        DEMO_USERS[userIndex] = { ...DEMO_USERS[userIndex], ...updates }
+        resolve(DEMO_USERS[userIndex])
+      } else {
+        resolve(null)
+      }
+    }, 300)
+  })
 }
