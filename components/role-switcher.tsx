@@ -17,13 +17,19 @@ import type { User } from "@/lib/user-types"
 import { getDemoUsers } from "@/lib/user-management"
 
 interface RoleSwitcherProps {
-  currentUser: User
-  onUserChange: (user: User) => void
+  currentUser?: User
+  onUserChange?: (user: User) => void
   availableUsers?: User[]
 }
 
 export function RoleSwitcher({ currentUser, onUserChange, availableUsers }: RoleSwitcherProps) {
   const usersToShow = availableUsers && availableUsers.length > 0 ? availableUsers : getDemoUsers()
+
+  // If `currentUser` wasn’t passed in, default to the first available user.
+  const activeUser = currentUser ?? usersToShow[0]
+
+  // Prevent runtime crashes if the parent forgot to pass `onUserChange`.
+  const handleUserChange = onUserChange ?? (() => {})
 
   return (
     <TooltipProvider>
@@ -36,10 +42,10 @@ export function RoleSwitcher({ currentUser, onUserChange, availableUsers }: Role
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>Switch User Role (Demo)</DropdownMenuLabel>
+              <DropdownMenuLabel>Switch User Role</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {usersToShow.map((user) => (
-                <DropdownMenuItem key={user.id} onClick={() => onUserChange(user)} className="cursor-pointer p-3">
+                <DropdownMenuItem key={user.id} onClick={() => handleUserChange(user)} className="cursor-pointer p-3">
                   <div className="flex items-center gap-3 w-full">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
@@ -62,7 +68,7 @@ export function RoleSwitcher({ currentUser, onUserChange, availableUsers }: Role
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{user.company}</p>
                     </div>
-                    {currentUser.id === user.id && <Check className="w-4 h-4 text-green-500" />}
+                    {activeUser?.id === user.id && <Check className="w-4 h-4 text-green-500" />}
                   </div>
                 </DropdownMenuItem>
               ))}
