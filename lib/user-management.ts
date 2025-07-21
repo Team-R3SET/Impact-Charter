@@ -36,6 +36,39 @@ export function getDemoUsers(): User[] {
       createdDate: new Date().toISOString(),
       isActive: true,
     },
+    {
+      id: "user-3",
+      name: "Mike Johnson",
+      email: "mike@techcorp.com",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike@techcorp.com",
+      role: "regular",
+      company: "TechCorp",
+      department: "Engineering",
+      createdDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      isActive: true,
+    },
+    {
+      id: "user-4",
+      name: "Sarah Wilson",
+      email: "sarah@designstudio.com",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah@designstudio.com",
+      role: "regular",
+      company: "Design Studio",
+      department: "Creative",
+      createdDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      isActive: false,
+    },
+    {
+      id: "user-5",
+      name: "David Brown",
+      email: "david@consulting.com",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=david@consulting.com",
+      role: "regular",
+      company: "Consulting Group",
+      department: "Operations",
+      createdDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      isActive: true,
+    },
   ]
 }
 
@@ -72,6 +105,15 @@ export async function deactivateUser(userId: string): Promise<boolean> {
   const idx = users.findIndex((u) => u.id === userId)
   if (idx !== -1) {
     users[idx].isActive = false
+    return true
+  }
+  return false
+}
+
+export async function activateUser(userId: string): Promise<boolean> {
+  const idx = users.findIndex((u) => u.id === userId)
+  if (idx !== -1) {
+    users[idx].isActive = true
     return true
   }
   return false
@@ -144,4 +186,60 @@ export async function getUserById(userId: string): Promise<User | null> {
 export async function getUserByEmail(email: string): Promise<User | null> {
   const user = users.find((user) => user.email === email)
   return user || null
+}
+
+export async function resetUserPassword(userId: string): Promise<{ success: boolean; temporaryPassword?: string }> {
+  const user = users.find((u) => u.id === userId)
+  if (!user) {
+    return { success: false }
+  }
+
+  // Generate a temporary password
+  const temporaryPassword = Math.random().toString(36).slice(-8)
+
+  // In a real app, this would hash the password and save to database
+  console.log(`Password reset for user ${user.email}: ${temporaryPassword}`)
+
+  return { success: true, temporaryPassword }
+}
+
+export async function bulkUpdateUsers(userIds: string[], updates: Partial<User>): Promise<number> {
+  let updatedCount = 0
+
+  for (const userId of userIds) {
+    const userIndex = users.findIndex((u) => u.id === userId)
+    if (userIndex !== -1) {
+      users[userIndex] = { ...users[userIndex], ...updates }
+      updatedCount++
+    }
+  }
+
+  console.log(`Bulk updated ${updatedCount} users:`, updates)
+  return updatedCount
+}
+
+export async function searchUsers(query: string): Promise<User[]> {
+  const lowercaseQuery = query.toLowerCase()
+  return users.filter(
+    (user) =>
+      user.name.toLowerCase().includes(lowercaseQuery) ||
+      user.email.toLowerCase().includes(lowercaseQuery) ||
+      user.company?.toLowerCase().includes(lowercaseQuery) ||
+      user.department?.toLowerCase().includes(lowercaseQuery),
+  )
+}
+
+export async function filterUsers(filters: {
+  role?: string
+  isActive?: boolean
+  company?: string
+  department?: string
+}): Promise<User[]> {
+  return users.filter((user) => {
+    if (filters.role && user.role !== filters.role) return false
+    if (filters.isActive !== undefined && user.isActive !== filters.isActive) return false
+    if (filters.company && user.company !== filters.company) return false
+    if (filters.department && user.department !== filters.department) return false
+    return true
+  })
 }

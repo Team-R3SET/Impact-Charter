@@ -348,22 +348,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Need help?** Open an issue or reach out to the community!
 
 **Happy building!** 🚀
-# Impact-Charter
-
-## Purpose
-
-### Mission
-
-### Vision
-
-### Values
-
-## Context
-
-### Stakeholders
-
-### Risks
-
-## Contact
-
-## Credits

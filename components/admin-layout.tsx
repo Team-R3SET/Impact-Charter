@@ -46,7 +46,6 @@ const navigationItems: NavigationItem[] = [
     href: "/admin/users",
     icon: Users,
     description: "Manage users and permissions",
-    badge: "Soon",
   },
   {
     id: "airtable",

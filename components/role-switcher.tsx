@@ -1,6 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,76 +11,96 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
-import { Users, Check, Shield, UserIcon } from "lucide-react"
-import type { User } from "@/lib/user-types"
+import { ChevronDown, Shield } from "lucide-react"
 import { getDemoUsers } from "@/lib/user-management"
+import type { User as UserType } from "@/lib/user-types"
 
 interface RoleSwitcherProps {
-  currentUser?: User
-  onUserChange?: (user: User) => void
-  availableUsers?: User[]
+  currentUser?: UserType | null
+  onUserChange?: (user: UserType) => void
+  availableUsers?: UserType[]
 }
 
 export function RoleSwitcher({ currentUser, onUserChange, availableUsers }: RoleSwitcherProps) {
-  const usersToShow = availableUsers && availableUsers.length > 0 ? availableUsers : getDemoUsers()
+  const demoUsers = getDemoUsers()
+  const users = availableUsers || demoUsers
+  const activeUser = currentUser || users[0]
 
-  // If `currentUser` wasn’t passed in, default to the first available user.
-  const activeUser = currentUser ?? usersToShow[0]
+  const [isOpen, setIsOpen] = useState(false)
 
-  // Prevent runtime crashes if the parent forgot to pass `onUserChange`.
-  const handleUserChange = onUserChange ?? (() => {})
+  const handleUserSelect = (user: UserType) => {
+    if (onUserChange) {
+      onUserChange(user)
+    }
+    setIsOpen(false)
+  }
+
+  if (!activeUser) {
+    return null
+  }
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 h-10 w-10">
-                <Users className="w-5 h-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>Switch User Role</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {usersToShow.map((user) => (
-                <DropdownMenuItem key={user.id} onClick={() => handleUserChange(user)} className="cursor-pointer p-3">
-                  <div className="flex items-center gap-3 w-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                      <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{user.name}</p>
-                        {user.role === "administrator" ? (
-                          <Badge variant="destructive" className="text-xs">
-                            <Shield className="w-3 h-3 mr-1" />
-                            Admin
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">
-                            <UserIcon className="w-3 h-3 mr-1" />
-                            User
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{user.company}</p>
-                    </div>
-                    {activeUser?.id === user.id && <Check className="w-4 h-4 text-green-500" />}
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Switch User Role (Demo)</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="flex items-center gap-2 h-auto p-2 bg-transparent">
+          <Avatar className="h-6 w-6">
+            <AvatarImage src={activeUser.avatar || "/placeholder.svg"} alt={activeUser.name} />
+            <AvatarFallback className="text-xs">
+              {activeUser.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col items-start">
+            <span className="text-sm font-medium">{activeUser.name}</span>
+            <Badge variant={activeUser.role === "administrator" ? "destructive" : "secondary"} className="text-xs h-4">
+              {activeUser.role === "administrator" ? "Admin" : "User"}
+            </Badge>
+          </div>
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel>Switch Role (Demo)</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {users.map((user) => (
+          <DropdownMenuItem
+            key={user.id}
+            onClick={() => handleUserSelect(user)}
+            className="flex items-center gap-3 p-3"
+          >
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+              <AvatarFallback className="text-xs">
+                {user.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{user.name}</span>
+                {user.role === "administrator" ? (
+                  <Shield className="h-3 w-3 text-red-500" />
+                ) : (
+                  <span className="h-3 w-3 text-blue-500">U</span>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">{user.email}</span>
+              <Badge
+                variant={user.role === "administrator" ? "destructive" : "secondary"}
+                className="text-xs h-4 w-fit mt-1"
+              >
+                {user.role === "administrator" ? "Administrator" : "Regular User"}
+              </Badge>
+            </div>
+            {activeUser.id === user.id && <div className="w-2 h-2 bg-green-500 rounded-full" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
