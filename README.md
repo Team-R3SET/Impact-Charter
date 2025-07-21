@@ -1,184 +1,106 @@
-# Impact Charter - Business Plan Builder
+# Business Planning App
 
-A collaborative business plan editor built with Next.js, featuring real-time collaboration, Airtable integration, and comprehensive admin tools.
+A collaborative business plan builder with real-time editing, Airtable integration, and live presence indicators. Built with Next.js, Liveblocks, and Airtable.
 
-## Features
+## ✨ Features
 
-- **Real-time Collaboration**: Multiple users can edit business plans simultaneously
-- **Business Plan Templates**: Pre-structured sections for comprehensive business planning
-- **User Management**: Complete admin dashboard for user administration
-- **Airtable Integration**: Seamless data storage and retrieval
-- **Responsive Design**: Works on desktop and mobile devices
-- **Theme Support**: Light and dark mode support
+-   **Real-time Collaborative Editing**: Multiple users can edit business plans simultaneously.
+-   **Airtable Integration**: Automatic saving and syncing with your personal Airtable base.
+-   **Live Presence Indicators**: See who's currently editing each section.
+-   **Section-based Organization**: Structured business plan sections (Executive Summary, Market Analysis, etc.).
+-   **Mark as Complete**: Track completion status and submission for review.
+-   **User Profiles**: Customizable user profiles with avatar support.
+-   **Responsive Design**: Works seamlessly on desktop and mobile devices.
+-   **Dark/Light Mode**: Toggle between themes for comfortable editing.
 
-## Tech Stack
-
-- **Framework**: Next.js 14 with App Router
-- **Styling**: Tailwind CSS + shadcn/ui components
-- **Database**: Airtable
-- **Real-time**: Liveblocks for collaborative editing
-- **Authentication**: Custom user management system
-- **Deployment**: Vercel
-
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ 
-- npm or yarn
-- Airtable account and API key
+Before you begin, ensure you have:
+-   Node.js 18+ installed
+-   A GitHub account
+-   A Vercel account
+-   An Airtable account (free tier works)
 
-### Installation
+➡️ **Environment Variables**
+This project requires several environment variables to function. You will need to add these in your Vercel project settings (Project → Settings → Environment Variables). See the in-app `/settings` page or the sections below for the required keys.
 
-1. Clone the repository:
-\`\`\`bash
-git clone <repository-url>
-cd impact-charter-app
-\`\`\`
+### 1. Fork and Clone the Repository
 
-2. Install dependencies:
-\`\`\`bash
-npm install
-\`\`\`
+1.  **Fork this repository** to your GitHub account.
+2.  **Clone your fork** to your local machine:
+  \`\`\`bash
+  git clone https://github.com/YOUR_USERNAME/business-planning-app.git
+  cd business-planning-app
+  \`\`\`
+3.  **Install dependencies**:
+  \`\`\`bash
+  npm install
+  \`\`\`
 
-3. Set up environment variables:
-Create a `.env.local` file in the root directory with the following variables:
+### 2. Set Up Airtable
 
-\`\`\`env
-# Airtable Configuration
-AIRTABLE_API_KEY=your_airtable_api_key
-AIRTABLE_BASE_ID=your_airtable_base_id
+#### Create Your Airtable Base
 
-# Liveblocks Configuration (for real-time collaboration)
-LIVEBLOCKS_SECRET_KEY=your_liveblocks_secret_key
+1.  **Sign up** for Airtable at [airtable.com](https://airtable.com).
+2.  **Create a new base** called "Business Planning App".
+3.  **Create the following tables** with these exact names:
+  -   `Business Plans`
+  -   `Business Plan Sections`
+  -   `User Profiles`
 
-# Database Configuration (if using Supabase)
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-\`\`\`
+  For the required fields in each table, please refer to `lib/airtable.ts`.
 
-4. Run the development server:
-\`\`\`bash
-npm run dev
-\`\`\`
+#### Get Your Airtable Credentials
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+1.  **Get your Base ID**: Go to your Airtable base, click "Help" → "API documentation". Your Base ID starts with `app`.
+2.  **Create a Personal Access Token**: Go to [airtable.com/create/tokens](https://airtable.com/create/tokens), create a new token with `data.records:read`, `data.records:write`, and `schema.bases:read` scopes, and grant it access to your base.
 
-## Project Structure
+### 3. Set Up Liveblocks (Real-time Collaboration)
 
-\`\`\`
-├── app/                    # Next.js App Router pages
-│   ├── admin/             # Admin dashboard pages
-│   ├── api/               # API routes
-│   ├── plan/              # Business plan editor pages
-│   └── ...
-├── components/            # React components
-│   ├── ui/               # shadcn/ui components
-│   └── ...
-├── lib/                  # Utility functions and configurations
-│   ├── airtable.ts       # Airtable client and operations
-│   ├── liveblocks.ts     # Real-time collaboration setup
-│   └── ...
-└── public/               # Static assets
-\`\`\`
+1.  **Sign up** at [liveblocks.io](https://liveblocks.io).
+2.  **Create a new project**.
+3.  **Get your API keys**: From your project dashboard, copy the **Public Key** (starts with `pk_`) and the **Secret Key** (starts with `sk_`).
 
-## Key Components
+### 4. Deploy to Vercel
 
-### Business Plan Editor
-- Collaborative text editing with real-time updates
-- Section-based organization (Executive Summary, Market Analysis, etc.)
-- Progress tracking and completion status
-- Auto-save functionality
+1.  **Push your code** to your forked GitHub repository.
+2.  Go to [vercel.com](https://vercel.com) and import your repository to create a new project.
+3.  **Configure Environment Variables**: In the Vercel project settings, add the following variables:
+  -   `AIRTABLE_API_KEY`: Your Airtable Personal Access Token.
+  -   `AIRTABLE_BASE_ID`: Your Airtable Base ID.
+  -   `NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY`: Your Liveblocks Public Key.
+  -   `LIVEBLOCKS_SECRET_KEY`: Your Liveblocks Secret Key.
+4.  **Deploy**. Vercel will build and deploy your application.
 
-### Admin Dashboard
-- User management and role assignment
-- System logs and error tracking
-- Airtable connection management
-- Bulk operations support
+## 🔧 Configuration
 
-### Real-time Collaboration
-- Live cursors and user presence
-- Conflict-free collaborative editing
-- Activity notifications
-- Session management
+The application is configured primarily through environment variables. Once deployed, individual users can also navigate to the `/settings` page to configure their personal Airtable credentials if they wish to connect to their own base.
 
-## API Routes
+## 🐛 Troubleshooting
 
-### Business Plans
-- `GET /api/business-plans` - List all business plans
-- `POST /api/business-plans` - Create new business plan
-- `PUT /api/business-plans/[id]` - Update business plan
-- `DELETE /api/business-plans/[id]` - Delete business plan
+### Real-time collaboration not working
 
-### User Management
-- `GET /api/admin/users` - List all users
-- `POST /api/admin/users` - Create new user
-- `PUT /api/admin/users/[id]` - Update user
-- `DELETE /api/admin/users/[id]` - Delete user
+-   **Problem**: Liveblocks configuration issue.
+-   **Solution**:
+  -   Verify your Liveblocks Public Key is set correctly in your Vercel environment variables.
+  -   Ensure your Liveblocks Secret Key is also set correctly.
+  -   Check the browser console for any Liveblocks-related errors.
 
-### System Administration
-- `GET /api/admin/logs` - System logs
-- `GET /api/admin/airtable/connection` - Test Airtable connection
-- `POST /api/admin/airtable/test` - Validate Airtable setup
+### Airtable connection failed
 
-## Configuration
+-   **Problem**: Invalid Airtable credentials or incorrect table names.
+-   **Solution**:
+  -   Double-check your `AIRTABLE_API_KEY` and `AIRTABLE_BASE_ID` in Vercel.
+  -   Ensure your Airtable table and field names match what is expected in the application code (`lib/airtable.ts`).
 
-### Airtable Setup
-1. Create an Airtable base with the following tables:
-   - `BusinessPlans` - Store business plan data
-   - `Users` - User management
-   - `SystemLogs` - Application logs
+## 🔒 Security Best Practices
 
-2. Configure field mappings in `lib/airtable.ts`
+-   **Never commit** `.env.local` files or other files containing secrets to version control.
+-   Use Vercel's Environment Variables UI to manage all keys for production and preview deployments.
+-   Regularly rotate your API keys and tokens.
 
-### Liveblocks Setup
-1. Create a Liveblocks account
-2. Set up authentication endpoint
-3. Configure room permissions
+---
 
-## Deployment
-
-### Vercel Deployment
-1. Connect your repository to Vercel
-2. Configure environment variables in Vercel dashboard
-3. Deploy automatically on push to main branch
-
-### Environment Variables for Production
-Ensure all required environment variables are set in your deployment platform:
-- Airtable credentials
-- Liveblocks configuration
-- Database connections (if applicable)
-
-## Development
-
-### Running Tests
-\`\`\`bash
-npm run test
-\`\`\`
-
-### Building for Production
-\`\`\`bash
-npm run build
-\`\`\`
-
-### Linting
-\`\`\`bash
-npm run lint
-\`\`\`
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
-
-## Support
-
-For support and questions, please contact the development team or create an issue in the repository.
+**Happy building!** 🚀
