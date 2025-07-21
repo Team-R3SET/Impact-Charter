@@ -39,12 +39,13 @@ export default function PlansPage() {
       setIsLoading(true)
       const response = await fetch(`/api/business-plans?owner=${encodeURIComponent(currentUser.email)}`)
 
-      if (response.ok) {
-        const data = await response.json()
-        setPlans(data)
-      } else {
-        throw new Error("Failed to fetch plans")
-      }
+      if (!response.ok) throw new Error("Failed to fetch plans")
+
+      // 🔑 Coerce whatever the backend returns into a plain array
+      const json = await response.json()
+      const parsed = Array.isArray(json) ? json : Array.isArray(json?.plans) ? json.plans : []
+
+      setPlans(parsed as BusinessPlan[])
     } catch (error) {
       console.error("Error fetching plans:", error)
       toast({
@@ -52,8 +53,7 @@ export default function PlansPage() {
         description: "There was an error loading your business plans. Using local data.",
         variant: "destructive",
       })
-      // Fallback to empty array - local storage will be used by the components
-      setPlans([])
+      setPlans([]) // fallback array
     } finally {
       setIsLoading(false)
     }
@@ -65,19 +65,18 @@ export default function PlansPage() {
 
   // Filter and sort plans
   const filteredAndSortedPlans = useMemo(() => {
-    let filtered = plans
+    // ✅ Always work with an array
+    let filtered: BusinessPlan[] = Array.isArray(plans) ? [...plans] : []
 
-    // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter((plan) => plan.planName.toLowerCase().includes(searchQuery.toLowerCase()))
     }
 
-    // Apply status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter((plan) => plan.status === statusFilter)
     }
 
-    // Apply sorting
+    // Safe to call .sort now
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "planName":
