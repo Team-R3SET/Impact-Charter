@@ -20,6 +20,7 @@ import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw, Shield, AlertT
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
 import { RoleSwitcher } from "@/components/role-switcher"
+import { useUser } from "@/contexts/user-context"
 import { getDemoUsers } from "@/lib/user-management"
 import type { BusinessPlan } from "@/lib/airtable"
 import type { User as UserType } from "@/lib/user-types"
@@ -36,12 +37,10 @@ export function AppHeader({ currentUser, currentPlanId, onUserChange }: AppHeade
   const [isRefreshing, setIsRefreshing] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
+  const { user: contextUser, login, logout } = useUser()
 
-  // Get demo users for role switching
-  const demoUsers = getDemoUsers()
-
-  // Default user if none provided
-  const user = currentUser || demoUsers[1] // Default to regular user
+  // Use context user if available, otherwise fall back to prop
+  const user = contextUser || currentUser || getDemoUsers()[1]
 
   // Check if we're on a plan page (for showing live features)
   const isOnPlanPage = pathname.startsWith("/plan/")
@@ -99,9 +98,15 @@ export function AppHeader({ currentUser, currentPlanId, onUserChange }: AppHeade
   }
 
   const handleUserChange = (newUser: UserType) => {
+    login(newUser)
     if (onUserChange) {
       onUserChange(newUser)
     }
+  }
+
+  const handleLogout = () => {
+    logout()
+    router.push("/")
   }
 
   return (
@@ -220,7 +225,7 @@ export function AppHeader({ currentUser, currentPlanId, onUserChange }: AppHeade
             {isOnPlanPage && <NotificationsDropdown />}
 
             {/* Role Switcher */}
-            <RoleSwitcher currentUser={user} onUserChange={handleUserChange} availableUsers={demoUsers} />
+            <RoleSwitcher currentUser={user} onUserChange={handleUserChange} availableUsers={getDemoUsers()} />
 
             {/* Theme Switcher */}
             <ThemeSwitcher />
@@ -287,7 +292,7 @@ export function AppHeader({ currentUser, currentPlanId, onUserChange }: AppHeade
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>

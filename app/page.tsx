@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AppHeader } from "@/components/app-header"
+import { useUser } from "@/contexts/user-context"
 import { getDemoUsers } from "@/lib/user-management"
 import {
   FileText,
@@ -26,17 +27,31 @@ import type { User } from "@/lib/user-types"
 export default function HomePage() {
   const [planName, setPlanName] = useState("")
   const [isCreating, setIsCreating] = useState(false)
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    const demoUsers = getDemoUsers()
-    return demoUsers[1] // Default to regular user
-  })
+  const { user: currentUser, login, isLoading } = useUser()
   const router = useRouter()
+
+  // Initialize with demo user if not authenticated
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      const demoUsers = getDemoUsers()
+      login(demoUsers[1]) // Default to regular user
+    }
+  }, [currentUser, isLoading, login])
 
   const handleCreatePlan = async () => {
     if (!planName.trim()) {
       toast({
         title: "Plan name required",
         description: "Please enter a name for your business plan.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!currentUser) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to create a business plan.",
         variant: "destructive",
       })
       return
@@ -83,7 +98,49 @@ export default function HomePage() {
   }
 
   const handleUserChange = (user: User) => {
-    setCurrentUser(user)
+    login(user)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading your workspace...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <Card className="w-96">
+          <CardHeader>
+            <CardTitle>Authentication Required</CardTitle>
+            <CardDescription>Please select a demo user to continue</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {getDemoUsers().map((user) => (
+              <Button
+                key={user.id}
+                variant="outline"
+                className="w-full justify-start bg-transparent"
+                onClick={() => login(user)}
+              >
+                <div className="flex items-center gap-3">
+                  <img src={user.avatar || "/placeholder.svg"} alt={user.name} className="w-8 h-8 rounded-full" />
+                  <div className="text-left">
+                    <div className="font-medium">{user.name}</div>
+                    <div className="text-sm text-muted-foreground">{user.role}</div>
+                  </div>
+                </div>
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const isAdmin = currentUser.role === "administrator"
