@@ -14,14 +14,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 import { Users, Check, Shield, UserIcon } from "lucide-react"
 import type { User } from "@/lib/user-types"
+import { getDemoUsers } from "@/lib/user-management"
 
 interface RoleSwitcherProps {
   currentUser: User
   onUserChange: (user: User) => void
-  availableUsers: User[]
+  availableUsers?: User[]
 }
 
 export function RoleSwitcher({ currentUser, onUserChange, availableUsers }: RoleSwitcherProps) {
+  const usersToShow = availableUsers && availableUsers.length > 0 ? availableUsers : getDemoUsers()
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -35,7 +38,7 @@ export function RoleSwitcher({ currentUser, onUserChange, availableUsers }: Role
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel>Switch User Role (Demo)</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {availableUsers.map((user) => (
+              {usersToShow.map((user) => (
                 <DropdownMenuItem key={user.id} onClick={() => onUserChange(user)} className="cursor-pointer p-3">
                   <div className="flex items-center gap-3 w-full">
                     <Avatar className="h-8 w-8">
