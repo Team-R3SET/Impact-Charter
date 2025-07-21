@@ -6,196 +6,214 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AppHeader } from "@/components/app-header"
-import { FileText, Users, BarChart3, Zap, CheckCircle, ArrowRight, Sparkles } from "lucide-react"
+import { getDemoUsers } from "@/lib/user-management"
+import { FileText, Users, BarChart3, Shield, Zap, Globe, CheckCircle, ArrowRight } from "lucide-react"
 import type { User } from "@/lib/user-types"
 
 export default function HomePage() {
-  const [currentUser, setCurrentUser] = useState<User>({
-    id: "user-1",
-    name: "John Doe",
-    email: "john@example.com",
-    role: "regular",
-    company: "Startup Inc",
-    department: "Business Development",
-    createdDate: new Date().toISOString(),
-    lastLoginDate: new Date().toISOString(),
-    isActive: true,
-    avatar: "/placeholder.svg?height=40&width=40&text=JD",
-  })
+  const demoUsers = getDemoUsers()
+  const [currentUser, setCurrentUser] = useState<User>(demoUsers[1]) // Start with regular user
 
-  const handleUserSwitch = (user: User) => {
-    setCurrentUser(user)
-  }
+  const isAdmin = currentUser.role === "administrator"
 
   const features = [
     {
       icon: FileText,
-      title: "Smart Templates",
-      description: "Pre-built business plan templates with industry-specific guidance and best practices.",
+      title: "Business Plan Creation",
+      description: "Create comprehensive business plans with guided templates and real-time collaboration.",
+      available: true,
     },
     {
       icon: Users,
-      title: "Real-time Collaboration",
-      description: "Work together with your team in real-time with live editing and commenting features.",
+      title: "Team Collaboration",
+      description: "Work together with your team in real-time with live editing and presence indicators.",
+      available: true,
     },
     {
       icon: BarChart3,
-      title: "Financial Modeling",
-      description: "Built-in financial calculators and forecasting tools to create accurate projections.",
+      title: "Progress Tracking",
+      description: "Monitor completion status and track progress across all sections of your business plan.",
+      available: true,
+    },
+    {
+      icon: Shield,
+      title: "Admin Dashboard",
+      description: "Access advanced administration features, user management, and system monitoring.",
+      available: isAdmin,
+      adminOnly: true,
     },
     {
       icon: Zap,
-      title: "AI-Powered Insights",
-      description: "Get intelligent suggestions and feedback to improve your business plan quality.",
+      title: "API Integration",
+      description: "Seamless integration with Airtable for data storage and external system connectivity.",
+      available: isAdmin,
+      adminOnly: true,
+    },
+    {
+      icon: Globe,
+      title: "Multi-tenant Support",
+      description: "Support for multiple organizations with role-based access control and permissions.",
+      available: isAdmin,
+      adminOnly: true,
     },
   ]
 
-  const benefits = [
-    "Professional business plan templates",
-    "Real-time collaboration tools",
-    "Financial modeling and forecasting",
-    "Export to PDF and presentations",
-    "Secure cloud storage",
-    "24/7 customer support",
-  ]
+  const handleUserChange = (user: User) => {
+    setCurrentUser(user)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
-      <AppHeader currentUser={currentUser} onUserSwitch={handleUserSwitch} />
+      <AppHeader currentUser={currentUser} onUserChange={handleUserChange} />
 
       <main className="container mx-auto px-6 py-12">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Badge variant="secondary" className="px-3 py-1">
-              <Sparkles className="w-4 h-4 mr-1" />
-              New Features Available
+            <Badge variant={isAdmin ? "destructive" : "secondary"} className="text-sm">
+              {isAdmin ? "Administrator View" : "User View"}
             </Badge>
           </div>
-          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
-            Build Your Business Plan
-            <br />
-            <span className="text-blue-600 dark:text-blue-400">With Confidence</span>
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Create professional business plans with our intuitive platform. Collaborate with your team, get AI-powered
-            insights, and turn your vision into a comprehensive strategy.
+          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">Business Plan Builder</h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+            Create, collaborate, and manage comprehensive business plans with real-time editing, progress tracking, and
+            powerful administrative tools.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" className="px-8 py-3 text-lg" asChild>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" asChild className="text-lg px-8 py-3">
               <Link href="/plans">
-                Get Started Free
+                Get Started
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" className="px-8 py-3 text-lg bg-transparent" asChild>
-              <Link href="#features">Learn More</Link>
-            </Button>
+            {isAdmin && (
+              <Button size="lg" variant="outline" asChild className="text-lg px-8 py-3 bg-transparent">
+                <Link href="/admin">
+                  <Shield className="mr-2 w-5 h-5" />
+                  Admin Dashboard
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Current User Info */}
-        <div className="mb-12">
-          <Card className="max-w-md mx-auto">
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2">
-                <Users className="w-5 h-5" />
-                Current User
-              </CardTitle>
-              <CardDescription>Demo mode - switch users to test different roles</CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              <div className="flex items-center justify-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                  <span className="text-blue-600 dark:text-blue-400 font-semibold">{currentUser.name.charAt(0)}</span>
-                </div>
-                <div>
-                  <p className="font-semibold">{currentUser.name}</p>
-                  <p className="text-sm text-muted-foreground">{currentUser.email}</p>
-                </div>
-              </div>
-              <Badge variant={currentUser.role === "administrator" ? "default" : "secondary"}>
-                {currentUser.role === "administrator" ? "Administrator" : "Regular User"}
-              </Badge>
-              {currentUser.role === "administrator" && (
-                <p className="text-sm text-muted-foreground mt-2">You have access to admin features and logs</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Features Section */}
-        <section id="features" className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Everything You Need to Succeed</h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Our comprehensive platform provides all the tools and resources you need to create a winning business
-              plan.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => (
-              <Card key={index} className="text-center hover:shadow-lg transition-shadow">
+        {/* Role-based Feature Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+          {features.map((feature, index) => {
+            const Icon = feature.icon
+            return (
+              <Card
+                key={index}
+                className={`transition-all duration-200 hover:shadow-lg ${
+                  !feature.available ? "opacity-50 bg-gray-50 dark:bg-gray-800/50" : "hover:scale-105"
+                }`}
+              >
                 <CardHeader>
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <feature.icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <div className="flex items-center gap-3 mb-2">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        feature.available
+                          ? feature.adminOnly
+                            ? "bg-red-100 dark:bg-red-900/20"
+                            : "bg-blue-100 dark:bg-blue-900/20"
+                          : "bg-gray-100 dark:bg-gray-700"
+                      }`}
+                    >
+                      <Icon
+                        className={`w-6 h-6 ${
+                          feature.available
+                            ? feature.adminOnly
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-blue-600 dark:text-blue-400"
+                            : "text-gray-400"
+                        }`}
+                      />
+                    </div>
+                    {feature.available && <CheckCircle className="w-5 h-5 text-green-500" />}
+                    {feature.adminOnly && (
+                      <Badge variant="destructive" className="text-xs">
+                        Admin Only
+                      </Badge>
+                    )}
                   </div>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
+                  <CardTitle className={feature.available ? "" : "text-gray-500"}>{feature.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-sm leading-relaxed">{feature.description}</CardDescription>
+                  <CardDescription className={feature.available ? "" : "text-gray-400"}>
+                    {feature.description}
+                  </CardDescription>
+                  {!feature.available && feature.adminOnly && (
+                    <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                      Switch to Administrator role to access this feature
+                    </p>
+                  )}
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        </section>
+            )
+          })}
+        </div>
 
-        {/* Benefits Section */}
-        <section className="mb-16">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Why Choose Our Platform?</h2>
-              <div className="space-y-4">
-                {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-700 dark:text-gray-300">{benefit}</span>
-                  </div>
-                ))}
+        {/* Role Information */}
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {isAdmin ? (
+                <>
+                  <Shield className="w-5 h-5 text-red-600" />
+                  Administrator Access
+                </>
+              ) : (
+                <>
+                  <Users className="w-5 h-5 text-blue-600" />
+                  Regular User Access
+                </>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold mb-2">Current Permissions:</h4>
+                <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Create and edit business plans
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Real-time collaboration
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Progress tracking
+                  </li>
+                  {isAdmin && (
+                    <>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        User management and administration
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        System logs and error monitoring
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        Airtable integration management
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
+              <div className="pt-4 border-t">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Use the role switcher in the header to toggle between Administrator and Regular User views to see how
+                  the interface adapts to different permission levels.
+                </p>
               </div>
             </div>
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-8 text-white">
-              <h3 className="text-2xl font-bold mb-4">Ready to Get Started?</h3>
-              <p className="mb-6 opacity-90">
-                Join thousands of entrepreneurs who have successfully launched their businesses with our platform.
-              </p>
-              <Button size="lg" variant="secondary" className="w-full" asChild>
-                <Link href="/plans">
-                  Create Your First Plan
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="text-center">
-          <Card className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white border-0">
-            <CardContent className="py-12">
-              <h2 className="text-3xl font-bold mb-4">Start Building Your Future Today</h2>
-              <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-                Transform your business idea into a comprehensive plan that investors and stakeholders will love.
-              </p>
-              <Button size="lg" variant="secondary" className="px-8 py-3 text-lg" asChild>
-                <Link href="/plans">
-                  Get Started Now
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
+          </CardContent>
+        </Card>
       </main>
     </div>
   )

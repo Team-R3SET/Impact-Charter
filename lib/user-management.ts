@@ -101,17 +101,32 @@ export const getUserStats = async (): Promise<{
   return { total, active, administrators, regular, recentLogins }
 }
 
-// New function to get all available users for switching
-export const getAvailableUsers = async (): Promise<User[]> => {
-  return users.filter((u) => u.isActive)
-}
-
-// New function to switch user context (for demo purposes)
-export const switchUserContext = async (userId: string): Promise<User | null> => {
-  const user = users.find((u) => u.id === userId && u.isActive)
-  if (user) {
-    user.lastLoginDate = new Date().toISOString()
-    return user
-  }
-  return null
+// Demo users for role switching
+export const getDemoUsers = (): User[] => {
+  return [
+    {
+      id: "demo-admin",
+      name: "Demo Admin",
+      email: "admin@demo.com",
+      role: "administrator",
+      company: "Demo Company",
+      department: "Administration",
+      createdDate: new Date().toISOString(),
+      lastLoginDate: new Date().toISOString(),
+      isActive: true,
+      avatar: "/placeholder.svg?height=40&width=40&text=DA",
+    },
+    {
+      id: "demo-user",
+      name: "Demo User",
+      email: "user@demo.com",
+      role: "regular",
+      company: "Demo Company",
+      department: "Business",
+      createdDate: new Date().toISOString(),
+      lastLoginDate: new Date().toISOString(),
+      isActive: true,
+      avatar: "/placeholder.svg?height=40&width=40&text=DU",
+    },
+  ]
 }

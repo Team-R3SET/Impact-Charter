@@ -16,38 +16,32 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw, Shield } from "lucide-react"
+import { FileText, Plus, User, Settings, LogOut, Home, RefreshCw, Shield, AlertTriangle } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
-import { UserSwitcher } from "@/components/user-switcher"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
+import { RoleSwitcher } from "@/components/role-switcher"
+import { getDemoUsers } from "@/lib/user-management"
 import type { BusinessPlan } from "@/lib/airtable"
 import type { User as UserType } from "@/lib/user-types"
 
 interface AppHeaderProps {
   currentUser?: UserType
   currentPlanId?: string
-  onUserSwitch?: (user: UserType) => void
+  onUserChange?: (user: UserType) => void
 }
 
-export function AppHeader({ currentUser, currentPlanId, onUserSwitch }: AppHeaderProps) {
+export function AppHeader({ currentUser, currentPlanId, onUserChange }: AppHeaderProps) {
   const [businessPlans, setBusinessPlans] = useState<BusinessPlan[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
+  // Get demo users for role switching
+  const demoUsers = getDemoUsers()
+
   // Default user if none provided
-  const user = currentUser || {
-    id: "user-1",
-    name: "Demo User",
-    email: "user@example.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
-    role: "regular" as const,
-    company: "Demo Company",
-    department: "Demo Department",
-    createdDate: new Date().toISOString(),
-    isActive: true,
-  }
+  const user = currentUser || demoUsers[1] // Default to regular user
 
   // Check if we're on a plan page (for showing live features)
   const isOnPlanPage = pathname.startsWith("/plan/")
@@ -91,16 +85,6 @@ export function AppHeader({ currentUser, currentPlanId, onUserSwitch }: AppHeade
     }
   }
 
-  const handleUserSwitch = (newUser: UserType) => {
-    if (onUserSwitch) {
-      onUserSwitch(newUser)
-    }
-    // Refresh plans for the new user
-    setTimeout(() => {
-      fetchPlans()
-    }, 100)
-  }
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Complete":
@@ -111,6 +95,12 @@ export function AppHeader({ currentUser, currentPlanId, onUserSwitch }: AppHeade
         return "bg-purple-500"
       default:
         return "bg-gray-500"
+    }
+  }
+
+  const handleUserChange = (newUser: UserType) => {
+    if (onUserChange) {
+      onUserChange(newUser)
     }
   }
 
@@ -179,6 +169,12 @@ export function AppHeader({ currentUser, currentPlanId, onUserSwitch }: AppHeade
           {/* Spacer */}
           <div className="flex-1" />
 
+          {/* Demo Mode Indicator */}
+          <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/20 rounded-full border border-amber-500/30">
+            <AlertTriangle className="w-4 h-4 text-amber-300" />
+            <span className="text-xs font-medium text-amber-100">Demo Mode</span>
+          </div>
+
           {/* Icon Navigation */}
           <nav className="flex items-center gap-2">
             <Tooltip>
@@ -220,11 +216,11 @@ export function AppHeader({ currentUser, currentPlanId, onUserSwitch }: AppHeade
               </TooltipContent>
             </Tooltip>
 
-            {/* User Switcher - Demo Mode */}
-            <UserSwitcher currentUser={user} onUserSwitch={handleUserSwitch} />
-
             {/* Notifications - Only show on plan pages */}
             {isOnPlanPage && <NotificationsDropdown />}
+
+            {/* Role Switcher */}
+            <RoleSwitcher currentUser={user} onUserChange={handleUserChange} availableUsers={demoUsers} />
 
             {/* Theme Switcher */}
             <ThemeSwitcher />
@@ -247,11 +243,9 @@ export function AppHeader({ currentUser, currentPlanId, onUserSwitch }: AppHeade
                 <div className="flex flex-col space-y-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium leading-none">{user.name}</p>
-                    {isAdmin && (
-                      <Badge variant="secondary" className="text-xs">
-                        Admin
-                      </Badge>
-                    )}
+                    <Badge variant={isAdmin ? "destructive" : "secondary"} className="text-xs">
+                      {isAdmin ? "Admin" : "User"}
+                    </Badge>
                   </div>
                   <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                 </div>
