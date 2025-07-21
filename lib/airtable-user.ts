@@ -1,12 +1,10 @@
 /**
- * User-level Airtable helpers – replaced by Supabase.
- * Left in place so old imports don’t break.
+ * Deprecated Airtable per-user helpers – temporary no-ops.
  */
-
 export async function updateBusinessPlanSectionWithUserCreds() {
-  /* no-op */
+  console.warn("updateBusinessPlanSectionWithUserCreds stub – replace with Supabase logic")
 }
 
 export async function markBusinessPlanSectionComplete() {
-  /* no-op */
+  console.warn("markBusinessPlanSectionComplete stub – replace with Supabase logic")
 }

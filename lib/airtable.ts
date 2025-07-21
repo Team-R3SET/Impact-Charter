@@ -1,20 +1,23 @@
 /**
- * 🛑  Airtable has been retired.  These no-op stubs only satisfy
- * TypeScript and the bundler until all code paths are migrated.
+ * DEPRECATED – Airtable is being removed.
+ * These no-op stubs keep older code compiling during the migration.
  */
-
-export async function getBusinessPlans(/* userId: string */) {
+export async function getBusinessPlans() {
+  console.warn("getBusinessPlans stub called – replace with Supabase logic")
   return []
 }
 
-export async function getBusinessPlan(/* planId: string */) {
+export async function createOrUpdateUserProfile(_profile: unknown) {
+  console.warn("createOrUpdateUserProfile stub called – replace with Supabase logic")
   return null
 }
 
-export async function createOrUpdateUserProfile(/* profile */) {
-  return { ok: false, message: "Airtable disabled" }
+export async function getUserProfile(_userId: string) {
+  console.warn("getUserProfile stub called – replace with Supabase logic")
+  return null
 }
 
-export async function getUserProfile(/* userId: string */) {
+export async function getBusinessPlan(_planId: string) {
+  console.warn("getBusinessPlan stub called – replace with Supabase logic")
   return null
 }
