@@ -1,4 +1,5 @@
 "use client"
+import React from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
@@ -33,13 +34,23 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
     return root.sections as Record<string, any>
   })
 
-  const getSectionProgress = (sectionId: string) => {
+  const getSectionProgress = React.useCallback((sectionId: string) => {
     const entry = sections?.[sectionId]
     const content = entry?.content ?? ""
     return content.trim().length > 50
-  }
+  }, [sections])
 
-  const completedSections = BUSINESS_PLAN_SECTIONS.filter((section) => getSectionProgress(section.id)).length
+  const completedSections = React.useMemo(() => {
+    return BUSINESS_PLAN_SECTIONS.filter((section) => getSectionProgress(section.id)).length
+  }, [getSectionProgress])
+
+  const sectionProgressMap = React.useMemo(() => {
+    const progressMap: Record<string, boolean> = {}
+    BUSINESS_PLAN_SECTIONS.forEach((section) => {
+      progressMap[section.id] = getSectionProgress(section.id)
+    })
+    return progressMap
+  }, [getSectionProgress])
 
   return (
     <div className="w-80 border-r bg-muted/30 flex flex-col">
@@ -56,7 +67,7 @@ export function SectionNavigator({ activeSection, onSectionChange }: SectionNavi
         <div className="p-2">
           {BUSINESS_PLAN_SECTIONS.map((section, index) => {
             const isActive = activeSection === section.id
-            const isComplete = getSectionProgress(section.id)
+            const isComplete = sectionProgressMap[section.id]
 
             return (
               <Button
