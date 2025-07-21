@@ -243,3 +243,15 @@ export async function markSectionAsCompleteWithUserCreds(
     throw error
   }
 }
+
+/**
+ * Wrapper expected by older code.  Internally delegates to the
+ * credential-aware helper already defined in this module.
+ */
+export async function markBusinessPlanSectionComplete(
+  planId: string,
+  sectionName: string,
+  userEmail: string,
+): Promise<void> {
+  return markSectionAsCompleteWithUserCreds(planId, sectionName, userEmail)
+}
