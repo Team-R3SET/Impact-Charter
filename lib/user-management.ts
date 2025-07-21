@@ -1,18 +1,19 @@
-import { randomUUID } from "crypto"
+import type { User } from "@/lib/user-types"
 
-// Demo users for development and testing
-const DEMO_USERS = [
+// Demo users for development and fallback
+const demoUsers: User[] = [
   {
     id: "demo-admin-1",
-    name: "Demo Admin",
+    name: "Admin User",
     email: "admin@example.com",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=admin@example.com",
-    role: "admin" as const,
-    status: "active" as const,
-    company: "Demo Corp",
-    department: "Administration",
-    lastLogin: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(), // 30 days ago
+    role: "ADMIN",
+    status: "ACTIVE",
+    company: "Demo Company",
+    bio: "System administrator with full access to all features.",
+    createdDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    lastModified: new Date().toISOString(),
+    lastLoginDate: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     loginCount: 45,
   },
   {
@@ -20,234 +21,103 @@ const DEMO_USERS = [
     name: "Demo User",
     email: "user@example.com",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
-    role: "user" as const,
-    status: "active" as const,
-    company: "Demo Corp",
-    department: "Marketing",
-    lastLogin: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15).toISOString(), // 15 days ago
+    role: "USER",
+    status: "ACTIVE",
+    company: "Startup Inc",
+    bio: "Entrepreneur building the next big thing.",
+    createdDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    lastModified: new Date().toISOString(),
+    lastLoginDate: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     loginCount: 23,
   },
   {
     id: "demo-user-2",
-    name: "Sarah Johnson",
-    email: "sarah@example.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah@example.com",
-    role: "user" as const,
-    status: "active" as const,
-    company: "Demo Corp",
-    department: "Sales",
-    lastLogin: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(), // 7 days ago
+    name: "Jane Smith",
+    email: "jane@example.com",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=jane@example.com",
+    role: "USER",
+    status: "ACTIVE",
+    company: "Tech Solutions",
+    bio: "Product manager focused on user experience.",
+    createdDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    lastModified: new Date().toISOString(),
+    lastLoginDate: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
     loginCount: 12,
-  },
-  {
-    id: "demo-user-3",
-    name: "Mike Chen",
-    email: "mike@example.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike@example.com",
-    role: "user" as const,
-    status: "inactive" as const,
-    company: "Demo Corp",
-    department: "Engineering",
-    lastLogin: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(), // 7 days ago
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString(), // 60 days ago
-    loginCount: 8,
   },
 ]
 
-export interface User {
-  id: string
-  name: string
-  email: string
-  avatar?: string
-  role: "admin" | "user"
-  status: "active" | "inactive"
-  company?: string
-  department?: string
-  lastLogin?: string
-  createdAt: string
-  loginCount?: number
+// In-memory storage for demo mode
+const users: User[] = [...demoUsers]
+
+export const getDemoUsers = (): User[] => {
+  return [...demoUsers]
 }
 
-export interface CreateUserData {
-  name: string
-  email: string
-  role: "admin" | "user"
-  company?: string
-  department?: string
+export const getAllUsers = async (): Promise<User[]> => {
+  // Return demo users as fallback
+  return [...users]
 }
 
-export interface UpdateUserData {
-  name?: string
-  email?: string
-  role?: "admin" | "user"
-  status?: "active" | "inactive"
-  company?: string
-  department?: string
+export const getUserById = async (id: string): Promise<User | null> => {
+  return users.find((user) => user.id === id) || null
 }
 
-export interface UserFilters {
-  search?: string
-  role?: "admin" | "user" | "all"
-  status?: "active" | "inactive" | "all"
-  department?: string
-}
-
-export interface UserStats {
-  total: number
-  active: number
-  inactive: number
-  admins: number
-  users: number
-  recentLogins: number
-}
-
-// Export demo users for components that need them
-export function getDemoUsers(): User[] {
-  return DEMO_USERS
-}
-
-export async function getUsers(filters?: UserFilters): Promise<User[]> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-
-  let users = [...DEMO_USERS]
-
-  if (filters) {
-    if (filters.search) {
-      const search = filters.search.toLowerCase()
-      users = users.filter(
-        (user) =>
-          user.name.toLowerCase().includes(search) ||
-          user.email.toLowerCase().includes(search) ||
-          user.company?.toLowerCase().includes(search) ||
-          user.department?.toLowerCase().includes(search),
-      )
-    }
-
-    if (filters.role && filters.role !== "all") {
-      users = users.filter((user) => user.role === filters.role)
-    }
-
-    if (filters.status && filters.status !== "all") {
-      users = users.filter((user) => user.status === filters.status)
-    }
-
-    if (filters.department) {
-      users = users.filter((user) => user.department === filters.department)
-    }
-  }
-
-  return users
-}
-
-export async function getUserById(id: string): Promise<User | null> {
-  await new Promise((resolve) => setTimeout(resolve, 200))
-  return DEMO_USERS.find((user) => user.id === id) || null
-}
-
-export async function createUser(userData: CreateUserData): Promise<User> {
-  await new Promise((resolve) => setTimeout(resolve, 800))
-
+export const createUser = async (userData: Omit<User, "id" | "createdDate" | "lastModified">): Promise<User> => {
   const newUser: User = {
-    id: randomUUID(),
     ...userData,
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.email}`,
-    status: "active",
-    createdAt: new Date().toISOString(),
+    id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    createdDate: new Date().toISOString(),
+    lastModified: new Date().toISOString(),
     loginCount: 0,
   }
 
-  DEMO_USERS.push(newUser)
+  users.push(newUser)
   return newUser
 }
 
-export async function updateUser(id: string, userData: UpdateUserData): Promise<User> {
-  await new Promise((resolve) => setTimeout(resolve, 600))
+export const updateUser = async (id: string, updates: Partial<User>): Promise<User | null> => {
+  const userIndex = users.findIndex((user) => user.id === id)
+  if (userIndex === -1) return null
 
-  const userIndex = DEMO_USERS.findIndex((user) => user.id === id)
-  if (userIndex === -1) {
-    throw new Error("User not found")
+  users[userIndex] = {
+    ...users[userIndex],
+    ...updates,
+    lastModified: new Date().toISOString(),
   }
 
-  DEMO_USERS[userIndex] = {
-    ...DEMO_USERS[userIndex],
-    ...userData,
-  }
-
-  return DEMO_USERS[userIndex]
+  return users[userIndex]
 }
 
-export async function deleteUser(id: string): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 400))
+export const deleteUser = async (id: string): Promise<boolean> => {
+  const userIndex = users.findIndex((user) => user.id === id)
+  if (userIndex === -1) return false
 
-  const userIndex = DEMO_USERS.findIndex((user) => user.id === id)
-  if (userIndex === -1) {
-    throw new Error("User not found")
-  }
-
-  DEMO_USERS.splice(userIndex, 1)
+  users.splice(userIndex, 1)
+  return true
 }
 
-export async function bulkUpdateUsers(ids: string[], updates: UpdateUserData): Promise<User[]> {
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
+export const bulkUpdateUsers = async (userIds: string[], updates: Partial<User>): Promise<User[]> => {
   const updatedUsers: User[] = []
 
-  for (const id of ids) {
-    const userIndex = DEMO_USERS.findIndex((user) => user.id === id)
+  for (const id of userIds) {
+    const userIndex = users.findIndex((user) => user.id === id)
     if (userIndex !== -1) {
-      DEMO_USERS[userIndex] = {
-        ...DEMO_USERS[userIndex],
+      users[userIndex] = {
+        ...users[userIndex],
         ...updates,
+        lastModified: new Date().toISOString(),
       }
-      updatedUsers.push(DEMO_USERS[userIndex])
+      updatedUsers.push(users[userIndex])
     }
   }
 
   return updatedUsers
 }
 
-export async function resetUserPassword(id: string): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 500))
+export const resetUserPassword = async (id: string): Promise<{ tempPassword: string } | null> => {
+  const user = users.find((user) => user.id === id)
+  if (!user) return null
 
-  const user = DEMO_USERS.find((user) => user.id === id)
-  if (!user) {
-    throw new Error("User not found")
-  }
-
-  // In a real app, this would send a password reset email
-  console.log(`Password reset email sent to ${user.email}`)
-}
-
-export async function getUserStats(): Promise<UserStats> {
-  await new Promise((resolve) => setTimeout(resolve, 300))
-
-  const total = DEMO_USERS.length
-  const active = DEMO_USERS.filter((user) => user.status === "active").length
-  const inactive = DEMO_USERS.filter((user) => user.status === "inactive").length
-  const admins = DEMO_USERS.filter((user) => user.role === "admin").length
-  const users = DEMO_USERS.filter((user) => user.role === "user").length
-
-  // Users who logged in within the last 7 days
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  const recentLogins = DEMO_USERS.filter((user) => {
-    if (!user.lastLogin) return false
-    return new Date(user.lastLogin) > weekAgo
-  }).length
-
-  return {
-    total,
-    active,
-    inactive,
-    admins,
-    users,
-    recentLogins,
-  }
-}
-
-export function getDepartments(): string[] {
-  const departments = new Set(DEMO_USERS.map((user) => user.department).filter(Boolean))
-  return Array.from(departments) as string[]
+  const tempPassword = Math.random().toString(36).slice(-8)
+  return { tempPassword }
 }

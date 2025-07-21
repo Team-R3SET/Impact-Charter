@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Progress } from "@/components/ui/progress"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,139 +13,201 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Progress } from "@/components/ui/progress"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 import {
-  FileText,
-  MoreVertical,
+  MoreHorizontal,
   Edit,
   Copy,
   Share,
   Download,
   Trash2,
-  Calendar,
-  User,
-  Clock,
-  Edit3,
   Users,
+  Calendar,
+  FileText,
+  ExternalLink,
 } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
 import type { BusinessPlan } from "@/lib/airtable"
 
 interface PlanCardProps {
   plan: BusinessPlan
-  onRename: (planId: string, currentName: string) => void
-  viewMode?: "grid" | "list"
+  viewMode: "grid" | "list"
+  onRename?: (planId: string, newName: string) => void
+  onDelete?: (planId: string) => void
 }
 
-export function PlanCard({ plan, onRename, viewMode = "grid" }: PlanCardProps) {
-  const [isHovered, setIsHovered] = useState(false)
+export function PlanCard({ plan, viewMode, onRename, onDelete }: PlanCardProps) {
+  const [isDeleting, setIsDeleting] = useState(false)
+  const { toast } = useToast()
+  const router = useRouter()
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Complete":
-        return "bg-green-100 text-green-800 border-green-200"
-      case "In Progress":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "Submitted for Review":
-        return "bg-purple-100 text-purple-800 border-purple-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
-    }
-  }
-
-  const getProgressValue = (status: string) => {
-    switch (status) {
-      case "Complete":
-        return 100
-      case "In Progress":
-        return 65
-      case "Submitted for Review":
-        return 90
-      default:
-        return 25
-    }
-  }
-
-  const mockCollaborators = [
+  // Mock data for demo - in real app this would come from props or API
+  const progress = Math.floor(Math.random() * 100)
+  const collaborators = [
     { name: "John Doe", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=john" },
     { name: "Jane Smith", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=jane" },
   ]
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Draft":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+      case "In Progress":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+      case "Complete":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+      case "Submitted for Review":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+    }
+  }
+
+  const handleOpen = () => {
+    router.push(`/plan/${plan.id}?name=${encodeURIComponent(plan.planName)}`)
+  }
+
+  const handleDuplicate = async () => {
+    try {
+      const response = await fetch("/api/business-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planName: `${plan.planName} (Copy)`,
+          ownerEmail: plan.ownerEmail,
+          status: "Draft",
+        }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Plan duplicated",
+          description: `"${plan.planName}" has been duplicated successfully.`,
+        })
+        // Refresh the page to show the new plan
+        window.location.reload()
+      } else {
+        throw new Error("Failed to duplicate plan")
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to duplicate",
+        description: "There was an error duplicating the plan.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleShare = () => {
+    const shareUrl = `${window.location.origin}/plan/${plan.id}?collab=true`
+    navigator.clipboard.writeText(shareUrl)
+    toast({
+      title: "Link copied",
+      description: "Collaboration link copied to clipboard.",
+    })
+  }
+
+  const handleDelete = async () => {
+    if (!onDelete) return
+
+    setIsDeleting(true)
+    try {
+      await onDelete(plan.id!)
+      toast({
+        title: "Plan deleted",
+        description: `"${plan.planName}" has been deleted.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Failed to delete",
+        description: "There was an error deleting the plan.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  }
+
   if (viewMode === "list") {
     return (
-      <Card className="hover:shadow-md transition-all duration-200">
+      <Card className="hover:shadow-md transition-shadow">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                </div>
-              </div>
-
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold truncate">{plan.planName}</h3>
-                  <Badge className={`text-xs ${getStatusColor(plan.status)}`}>{plan.status}</Badge>
+                  <h3 className="font-semibold truncate cursor-pointer hover:text-primary" onClick={handleOpen}>
+                    {plan.planName}
+                  </h3>
+                  <Badge className={getStatusColor(plan.status)}>{plan.status}</Badge>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {formatDistanceToNow(new Date(plan.lastModified), { addSuffix: true })}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    {plan.ownerEmail}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    Modified {formatDate(plan.lastModified)}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <FileText className="w-4 h-4" />
+                    {progress}% complete
+                  </div>
+                  {collaborators.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Users className="w-4 h-4" />
+                      {collaborators.length} collaborator{collaborators.length === 1 ? "" : "s"}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-2">
-                <Progress value={getProgressValue(plan.status)} className="w-20" />
-                <span className="text-sm text-muted-foreground">{getProgressValue(plan.status)}%</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/plan/${plan.id}?name=${encodeURIComponent(plan.planName)}`}>
-                    <Edit className="w-4 h-4 mr-1" />
-                    Edit
-                  </Link>
-                </Button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onRename(plan.id!, plan.planName)}>
-                      <Edit3 className="mr-2 h-4 w-4" />
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Share className="mr-2 h-4 w-4" />
-                      Share
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Download className="mr-2 h-4 w-4" />
-                      Export
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+            <div className="flex items-center gap-2">
+              <Progress value={progress} className="w-20" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleOpen}>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onRename?.(plan.id!, plan.planName)}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDuplicate}>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleShare}>
+                    <Share className="w-4 h-4 mr-2" />
+                    Share
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardContent>
@@ -154,59 +216,52 @@ export function PlanCard({ plan, onRename, viewMode = "grid" }: PlanCardProps) {
   }
 
   return (
-    <Card
-      className="hover:shadow-lg transition-all duration-200 group"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <Card className="hover:shadow-md transition-all duration-200 hover:scale-[1.02] group">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FileText className="w-4 h-4 text-blue-600" />
-              </div>
-              <h3 className="font-semibold text-lg truncate">{plan.planName}</h3>
-            </div>
-            <Badge className={`text-xs ${getStatusColor(plan.status)}`}>{plan.status}</Badge>
+            <h3
+              className="font-semibold text-lg truncate cursor-pointer hover:text-primary group-hover:text-primary transition-colors"
+              onClick={handleOpen}
+            >
+              {plan.planName}
+            </h3>
+            <Badge className={`${getStatusColor(plan.status)} mt-1`}>{plan.status}</Badge>
           </div>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`h-8 w-8 p-0 transition-opacity ${isHovered ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-              >
-                <MoreVertical className="h-4 w-4" />
+              <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/plan/${plan.id}?name=${encodeURIComponent(plan.planName)}`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Plan
-                </Link>
+              <DropdownMenuItem onClick={handleOpen}>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Open
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onRename(plan.id!, plan.planName)}>
-                <Edit3 className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => onRename?.(plan.id!, plan.planName)}>
+                <Edit className="w-4 h-4 mr-2" />
                 Rename
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Copy className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={handleDuplicate}>
+                <Copy className="w-4 h-4 mr-2" />
                 Duplicate
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Share className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={handleShare}>
+                <Share className="w-4 h-4 mr-2" />
                 Share
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="w-4 h-4 mr-2" />
                 Export
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
+              <DropdownMenuItem
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -214,50 +269,51 @@ export function PlanCard({ plan, onRename, viewMode = "grid" }: PlanCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0 space-y-4">
+      <CardContent className="space-y-4">
         {/* Progress */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium">{getProgressValue(plan.status)}%</span>
+            <span className="font-medium">{progress}%</span>
           </div>
-          <Progress value={getProgressValue(plan.status)} className="h-2" />
+          <Progress value={progress} className="h-2" />
         </div>
 
         {/* Collaborators */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            <div className="flex -space-x-2">
-              {mockCollaborators.map((collaborator, index) => (
-                <Avatar key={index} className="w-6 h-6 border-2 border-background">
-                  <AvatarImage src={collaborator.avatar || "/placeholder.svg"} />
-                  <AvatarFallback className="text-xs">
-                    {collaborator.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
+        {collaborators.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Collaborators</span>
+              <div className="flex -space-x-2">
+                {collaborators.slice(0, 3).map((collaborator, index) => (
+                  <Avatar key={index} className="w-6 h-6 border-2 border-background">
+                    <AvatarImage src={collaborator.avatar || "/placeholder.svg"} />
+                    <AvatarFallback className="text-xs">{collaborator.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                ))}
+                {collaborators.length > 3 && (
+                  <div className="w-6 h-6 bg-muted rounded-full border-2 border-background flex items-center justify-center">
+                    <span className="text-xs font-medium">+{collaborators.length - 3}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Clock className="w-4 h-4 mr-1" />
-            {formatDistanceToNow(new Date(plan.lastModified), { addSuffix: true })}
-          </div>
-        </div>
+        )}
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-2">
-          <Button asChild className="flex-1 bg-transparent" variant="outline">
-            <Link href={`/plan/${plan.id}?name=${encodeURIComponent(plan.planName)}`}>
-              <Edit className="w-4 h-4 mr-2" />
-              Edit Plan
-            </Link>
-          </Button>
-          <Button variant="outline" size="icon">
-            <Share className="w-4 h-4" />
+        {/* Dates */}
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Calendar className="w-4 h-4" />
+            <span>Modified {formatDate(plan.lastModified)}</span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpen}
+            className="opacity-0 group-hover:opacity-100 transition-opacity bg-transparent"
+          >
+            Open Plan
           </Button>
         </div>
       </CardContent>

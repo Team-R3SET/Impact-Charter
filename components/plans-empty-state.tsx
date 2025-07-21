@@ -1,105 +1,115 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { CreatePlanDialog } from "@/components/create-plan-dialog"
-import { FileText, Plus, Sparkles, BookOpen, Target, TrendingUp, Users, Lightbulb } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { FileText, Plus, Lightbulb, Users, BarChart3, Zap, Building2, ShoppingCart, Smartphone } from "lucide-react"
 
 interface PlansEmptyStateProps {
-  hasSearchQuery?: boolean
-  searchQuery?: string
+  onCreatePlan: () => void
 }
 
-export function PlansEmptyState({ hasSearchQuery, searchQuery }: PlansEmptyStateProps) {
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+export function PlansEmptyState({ onCreatePlan }: PlansEmptyStateProps) {
+  const features = [
+    {
+      icon: Users,
+      title: "Real-time Collaboration",
+      description: "Work together with your team in real-time",
+    },
+    {
+      icon: BarChart3,
+      title: "Progress Tracking",
+      description: "Monitor completion and stay on track",
+    },
+    {
+      icon: Zap,
+      title: "Smart Templates",
+      description: "Get started quickly with industry templates",
+    },
+  ]
 
-  if (hasSearchQuery) {
-    return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-          <FileText className="w-8 h-8 text-gray-400" />
-        </div>
-        <h3 className="text-lg font-semibold mb-2">No plans found</h3>
-        <p className="text-muted-foreground mb-4">
-          No business plans match "{searchQuery}". Try adjusting your search terms or filters.
-        </p>
-        <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-          Clear Search
-        </Button>
-      </div>
-    )
-  }
+  const templates = [
+    { name: "Tech Startup", icon: Smartphone, color: "bg-blue-500" },
+    { name: "E-commerce", icon: ShoppingCart, color: "bg-green-500" },
+    { name: "Consulting", icon: Building2, color: "bg-purple-500" },
+  ]
 
   return (
-    <>
-      <div className="text-center py-12 max-w-2xl mx-auto">
-        <div className="w-20 h-20 mx-auto mb-6 bg-blue-50 rounded-full flex items-center justify-center">
-          <Sparkles className="w-10 h-10 text-blue-500" />
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8">
+      {/* Main Empty State */}
+      <div className="space-y-4">
+        <div className="w-24 h-24 mx-auto bg-muted rounded-full flex items-center justify-center">
+          <FileText className="w-12 h-12 text-muted-foreground" />
         </div>
-
-        <h3 className="text-2xl font-bold mb-3">Welcome to Business Planning!</h3>
-        <p className="text-muted-foreground mb-8 text-lg">
-          Create your first business plan to start building your vision into reality. Our collaborative platform makes
-          it easy to organize your ideas and work with your team.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="p-4 border-dashed">
-            <CardContent className="p-0 text-center">
-              <div className="w-12 h-12 mx-auto mb-3 bg-green-100 rounded-lg flex items-center justify-center">
-                <Target className="w-6 h-6 text-green-600" />
-              </div>
-              <h4 className="font-semibold mb-1">Define Your Vision</h4>
-              <p className="text-sm text-muted-foreground">Outline your business goals and strategy</p>
-            </CardContent>
-          </Card>
-
-          <Card className="p-4 border-dashed">
-            <CardContent className="p-0 text-center">
-              <div className="w-12 h-12 mx-auto mb-3 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-purple-600" />
-              </div>
-              <h4 className="font-semibold mb-1">Collaborate</h4>
-              <p className="text-sm text-muted-foreground">Work together with your team in real-time</p>
-            </CardContent>
-          </Card>
-
-          <Card className="p-4 border-dashed">
-            <CardContent className="p-0 text-center">
-              <div className="w-12 h-12 mx-auto mb-3 bg-orange-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-orange-600" />
-              </div>
-              <h4 className="font-semibold mb-1">Track Progress</h4>
-              <p className="text-sm text-muted-foreground">Monitor your plan's development and completion</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button onClick={() => setCreateDialogOpen(true)} size="lg" className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-5 h-5 mr-2" />
-            Create Your First Plan
-          </Button>
-          <Button variant="outline" size="lg">
-            <BookOpen className="w-5 h-5 mr-2" />
-            Browse Templates
-          </Button>
-        </div>
-
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Lightbulb className="w-5 h-5 text-blue-600" />
-            <span className="font-medium text-blue-900">Pro Tip</span>
-          </div>
-          <p className="text-sm text-blue-800">
-            Start with a template to save time, or create a blank plan for complete customization. You can always modify
-            sections later as your business evolves.
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold">Create Your First Business Plan</h2>
+          <p className="text-muted-foreground max-w-md">
+            Get started with our collaborative business plan builder. Choose from templates or start from scratch.
           </p>
+        </div>
+        <Button onClick={onCreatePlan} size="lg" className="gap-2">
+          <Plus className="w-5 h-5" />
+          Create New Business Plan
+        </Button>
+      </div>
+
+      {/* Features */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl">
+        {features.map((feature, index) => {
+          const IconComponent = feature.icon
+          return (
+            <Card key={index} className="text-center">
+              <CardContent className="p-6">
+                <div className="w-12 h-12 mx-auto bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                  <IconComponent className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="font-semibold mb-2">{feature.title}</h3>
+                <p className="text-sm text-muted-foreground">{feature.description}</p>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Quick Start Templates */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 justify-center">
+          <Lightbulb className="w-5 h-5 text-yellow-500" />
+          <span className="font-medium">Popular Templates</span>
+        </div>
+        <div className="flex items-center gap-3 justify-center">
+          {templates.map((template, index) => {
+            const IconComponent = template.icon
+            return (
+              <Badge
+                key={index}
+                variant="outline"
+                className="gap-2 py-2 px-3 cursor-pointer hover:bg-muted transition-colors"
+                onClick={onCreatePlan}
+              >
+                <div className={`w-4 h-4 rounded ${template.color} flex items-center justify-center`}>
+                  <IconComponent className="w-3 h-3 text-white" />
+                </div>
+                {template.name}
+              </Badge>
+            )
+          })}
         </div>
       </div>
 
-      <CreatePlanDialog isOpen={createDialogOpen} onClose={() => setCreateDialogOpen(false)} />
-    </>
+      {/* Pro Tips */}
+      <div className="bg-muted/50 rounded-lg p-6 max-w-2xl">
+        <h3 className="font-semibold mb-3 flex items-center gap-2">
+          <Lightbulb className="w-5 h-5 text-yellow-500" />
+          Pro Tips
+        </h3>
+        <ul className="text-sm text-muted-foreground space-y-2 text-left">
+          <li>• Start with a template that matches your industry</li>
+          <li>• Invite team members to collaborate in real-time</li>
+          <li>• Complete sections gradually and track your progress</li>
+          <li>• Export your plan when ready for investors or partners</li>
+        </ul>
+      </div>
+    </div>
   )
 }
