@@ -144,6 +144,12 @@ export function UserManagementPage() {
     setFilteredUsers(filtered)
   }, [users, searchQuery, roleFilter, statusFilter])
 
+  // Clean up selected users when filtered users change
+  useEffect(() => {
+    const validUserIds = filteredUsers.map((user) => user.id)
+    setSelectedUsers((prev) => prev.filter((id) => validUserIds.includes(id)))
+  }, [filteredUsers])
+
   // Load data on mount
   useEffect(() => {
     fetchUsers()
@@ -245,6 +251,8 @@ export function UserManagementPage() {
           title: "Success",
           description: "User deleted successfully",
         })
+        // Remove the deleted user from selected users
+        setSelectedUsers(selectedUsers.filter((id) => id !== userId))
         fetchUsers()
       } else {
         throw new Error("Failed to delete user")
