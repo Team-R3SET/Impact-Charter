@@ -1,61 +1,48 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSystemLogs, type LogFilter } from "@/lib/system-logs"
-import { getCurrentUser, canViewLogs } from "@/lib/user-management"
+import { generateMockLogs, filterLogs, calculateLogStats, type LogFilters } from "@/lib/system-logs"
 
 export async function GET(request: NextRequest) {
   try {
-    // Mock authentication - in a real app, get user from session/token
-    const currentUser = await getCurrentUser("admin@example.com")
+    const { searchParams } = new URL(request.url)
 
-    if (!currentUser || !canViewLogs(currentUser)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    // Check if requesting stats only
+    if (searchParams.get("stats") === "true") {
+      const logs = generateMockLogs(500)
+      const stats = calculateLogStats(logs)
+      return NextResponse.json(stats)
     }
-
-    const url = new URL(request.url)
-    const page = Number.parseInt(url.searchParams.get("page") || "1", 10)
-    const limit = Number.parseInt(url.searchParams.get("limit") || "50", 10)
 
     // Parse filters
-    const filters: LogFilter = {}
-
-    const levelParam = url.searchParams.get("level")
-    if (levelParam) {
-      filters.level = levelParam.split(",") as any[]
+    const filters: LogFilters = {
+      search: searchParams.get("search") || undefined,
+      levels: searchParams.get("levels")?.split(",").filter(Boolean) || undefined,
+      categories: searchParams.get("categories")?.split(",").filter(Boolean) || undefined,
+      startDate: searchParams.get("startDate") ? new Date(searchParams.get("startDate")!) : undefined,
+      endDate: searchParams.get("endDate") ? new Date(searchParams.get("endDate")!) : undefined,
+      userId: searchParams.get("userId") || undefined,
     }
 
-    const categoryParam = url.searchParams.get("category")
-    if (categoryParam) {
-      filters.category = categoryParam.split(",") as any[]
-    }
+    // Parse pagination
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "50")
+    const offset = (page - 1) * limit
 
-    const userId = url.searchParams.get("userId")
-    if (userId) {
-      filters.userId = userId
-    }
-
-    const dateFrom = url.searchParams.get("dateFrom")
-    if (dateFrom) {
-      filters.dateFrom = dateFrom
-    }
-
-    const dateTo = url.searchParams.get("dateTo")
-    if (dateTo) {
-      filters.dateTo = dateTo
-    }
-
-    const search = url.searchParams.get("search")
-    if (search) {
-      filters.search = search
-    }
-
-    const result = await getSystemLogs(page, limit, filters)
+    // Generate and filter logs
+    const allLogs = generateMockLogs(500)
+    const filteredLogs = filterLogs(allLogs, filters)
+    const paginatedLogs = filteredLogs.slice(offset, offset + limit)
 
     return NextResponse.json({
-      success: true,
-      ...result,
+      logs: paginatedLogs,
+      pagination: {
+        page,
+        limit,
+        total: filteredLogs.length,
+        totalPages: Math.ceil(filteredLogs.length / limit),
+      },
     })
   } catch (error) {
-    console.error("Error fetching system logs:", error)
-    return NextResponse.json({ error: "Failed to fetch system logs" }, { status: 500 })
+    console.error("Error fetching logs:", error)
+    return NextResponse.json({ error: "Failed to fetch logs" }, { status: 500 })
   }
 }

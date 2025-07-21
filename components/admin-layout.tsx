@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -133,7 +132,9 @@ export function AdminLayout({ children, title, description }: AdminLayoutProps) 
     <TooltipProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <AppHeader currentUser={user} onUserChange={handleUserChange} />
+        <div className="sticky top-0 z-50">
+          <AppHeader currentUser={user} onUserChange={handleUserChange} />
+        </div>
 
         <div className="flex">
           {/* Mobile Sidebar Overlay */}
@@ -145,6 +146,7 @@ export function AdminLayout({ children, title, description }: AdminLayoutProps) 
           <aside
             className={cn(
               "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+              "pt-16", // Add padding top to account for header height
               sidebarOpen ? "translate-x-0" : "-translate-x-full",
             )}
           >

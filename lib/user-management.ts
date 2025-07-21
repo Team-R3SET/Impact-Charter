@@ -1,245 +1,177 @@
 import type { User } from "@/lib/user-types"
 
-// Demo users for role switching
-export function getDemoUsers(): User[] {
-  return [
-    {
-      id: "admin-1",
-      name: "Demo Admin",
-      email: "admin@example.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=admin@example.com",
-      role: "administrator",
-      company: "System Administration",
-      department: "IT",
-      createdDate: new Date().toISOString(),
-      isActive: true,
-    },
-    {
-      id: "user-1",
-      name: "John Doe",
-      email: "john@startup.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=john@startup.com",
-      role: "regular",
-      company: "Startup Inc",
-      department: "Business Development",
-      createdDate: new Date().toISOString(),
-      isActive: true,
-    },
-    {
-      id: "user-2",
-      name: "Jane Smith",
-      email: "jane@innovation.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=jane@innovation.com",
-      role: "regular",
-      company: "Innovation Corp",
-      department: "Strategy",
-      createdDate: new Date().toISOString(),
-      isActive: true,
-    },
-    {
-      id: "user-3",
-      name: "Mike Johnson",
-      email: "mike@techcorp.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike@techcorp.com",
-      role: "regular",
-      company: "TechCorp",
-      department: "Engineering",
-      createdDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      isActive: true,
-    },
-    {
-      id: "user-4",
-      name: "Sarah Wilson",
-      email: "sarah@designstudio.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah@designstudio.com",
-      role: "regular",
-      company: "Design Studio",
-      department: "Creative",
-      createdDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-      isActive: false,
-    },
-    {
-      id: "user-5",
-      name: "David Brown",
-      email: "david@consulting.com",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=david@consulting.com",
-      role: "regular",
-      company: "Consulting Group",
-      department: "Operations",
-      createdDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-      isActive: true,
-    },
-  ]
+// Mock user data for demonstration
+const mockUsers: User[] = [
+  {
+    id: "user_1",
+    name: "John Smith",
+    email: "john.smith@example.com",
+    role: "administrator",
+    avatar: "/placeholder-user.jpg",
+    company: "Acme Corp",
+    department: "Engineering",
+    isActive: true,
+    createdDate: "2024-01-15T10:30:00Z",
+    lastLoginDate: "2024-01-20T14:22:00Z",
+  },
+  {
+    id: "user_2",
+    name: "Sarah Johnson",
+    email: "sarah.johnson@example.com",
+    role: "regular",
+    avatar: "/placeholder-user.jpg",
+    company: "Tech Solutions",
+    department: "Marketing",
+    isActive: true,
+    createdDate: "2024-01-16T09:15:00Z",
+    lastLoginDate: "2024-01-20T11:45:00Z",
+  },
+  {
+    id: "user_3",
+    name: "Mike Davis",
+    email: "mike.davis@example.com",
+    role: "regular",
+    avatar: "/placeholder-user.jpg",
+    company: "Startup Inc",
+    department: "Sales",
+    isActive: false,
+    createdDate: "2024-01-17T16:20:00Z",
+    lastLoginDate: "2024-01-18T13:30:00Z",
+  },
+  {
+    id: "user_4",
+    name: "Emily Chen",
+    email: "emily.chen@example.com",
+    role: "administrator",
+    avatar: "/placeholder-user.jpg",
+    company: "Global Systems",
+    department: "IT",
+    isActive: true,
+    createdDate: "2024-01-18T08:45:00Z",
+    lastLoginDate: "2024-01-20T16:10:00Z",
+  },
+  {
+    id: "user_5",
+    name: "David Wilson",
+    email: "david.wilson@example.com",
+    role: "regular",
+    avatar: "/placeholder-user.jpg",
+    company: "Innovation Labs",
+    department: "Research",
+    isActive: true,
+    createdDate: "2024-01-19T12:00:00Z",
+    lastLoginDate: "2024-01-20T09:20:00Z",
+  },
+]
+
+export async function getAllUsers(): Promise<User[]> {
+  // Simulate API delay
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  return [...mockUsers]
 }
 
-// ---- new code ----
-let users: User[] = getDemoUsers()
-// ------------------
-
-// Role checking functions
-export function isAdministrator(user: User): boolean {
-  return user.role === "administrator"
+export async function getUserById(id: string): Promise<User | null> {
+  await new Promise((resolve) => setTimeout(resolve, 200))
+  return mockUsers.find((user) => user.id === id) || null
 }
 
-export function canAccessAdminFeatures(user: User): boolean {
-  return isAdministrator(user)
-}
+export async function createUser(userData: Omit<User, "id" | "createdDate" | "lastLoginDate">): Promise<User> {
+  await new Promise((resolve) => setTimeout(resolve, 300))
 
-export function canViewLogs(user: User): boolean {
-  return isAdministrator(user)
-}
-
-export function canManageUsers(user: User): boolean {
-  return isAdministrator(user)
-}
-
-export async function getCurrentUser(email: string): Promise<User | null> {
-  const user = users.find((u) => u.email === email && u.isActive)
-  if (user) {
-    user.lastLoginDate = new Date().toISOString()
-  }
-  return user || null
-}
-
-export async function deactivateUser(userId: string): Promise<boolean> {
-  const idx = users.findIndex((u) => u.id === userId)
-  if (idx !== -1) {
-    users[idx].isActive = false
-    return true
-  }
-  return false
-}
-
-export async function activateUser(userId: string): Promise<boolean> {
-  const idx = users.findIndex((u) => u.id === userId)
-  if (idx !== -1) {
-    users[idx].isActive = true
-    return true
-  }
-  return false
-}
-
-export async function getUserStats(): Promise<{
-  total: number
-  active: number
-  administrators: number
-  regular: number
-  recentLogins: number
-}> {
-  const total = users.length
-  const active = users.filter((u) => u.isActive).length
-  const administrators = users.filter((u) => u.role === "administrator" && u.isActive).length
-  const regular = users.filter((u) => u.role === "regular" && u.isActive).length
-  const recentLogins = users.filter(
-    (u) => u.lastLoginDate && new Date(u.lastLoginDate) > new Date(Date.now() - 24 * 60 * 60 * 1000),
-  ).length
-
-  return { total, active, administrators, regular, recentLogins }
-}
-
-// User CRUD operations (demo implementation)
-export async function createUser(userData: Omit<User, "id" | "createdDate">): Promise<User> {
   const newUser: User = {
     ...userData,
-    id: `user-${Date.now()}`,
+    id: `user_${Date.now()}`,
     createdDate: new Date().toISOString(),
+    lastLoginDate: new Date().toISOString(),
   }
 
-  users.push(newUser)
-
-  // In a real app, this would save to a database
-  console.log("Creating user:", newUser)
+  mockUsers.push(newUser)
   return newUser
 }
 
-export async function updateUser(userId: string, updates: Partial<User>): Promise<User | null> {
-  // In a real app, this would update the database
-  console.log("Updating user:", userId, updates)
+export async function updateUser(id: string, userData: Partial<User>): Promise<User | null> {
+  await new Promise((resolve) => setTimeout(resolve, 300))
 
-  const userIndex = users.findIndex((u) => u.id === userId)
+  const userIndex = mockUsers.findIndex((user) => user.id === id)
+  if (userIndex === -1) return null
 
-  if (userIndex !== -1) {
-    users[userIndex] = { ...users[userIndex], ...updates }
-    return users[userIndex]
-  }
-
-  return null
+  mockUsers[userIndex] = { ...mockUsers[userIndex], ...userData }
+  return mockUsers[userIndex]
 }
 
-export async function deleteUser(userId: string): Promise<boolean> {
-  // In a real app, this would delete from the database
-  console.log("Deleting user:", userId)
-  users = users.filter((user) => user.id !== userId)
+export async function deleteUser(id: string): Promise<boolean> {
+  await new Promise((resolve) => setTimeout(resolve, 300))
+
+  const userIndex = mockUsers.findIndex((user) => user.id === id)
+  if (userIndex === -1) return false
+
+  mockUsers.splice(userIndex, 1)
   return true
 }
 
-export async function getAllUsers(): Promise<User[]> {
-  // In a real app, this would fetch from the database
-  return users
-}
+export async function resetUserPassword(id: string): Promise<string> {
+  await new Promise((resolve) => setTimeout(resolve, 300))
 
-export async function getUserById(userId: string): Promise<User | null> {
-  const user = users.find((user) => user.id === userId)
-  return user || null
-}
-
-export async function getUserByEmail(email: string): Promise<User | null> {
-  const user = users.find((user) => user.email === email)
-  return user || null
-}
-
-export async function resetUserPassword(userId: string): Promise<{ success: boolean; temporaryPassword?: string }> {
-  const user = users.find((u) => u.id === userId)
-  if (!user) {
-    return { success: false }
-  }
+  const user = mockUsers.find((user) => user.id === id)
+  if (!user) throw new Error("User not found")
 
   // Generate a temporary password
-  const temporaryPassword = Math.random().toString(36).slice(-8)
-
-  // In a real app, this would hash the password and save to database
-  console.log(`Password reset for user ${user.email}: ${temporaryPassword}`)
-
-  return { success: true, temporaryPassword }
+  const tempPassword = Math.random().toString(36).slice(-8)
+  return tempPassword
 }
 
-export async function bulkUpdateUsers(userIds: string[], updates: Partial<User>): Promise<number> {
-  let updatedCount = 0
+export async function bulkUpdateUsers(userIds: string[], action: "activate" | "deactivate"): Promise<number> {
+  await new Promise((resolve) => setTimeout(resolve, 500))
 
-  for (const userId of userIds) {
-    const userIndex = users.findIndex((u) => u.id === userId)
+  let updatedCount = 0
+  const isActive = action === "activate"
+
+  userIds.forEach((id) => {
+    const userIndex = mockUsers.findIndex((user) => user.id === id)
     if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], ...updates }
+      mockUsers[userIndex].isActive = isActive
       updatedCount++
     }
-  }
+  })
 
-  console.log(`Bulk updated ${updatedCount} users:`, updates)
   return updatedCount
 }
 
-export async function searchUsers(query: string): Promise<User[]> {
-  const lowercaseQuery = query.toLowerCase()
-  return users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(lowercaseQuery) ||
-      user.email.toLowerCase().includes(lowercaseQuery) ||
-      user.company?.toLowerCase().includes(lowercaseQuery) ||
-      user.department?.toLowerCase().includes(lowercaseQuery),
-  )
+export async function getUserStats() {
+  await new Promise((resolve) => setTimeout(resolve, 200))
+
+  const total = mockUsers.length
+  const active = mockUsers.filter((user) => user.isActive).length
+  const administrators = mockUsers.filter((user) => user.role === "administrator").length
+  const regular = mockUsers.filter((user) => user.role === "regular").length
+
+  // Calculate recent logins (last 24 hours)
+  const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const recentLogins = mockUsers.filter(
+    (user) => user.lastLoginDate && new Date(user.lastLoginDate) > last24Hours,
+  ).length
+
+  return {
+    total,
+    active,
+    administrators,
+    regular,
+    recentLogins,
+  }
 }
 
-export async function filterUsers(filters: {
-  role?: string
-  isActive?: boolean
-  company?: string
-  department?: string
-}): Promise<User[]> {
-  return users.filter((user) => {
-    if (filters.role && user.role !== filters.role) return false
-    if (filters.isActive !== undefined && user.isActive !== filters.isActive) return false
-    if (filters.company && user.company !== filters.company) return false
-    if (filters.department && user.department !== filters.department) return false
-    return true
-  })
+export function getCurrentUser(): User {
+  // Return a demo admin user for the current session
+  return {
+    id: "current_admin",
+    name: "Demo Administrator",
+    email: "admin@example.com",
+    role: "administrator",
+    avatar: "/placeholder-user.jpg",
+    company: "Demo Company",
+    department: "Administration",
+    isActive: true,
+    createdDate: "2024-01-01T00:00:00Z",
+    lastLoginDate: new Date().toISOString(),
+  }
 }

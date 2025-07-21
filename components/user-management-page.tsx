@@ -157,11 +157,13 @@ export function UserManagementPage() {
 
   // Handle user selection
   const handleSelectUser = (userId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedUsers([...selectedUsers, userId])
-    } else {
-      setSelectedUsers(selectedUsers.filter((id) => id !== userId))
-    }
+    setSelectedUsers((prev) => {
+      if (checked) {
+        return [...prev, userId]
+      } else {
+        return prev.filter((id) => id !== userId)
+      }
+    })
   }
 
   const handleSelectAll = (checked: boolean) => {
@@ -195,7 +197,7 @@ export function UserManagementPage() {
           department: "",
           isActive: true,
         })
-        fetchUsers()
+        await fetchUsers()
       } else {
         throw new Error("Failed to create user")
       }
@@ -226,7 +228,7 @@ export function UserManagementPage() {
         })
         setShowEditDialog(false)
         setEditingUser(null)
-        fetchUsers()
+        await fetchUsers()
       } else {
         throw new Error("Failed to update user")
       }
@@ -252,8 +254,8 @@ export function UserManagementPage() {
           description: "User deleted successfully",
         })
         // Remove the deleted user from selected users
-        setSelectedUsers(selectedUsers.filter((id) => id !== userId))
-        fetchUsers()
+        setSelectedUsers((prev) => prev.filter((id) => id !== userId))
+        await fetchUsers()
       } else {
         throw new Error("Failed to delete user")
       }
@@ -312,7 +314,7 @@ export function UserManagementPage() {
           description: data.message,
         })
         setSelectedUsers([])
-        fetchUsers()
+        await fetchUsers()
       } else {
         throw new Error("Failed to perform bulk action")
       }

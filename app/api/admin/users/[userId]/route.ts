@@ -18,9 +18,8 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
 
 export async function PUT(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
-    const updates = await request.json()
-
-    const updatedUser = await updateUser(params.userId, updates)
+    const userData = await request.json()
+    const updatedUser = await updateUser(params.userId, userData)
 
     if (!updatedUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -41,7 +40,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { userI
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ message: "User deleted successfully" })
   } catch (error) {
     console.error("Error deleting user:", error)
     return NextResponse.json({ error: "Failed to delete user" }, { status: 500 })
