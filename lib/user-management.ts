@@ -1,18 +1,24 @@
-;/>
-\
-1. **Add a helper to
-return the
-active(first)
-demo
-user**
+import type { User } from "./user-types"
+import { getUserById } from "./user-management" // <-- if getUserById already exists, this is a no-op
 
-```ts
 /**
- * Return the currently “logged-in” user.
- * In this demo we simply return the first admin
- * or the first user if no admin exists.
+ * Return the current user object from an email address.
+ * In the demo we just do a simple lookup; replace with real auth in production.
  */
-export const getCurrentUser = (): User | null => {
-  const users = getDemoUsers()
-  return users.find(u => u.role === "administrator") ?? users[0] ?? null
+export async function getCurrentUser(email: string): Promise<User | null> {
+  return getUserById ? getUserById(email) : null
+}
+
+/** True if the user has permission to view admin logs. */
+export function canViewLogs(user: User | null | undefined): boolean {
+  return !!user && (user.role === "administrator" || user.role === "super_admin")
+}
+
+/**
+ * Demo-only password reset helper.
+ * Always returns true and logs the action.
+ */
+export async function resetUserPassword(userId: string): Promise<boolean> {
+  console.log(`(demo) reset password for user ${userId}`)
+  return true
 }
