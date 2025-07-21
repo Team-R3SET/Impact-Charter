@@ -61,6 +61,7 @@ export async function getAirtableConnection(): Promise<AirtableConnection> {
     const response = await fetch(`https://api.airtable.com/v0/meta/bases/${AIRTABLE_BASE_ID}/tables`, {
       headers: {
         Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        "X-Airtable-Accept-Meta-Api-Betas": "enterprise-meta",
       },
     })
 
@@ -91,16 +92,29 @@ export async function getAirtableConnection(): Promise<AirtableConnection> {
 }
 
 export async function getAirtableTables(): Promise<AirtableTable[]> {
+  // Fast-fail if creds are missing
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
-    throw new Error("Airtable credentials not configured")
+    return []
   }
 
+  const url = `https://api.airtable.com/v0/meta/bases/${AIRTABLE_BASE_ID}/tables`
+
   try {
-    const response = await fetch(`https://api.airtable.com/v0/meta/bases/${AIRTABLE_BASE_ID}/tables`, {
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        // The meta API is GA but still expects this header in some regions.
+        "X-Airtable-Accept-Meta-Api-Betas": "enterprise-meta",
       },
     })
+
+    // --- Graceful fallback on 404 ---
+    if (response.status === 404) {
+      console.warn(
+        `[airtable-debug] Base ${AIRTABLE_BASE_ID} not found (404). Returning empty table list so UI can render.`,
+      )
+      return []
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -108,9 +122,10 @@ export async function getAirtableTables(): Promise<AirtableTable[]> {
 
     const data = await response.json()
     return data.tables || []
-  } catch (error) {
-    console.error("Error fetching Airtable tables:", error)
-    throw error
+  } catch (err) {
+    console.error("[airtable-debug] Error fetching Airtable tables:", err)
+    // Any other error: return empty list so the UI still loads
+    return []
   }
 }
 
