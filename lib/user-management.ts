@@ -1,132 +1,104 @@
-import { randomUUID } from "crypto"
 import type { User } from "@/lib/user-types"
-import { isAdministrator, canAccessAdminFeatures, canViewLogs, canManageUsers } from "@/lib/user-types"
 
-// Re-export for convenience
-export { isAdministrator, canAccessAdminFeatures, canViewLogs, canManageUsers }
-
-const users: User[] = [
-  {
-    id: "admin-1",
-    name: "Admin User",
-    email: "admin@example.com",
-    role: "administrator",
-    company: "Business Plan Co",
-    department: "IT Administration",
-    createdDate: new Date().toISOString(),
-    lastLoginDate: new Date().toISOString(),
-    isActive: true,
-    avatar: "/placeholder.svg?height=40&width=40&text=AD",
-  },
-  {
-    id: "user-1",
-    name: "John Doe",
-    email: "john@example.com",
-    role: "regular",
-    company: "Startup Inc",
-    department: "Business Development",
-    createdDate: new Date().toISOString(),
-    lastLoginDate: new Date().toISOString(),
-    isActive: true,
-    avatar: "/placeholder.svg?height=40&width=40&text=JD",
-  },
-  {
-    id: "user-2",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    role: "regular",
-    company: "Innovation Corp",
-    department: "Strategy",
-    createdDate: new Date().toISOString(),
-    isActive: true,
-    avatar: "/placeholder.svg?height=40&width=40&text=JS",
-  },
-]
-
-export const getCurrentUser = async (email: string): Promise<User | null> => {
-  const user = users.find((u) => u.email === email && u.isActive)
-  if (user && user.email === email) {
-    user.lastLoginDate = new Date().toISOString()
-  }
-  return user || null
+// Demo users for role switching
+export function getDemoUsers(): User[] {
+  return [
+    {
+      id: "admin-1",
+      name: "Demo Admin",
+      email: "admin@example.com",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=admin@example.com",
+      role: "administrator",
+      company: "System Administration",
+      department: "IT",
+      createdDate: new Date().toISOString(),
+      isActive: true,
+    },
+    {
+      id: "user-1",
+      name: "John Doe",
+      email: "john@startup.com",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=john@startup.com",
+      role: "regular",
+      company: "Startup Inc",
+      department: "Business Development",
+      createdDate: new Date().toISOString(),
+      isActive: true,
+    },
+    {
+      id: "user-2",
+      name: "Jane Smith",
+      email: "jane@innovation.com",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=jane@innovation.com",
+      role: "regular",
+      company: "Innovation Corp",
+      department: "Strategy",
+      createdDate: new Date().toISOString(),
+      isActive: true,
+    },
+  ]
 }
 
-export const getAllUsers = async (): Promise<User[]> => {
-  return users.filter((u) => u.isActive)
+// Role checking functions
+export function isAdministrator(user: User): boolean {
+  return user.role === "administrator"
 }
 
-export const createUser = async (userData: Omit<User, "id" | "createdDate">): Promise<User> => {
+export function canAccessAdminFeatures(user: User): boolean {
+  return isAdministrator(user)
+}
+
+export function canViewLogs(user: User): boolean {
+  return isAdministrator(user)
+}
+
+export function canManageUsers(user: User): boolean {
+  return isAdministrator(user)
+}
+
+// User CRUD operations (demo implementation)
+export async function createUser(userData: Omit<User, "id" | "createdDate">): Promise<User> {
   const newUser: User = {
     ...userData,
-    id: randomUUID(),
+    id: `user-${Date.now()}`,
     createdDate: new Date().toISOString(),
   }
-  users.push(newUser)
+
+  // In a real app, this would save to a database
+  console.log("Creating user:", newUser)
   return newUser
 }
 
-export const updateUser = async (userId: string, updates: Partial<User>): Promise<User | null> => {
-  const userIndex = users.findIndex((u) => u.id === userId)
-  if (userIndex !== -1) {
-    users[userIndex] = { ...users[userIndex], ...updates }
-    return users[userIndex]
+export async function updateUser(userId: string, updates: Partial<User>): Promise<User | null> {
+  // In a real app, this would update the database
+  console.log("Updating user:", userId, updates)
+
+  // Return a mock updated user
+  const demoUsers = getDemoUsers()
+  const user = demoUsers.find((u) => u.id === userId)
+  if (user) {
+    return { ...user, ...updates }
   }
   return null
 }
 
-export const deactivateUser = async (userId: string): Promise<boolean> => {
-  const userIndex = users.findIndex((u) => u.id === userId)
-  if (userIndex !== -1) {
-    users[userIndex].isActive = false
-    return true
-  }
-  return false
+export async function deleteUser(userId: string): Promise<boolean> {
+  // In a real app, this would delete from the database
+  console.log("Deleting user:", userId)
+  return true
 }
 
-export const getUserStats = async (): Promise<{
-  total: number
-  active: number
-  administrators: number
-  regular: number
-  recentLogins: number
-}> => {
-  const total = users.length
-  const active = users.filter((u) => u.isActive).length
-  const administrators = users.filter((u) => u.role === "administrator" && u.isActive).length
-  const regular = users.filter((u) => u.role === "regular" && u.isActive).length
-  const recentLogins = users.filter(
-    (u) => u.lastLoginDate && new Date(u.lastLoginDate) > new Date(Date.now() - 24 * 60 * 60 * 1000),
-  ).length
-
-  return { total, active, administrators, regular, recentLogins }
+export async function getAllUsers(): Promise<User[]> {
+  // In a real app, this would fetch from the database
+  return getDemoUsers()
 }
 
-// Demo users for role switching
-export const getDemoUsers = (): User[] => {
-  return [
-    {
-      id: "demo-admin",
-      name: "Demo Admin",
-      email: "admin@demo.com",
-      role: "administrator",
-      company: "Demo Company",
-      department: "Administration",
-      createdDate: new Date().toISOString(),
-      lastLoginDate: new Date().toISOString(),
-      isActive: true,
-      avatar: "/placeholder.svg?height=40&width=40&text=DA",
-    },
-    {
-      id: "demo-user",
-      name: "Demo User",
-      email: "user@demo.com",
-      role: "regular",
-      company: "Demo Company",
-      department: "Business",
-      createdDate: new Date().toISOString(),
-      lastLoginDate: new Date().toISOString(),
-      isActive: true,
-      avatar: "/placeholder.svg?height=40&width=40&text=DU",
-    },
-  ]
+export async function getUserById(userId: string): Promise<User | null> {
+  const users = getDemoUsers()
+  return users.find((user) => user.id === userId) || null
+}
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const users = getDemoUsers()
+  return users.find((user) => user.email === email) || null
 }

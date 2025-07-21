@@ -1,246 +1,302 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AppHeader } from "@/components/app-header"
-import { getDemoUsers, isAdministrator } from "@/lib/user-management"
-import { FileText, Plus, Users, BarChart3, Shield, AlertCircle, CheckCircle } from "lucide-react"
+import { getDemoUsers } from "@/lib/user-management"
+import {
+  FileText,
+  Plus,
+  Users,
+  BarChart3,
+  Shield,
+  Database,
+  Activity,
+  CheckCircle,
+  XCircle,
+  ArrowRight,
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 import type { User } from "@/lib/user-types"
 
 export default function HomePage() {
-  const demoUsers = getDemoUsers()
-  const [currentUser, setCurrentUser] = useState<User>(demoUsers[1]) // Start with regular user
+  const [planName, setPlanName] = useState("")
+  const [isCreating, setIsCreating] = useState(false)
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    const demoUsers = getDemoUsers()
+    return demoUsers[1] // Default to regular user
+  })
+  const router = useRouter()
 
-  const isAdmin = isAdministrator(currentUser)
+  const handleCreatePlan = async () => {
+    if (!planName.trim()) {
+      toast({
+        title: "Plan name required",
+        description: "Please enter a name for your business plan.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsCreating(true)
+
+    try {
+      const response = await fetch("/api/business-plans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planName: planName.trim(),
+          ownerEmail: currentUser.email,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create business plan")
+      }
+
+      const data = await response.json()
+      const planId = data.plan.id
+
+      toast({
+        title: "Business plan created!",
+        description: `"${planName}" has been created successfully.`,
+      })
+
+      // Navigate to the new plan
+      router.push(`/plan/${planId}?name=${encodeURIComponent(planName)}`)
+    } catch (error) {
+      console.error("Error creating business plan:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create business plan. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCreating(false)
+    }
+  }
 
   const handleUserChange = (user: User) => {
     setCurrentUser(user)
   }
 
+  const isAdmin = currentUser.role === "administrator"
+
+  const features = [
+    {
+      title: "Business Plan Creation",
+      description: "Create and edit comprehensive business plans",
+      icon: FileText,
+      available: true,
+      adminOnly: false,
+    },
+    {
+      title: "Real-time Collaboration",
+      description: "Work together with team members in real-time",
+      icon: Users,
+      available: true,
+      adminOnly: false,
+    },
+    {
+      title: "Progress Tracking",
+      description: "Monitor completion status of plan sections",
+      icon: BarChart3,
+      available: true,
+      adminOnly: false,
+    },
+    {
+      title: "User Management",
+      description: "Manage users, roles, and permissions",
+      icon: Shield,
+      available: isAdmin,
+      adminOnly: true,
+    },
+    {
+      title: "System Logs",
+      description: "View access logs and error tracking",
+      icon: Activity,
+      available: isAdmin,
+      adminOnly: true,
+    },
+    {
+      title: "Airtable Integration",
+      description: "Debug and manage database connections",
+      icon: Database,
+      available: isAdmin,
+      adminOnly: true,
+    },
+  ]
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+    <>
       <AppHeader currentUser={currentUser} onUserChange={handleUserChange} />
 
-      <main className="container mx-auto px-6 py-12">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 bg-blue-600 rounded-xl">
-              <FileText className="w-8 h-8 text-white" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4 py-12">
+          {/* Hero Section */}
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div className="p-3 bg-blue-600 rounded-xl">
+                <FileText className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Business Plan Builder</h1>
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Business Plan Builder</h1>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Create, collaborate, and manage your business plans with our comprehensive platform
+            </p>
           </div>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-            Create comprehensive business plans with collaborative editing, real-time updates, and professional
-            templates.
-          </p>
 
-          {/* Current User Info */}
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-full shadow-sm border">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                {currentUser.name.charAt(0)}
+          {/* Current User Display */}
+          <Card className="mb-8 max-w-md mx-auto">
+            <CardHeader className="text-center">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <img
+                  src={currentUser.avatar || "/placeholder.svg"}
+                  alt={currentUser.name}
+                  className="w-12 h-12 rounded-full"
+                />
+                <div>
+                  <CardTitle className="text-lg">{currentUser.name}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={isAdmin ? "destructive" : "secondary"}>
+                      {isAdmin ? "Administrator" : "Regular User"}
+                    </Badge>
+                  </div>
+                </div>
               </div>
-              <span className="font-medium text-gray-900 dark:text-white">{currentUser.name}</span>
-              <Badge variant={isAdmin ? "destructive" : "secondary"}>
-                {isAdmin ? "Administrator" : "Regular User"}
-              </Badge>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" asChild className="bg-blue-600 hover:bg-blue-700">
-              <Link href="/plans">
-                <Plus className="w-5 h-5 mr-2" />
-                Create New Plan
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/plans">
-                <FileText className="w-5 h-5 mr-2" />
-                View My Plans
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
-                <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <CardTitle>Professional Templates</CardTitle>
-              <CardDescription>
-                Start with industry-standard business plan templates and customize them to your needs.
-              </CardDescription>
+              <CardDescription>{currentUser.email}</CardDescription>
             </CardHeader>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow">
+          {/* Create New Plan Section */}
+          <Card className="mb-12 max-w-2xl mx-auto">
             <CardHeader>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
-                <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
-              </div>
-              <CardTitle>Real-time Collaboration</CardTitle>
-              <CardDescription>
-                Work together with your team in real-time with live editing and presence indicators.
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                Create New Business Plan
+              </CardTitle>
+              <CardDescription>Start building your business plan with our guided process</CardDescription>
             </CardHeader>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-4">
-                <BarChart3 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <CardTitle>Progress Tracking</CardTitle>
-              <CardDescription>
-                Monitor completion status and track progress across all sections of your business plan.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-
-        {/* Role-based Features */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Regular User Features */}
-          <Card className="border-2 border-blue-200 dark:border-blue-800">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-blue-600" />
-                <CardTitle className="text-blue-900 dark:text-blue-100">Available Features</CardTitle>
-                <Badge variant="secondary">Current Access</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span>Create and edit business plans</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span>Real-time collaboration</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span>Progress tracking</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span>Export and sharing</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span>Profile management</span>
+            <CardContent>
+              <div className="flex gap-4">
+                <Input
+                  placeholder="Enter your business plan name..."
+                  value={planName}
+                  onChange={(e) => setPlanName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreatePlan()
+                    }
+                  }}
+                  className="flex-1"
+                />
+                <Button onClick={handleCreatePlan} disabled={isCreating || !planName.trim()} className="px-6">
+                  {isCreating ? "Creating..." : "Create Plan"}
+                </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Admin Features */}
-          <Card
-            className={`border-2 ${isAdmin ? "border-red-200 dark:border-red-800" : "border-gray-200 dark:border-gray-700 opacity-60"}`}
-          >
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-red-600" />
-                <CardTitle className="text-red-900 dark:text-red-100">Administrator Features</CardTitle>
-                {isAdmin ? (
-                  <Badge variant="destructive">Admin Access</Badge>
-                ) : (
-                  <Badge variant="outline">
-                    <AlertCircle className="w-3 h-3 mr-1" />
-                    Admin Only
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                {isAdmin ? (
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-gray-400" />
-                )}
-                <span className={isAdmin ? "" : "text-gray-500"}>User management and roles</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isAdmin ? (
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-gray-400" />
-                )}
-                <span className={isAdmin ? "" : "text-gray-500"}>System logs and monitoring</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isAdmin ? (
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-gray-400" />
-                )}
-                <span className={isAdmin ? "" : "text-gray-500"}>Airtable integration management</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isAdmin ? (
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-gray-400" />
-                )}
-                <span className={isAdmin ? "" : "text-gray-500"}>Error tracking and resolution</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isAdmin ? (
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-gray-400" />
-                )}
-                <span className={isAdmin ? "" : "text-gray-500"}>System configuration</span>
-              </div>
+          {/* Features Grid */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-center mb-8 text-gray-900 dark:text-white">Platform Features</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {features.map((feature, index) => (
+                <Card key={index} className={`relative ${!feature.available ? "opacity-60" : ""}`}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <feature.icon className={`w-8 h-8 ${feature.available ? "text-blue-600" : "text-gray-400"}`} />
+                      {feature.available ? (
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-red-500" />
+                      )}
+                    </div>
+                    <CardTitle className="text-lg">{feature.title}</CardTitle>
+                    {feature.adminOnly && (
+                      <Badge variant="outline" className="w-fit">
+                        Admin Only
+                      </Badge>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>{feature.description}</CardDescription>
+                    {!feature.available && feature.adminOnly && (
+                      <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                        Switch to Administrator role to access this feature
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
 
-              {isAdmin && (
-                <div className="pt-4 border-t">
-                  <Button asChild className="w-full bg-red-600 hover:bg-red-700">
-                    <Link href="/admin">
-                      <Shield className="w-4 h-4 mr-2" />
+          {/* Admin Access Section */}
+          {isAdmin && (
+            <Card className="max-w-2xl mx-auto bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-red-200 dark:border-red-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                  <Shield className="w-5 h-5" />
+                  Administrator Access
+                </CardTitle>
+                <CardDescription>
+                  You have administrator privileges. Access advanced features and system management.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button asChild variant="destructive" className="flex-1">
+                    <a href="/admin" className="flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
                       Access Admin Dashboard
-                    </Link>
+                      <ArrowRight className="w-4 h-4" />
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="flex-1 bg-transparent">
+                    <a href="/admin/airtable" className="flex items-center gap-2">
+                      <Database className="w-4 h-4" />
+                      Airtable Debug Tools
+                      <ArrowRight className="w-4 h-4" />
+                    </a>
                   </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Demo Instructions */}
-        <div className="mt-16 text-center">
-          <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-                <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">Demo Mode</h3>
-              </div>
-              <p className="text-amber-800 dark:text-amber-200 mb-4">
-                Use the <strong>Users icon</strong> in the header to switch between Administrator and Regular User roles
-                to explore different features and permissions.
-              </p>
-              <div className="flex items-center justify-center gap-4 text-sm text-amber-700 dark:text-amber-300">
-                <div className="flex items-center gap-1">
+          {/* Quick Actions */}
+          <div className="mt-12 text-center">
+            <h3 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Quick Actions</h3>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Button asChild variant="outline">
+                <a href="/plans" className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  View My Plans
+                </a>
+              </Button>
+              <Button asChild variant="outline">
+                <a href="/profile" className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  <span>Switch roles in header</span>
-                </div>
-                <div className="flex items-center gap-1">
+                  Edit Profile
+                </a>
+              </Button>
+              <Button asChild variant="outline">
+                <a href="/settings" className="flex items-center gap-2">
                   <Shield className="w-4 h-4" />
-                  <span>Admin features when switched</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  Settings
+                </a>
+              </Button>
+            </div>
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   )
 }
