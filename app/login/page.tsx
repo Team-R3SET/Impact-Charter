@@ -1,29 +1,32 @@
 "use client"
 
-import type React from "react"
+import { CardFooter } from "@/components/ui/card"
 
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
+
 import { useRouter } from "next/navigation"
-import Link from "next/link"
+
+import { useState } from "react"
+
+import type React from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Separator } from "@/components/ui/separator"
-import { FileText, Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { FileText, Mail, Lock } from "lucide-react"
 import { useUser } from "@/contexts/user-context"
 import { getUserByEmail } from "@/lib/user-management"
 import type { User } from "@/lib/user-types"
 
-export default function LoginPage() {
+export default function LoginPage({ searchParams }: { searchParams: { message: string } }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const router = useRouter()
-  const { login, isLoading, currentUser } = useUser()
+  const { login: userLogin, isLoading, currentUser } = useUser()
 
   const handleRedirect = (user: User | null) => {
     if (!user) return
@@ -54,7 +57,7 @@ export default function LoginPage() {
       if (!user) {
         throw new Error("Invalid email or password")
       }
-      await login(user)
+      await userLogin(user)
       setSuccess("Sign in successful! Redirecting...")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred during sign in")
@@ -70,7 +73,7 @@ export default function LoginPage() {
       if (!user) {
         throw new Error(`Demo ${userType} account not found.`)
       }
-      await login(user)
+      await userLogin(user)
       setSuccess(`Signed in as demo ${userType}! Redirecting...`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred during sign in")
@@ -78,7 +81,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-background">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold">
@@ -98,18 +101,9 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {success && (
-              <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
+            {error && <div className="text-sm font-medium text-destructive">{error}</div>}
+            {success && <div className="text-sm font-medium text-green-800 dark:text-green-400">{success}</div>}
+            {searchParams?.message && <p className="text-sm font-medium text-destructive">{searchParams.message}</p>}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -152,9 +146,9 @@ export default function LoginPage() {
                     disabled={isLoading}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <Lock className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <Mail className="h-4 w-4 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
@@ -170,14 +164,13 @@ export default function LoginPage() {
               </div>
 
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {isLoading ? "Signing in..." : "Sign in"}
               </Button>
             </form>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
+                <div className="w-full bg-muted" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-card px-2 text-muted-foreground">Or continue with</span>

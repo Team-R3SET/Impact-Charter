@@ -1,21 +1,17 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Separator } from "@/components/ui/separator"
-import { Checkbox } from "@/components/ui/checkbox"
+import Link from "next/link"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { FileText, Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react"
 import { useUser } from "@/contexts/user-context"
 
-export default function RegisterPage() {
+export default function RegisterPage({ searchParams }: { searchParams: { message: string } }) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -101,7 +97,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-background">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -123,17 +119,17 @@ export default function RegisterPage() {
 
           <CardContent className="space-y-4">
             {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <div className="bg-red-100 text-red-700 p-4 rounded">
+                <AlertCircle className="h-4 w-4 inline-block mr-2" />
+                {error}
+              </div>
             )}
 
             {success && (
-              <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
+              <div className="bg-green-100 text-green-700 p-4 rounded">
+                <CheckCircle className="h-4 w-4 inline-block mr-2" />
+                {success}
+              </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -238,10 +234,12 @@ export default function RegisterPage() {
               </div>
 
               <div className="flex items-center space-x-2">
-                <Checkbox
+                <input
                   id="terms"
+                  type="checkbox"
                   checked={acceptTerms}
-                  onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   disabled={isLoading}
                 />
                 <Label htmlFor="terms" className="text-sm">
@@ -267,9 +265,11 @@ export default function RegisterPage() {
               </Button>
             </form>
 
+            {searchParams?.message && <p className="text-sm font-medium text-foreground">{searchParams.message}</p>}
+
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
+                <div className="w-full border-t border-gray-300 dark:border-gray-700" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">Or</span>
