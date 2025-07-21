@@ -1,31 +1,30 @@
-import { AirtableClient } from "./airtable"
-import type { BusinessPlanSectionRecord } from "./business-plan-sections"
-
-const airtable = new AirtableClient()
+import type { BusinessPlanSection } from "./airtable"
+import { markSectionAsComplete, updateBusinessPlanSection } from "./airtable"
+import type { UserSettings } from "./user-settings"
 
 /**
- * Mark a section as complete inside Airtable.
- * (Previously added – keeping here so the export remains.)
+ * Update a Business-Plan section **using the credentials inside the user’s
+ * settings** so the operation succeeds even when environment variables are
+ * not configured (e.g. on the client or in local-storage mode).
  */
-export async function markBusinessPlanSectionComplete(planId: string, sectionName: string) {
-  return airtable.update<BusinessPlanSectionRecord>("Business Plan Sections", {
-    planId,
-    sectionName,
-    isComplete: true,
-    completedDate: new Date().toISOString(),
-  })
+export async function updateBusinessPlanSectionWithUserCreds(
+  section: BusinessPlanSection,
+  settings: UserSettings | null,
+) {
+  console.log("[updateBusinessPlanSectionWithUserCreds] section:", section.sectionName, "plan:", section.planId)
+  await updateBusinessPlanSection(section, settings)
 }
 
 /**
- * Update a section while authenticating with the current user’s Airtable
- * credentials. This was the other missing export that broke the build.
+ * Mark a Business-Plan section as complete on behalf of the current user.
+ * Thin wrapper over `markSectionAsComplete` so other modules don’t need to
+ * import from lib/airtable directly.
  */
-export async function updateBusinessPlanSectionWithUserCreds(
-  userApiKey: string,
-  baseId: string,
-  sectionId: string,
-  data: Partial<BusinessPlanSectionRecord>,
+export async function markBusinessPlanSectionComplete(
+  planId: string,
+  sectionName: string,
+  userEmail: string,
+  settings: UserSettings | null,
 ) {
-  const scopedClient = new AirtableClient({ apiKey: userApiKey, baseId })
-  return scopedClient.update<BusinessPlanSectionRecord>("Business Plan Sections", sectionId, data)
+  return markSectionAsComplete(planId, sectionName, userEmail, settings)
 }

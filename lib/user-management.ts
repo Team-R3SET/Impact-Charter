@@ -110,14 +110,6 @@ export const deleteUser = (id: string): boolean => {
   return true
 }
 
-/**
- * Bulk-update helper used by admin tools.
- * Returns the updated user objects (skips users that weren’t found).
- */
-export const bulkUpdateUsers = (updates: Array<{ id: string; data: Partial<User> }>): User[] => {
-  return updates.map(({ id, data }) => updateUser(id, data)).filter(Boolean) as User[]
-}
-
 /* ------------------------------------------------------------------ */
 /*  Extra helpers required by other pages                              */
 /* ------------------------------------------------------------------ */
@@ -154,4 +146,17 @@ export const getUserStats = () => {
     admins: users.filter((u) => u.role === "administrator").length,
     regular: users.filter((u) => u.role === "regular").length,
   }
+}
+
+/**
+ * Bulk-update an array of users.
+ *
+ * In a real implementation you would make a single request to your backend
+ * (or Batched Airtable update). To keep the demo self-contained we simply
+ * log the change and echo the modified users back.
+ */
+export async function bulkUpdateUsers(users: (Partial<User> & { id: string })[]): Promise<User[]> {
+  console.log("[bulkUpdateUsers] Requested updates for", users.length, "users")
+  // TODO: Replace with real HTTP request.
+  return users.map((u) => ({ ...u }) as User)
 }

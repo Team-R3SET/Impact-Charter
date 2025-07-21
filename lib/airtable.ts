@@ -461,3 +461,75 @@ export async function createOrUpdateUserProfile(
     "createOrUpdateUserProfile",
   )
 }
+
+/**
+ * Thin wrapper around the Airtable REST API so other parts of the app
+ * can use a reusable, strongly-typed client instead of calling `fetch`
+ * directly. Only the endpoints our app actually needs are implemented,
+ * but the class can be extended at any time.
+ */
+export class AirtableClient {
+  constructor(
+    private readonly apiKey: string,
+    private readonly baseId: string,
+  ) {
+    if (!apiKey || !baseId) {
+      throw new Error(
+        "[AirtableClient] Both apiKey and baseId are required. " +
+          "Did you forget to set AIRTABLE_API_KEY / AIRTABLE_BASE_ID?",
+      )
+    }
+  }
+
+  private async request<T = unknown>(url: string, init?: RequestInit & { body?: unknown }): Promise<T> {
+    const res = await fetch(url, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      body: typeof init?.body === "string" ? init.body : init?.body ? JSON.stringify(init.body) : undefined,
+    })
+
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`[AirtableClient] ${res.status} ${res.statusText} – ${text}`)
+    }
+
+    return (await res.json()) as T
+  }
+
+  private tableUrl(tableName: string, recordId?: string): string {
+    return `https://api.airtable.com/v0/${this.baseId}/${encodeURIComponent(
+      tableName,
+    )}${recordId ? `/${recordId}` : ""}`
+  }
+
+  /**
+   * Create a record in the specified table.
+   */
+  async create<TFields extends Record<string, unknown>>(table: string, fields: TFields) {
+    return this.request<{ id: string; fields: TFields }>(this.tableUrl(table), {
+      method: "POST",
+      body: { fields },
+    })
+  }
+
+  /**
+   * Update a record (PATCH) in the specified table.
+   */
+  async update<TFields extends Record<string, unknown>>(table: string, id: string, fields: Partial<TFields>) {
+    return this.request<{ id: string; fields: TFields }>(this.tableUrl(table, id), {
+      method: "PATCH",
+      body: { fields },
+    })
+  }
+
+  /**
+   * Get a single record by ID.
+   */
+  async findOne<TFields extends Record<string, unknown>>(table: string, id: string) {
+    return this.request<{ id: string; fields: TFields }>(this.tableUrl(table, id))
+  }
+}
