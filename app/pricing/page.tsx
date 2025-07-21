@@ -1,474 +1,378 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Check, X, Star, Users, Building, Crown, Zap, Shield, Headphones } from "lucide-react"
-import Link from "next/link"
-
-const pricingPlans = {
-  monthly: [
-    {
-      name: "Starter",
-      price: 0,
-      description: "Perfect for individuals getting started with business planning",
-      features: [
-        { name: "1 Business Plan", included: true },
-        { name: "Basic Templates", included: true },
-        { name: "PDF Export", included: true },
-        { name: "Community Support", included: true },
-        { name: "Real-time Collaboration", included: false },
-        { name: "Advanced Analytics", included: false },
-        { name: "Priority Support", included: false },
-        { name: "Custom Branding", included: false },
-      ],
-      cta: "Get Started Free",
-      popular: false,
-      icon: Users,
-    },
-    {
-      name: "Professional",
-      price: 29,
-      description: "Ideal for entrepreneurs and small businesses",
-      features: [
-        { name: "Unlimited Business Plans", included: true },
-        { name: "Premium Templates", included: true },
-        { name: "PDF & Word Export", included: true },
-        { name: "Real-time Collaboration", included: true },
-        { name: "Advanced Analytics", included: true },
-        { name: "Email Support", included: true },
-        { name: "Custom Branding", included: false },
-        { name: "API Access", included: false },
-      ],
-      cta: "Start Free Trial",
-      popular: true,
-      icon: Building,
-    },
-    {
-      name: "Enterprise",
-      price: 99,
-      description: "For large teams and organizations",
-      features: [
-        { name: "Everything in Professional", included: true },
-        { name: "Custom Branding", included: true },
-        { name: "API Access", included: true },
-        { name: "Priority Support", included: true },
-        { name: "Advanced Security", included: true },
-        { name: "Team Management", included: true },
-        { name: "Custom Integrations", included: true },
-        { name: "Dedicated Account Manager", included: true },
-      ],
-      cta: "Contact Sales",
-      popular: false,
-      icon: Crown,
-    },
-  ],
-  yearly: [
-    {
-      name: "Starter",
-      price: 0,
-      description: "Perfect for individuals getting started with business planning",
-      features: [
-        { name: "1 Business Plan", included: true },
-        { name: "Basic Templates", included: true },
-        { name: "PDF Export", included: true },
-        { name: "Community Support", included: true },
-        { name: "Real-time Collaboration", included: false },
-        { name: "Advanced Analytics", included: false },
-        { name: "Priority Support", included: false },
-        { name: "Custom Branding", included: false },
-      ],
-      cta: "Get Started Free",
-      popular: false,
-      icon: Users,
-    },
-    {
-      name: "Professional",
-      price: 290,
-      originalPrice: 348,
-      description: "Ideal for entrepreneurs and small businesses",
-      features: [
-        { name: "Unlimited Business Plans", included: true },
-        { name: "Premium Templates", included: true },
-        { name: "PDF & Word Export", included: true },
-        { name: "Real-time Collaboration", included: true },
-        { name: "Advanced Analytics", included: true },
-        { name: "Email Support", included: true },
-        { name: "Custom Branding", included: false },
-        { name: "API Access", included: false },
-      ],
-      cta: "Start Free Trial",
-      popular: true,
-      icon: Building,
-    },
-    {
-      name: "Enterprise",
-      price: 990,
-      originalPrice: 1188,
-      description: "For large teams and organizations",
-      features: [
-        { name: "Everything in Professional", included: true },
-        { name: "Custom Branding", included: true },
-        { name: "API Access", included: true },
-        { name: "Priority Support", included: true },
-        { name: "Advanced Security", included: true },
-        { name: "Team Management", included: true },
-        { name: "Custom Integrations", included: true },
-        { name: "Dedicated Account Manager", included: true },
-      ],
-      cta: "Contact Sales",
-      popular: false,
-      icon: Crown,
-    },
-  ],
-}
-
-const testimonials = [
-  {
-    name: "Sarah Johnson",
-    role: "Startup Founder",
-    company: "TechVenture Inc.",
-    content:
-      "The Professional plan gave us everything we needed to create comprehensive business plans. The collaboration features are game-changing!",
-    rating: 5,
-    avatar: "/placeholder-user.jpg",
-  },
-  {
-    name: "Michael Chen",
-    role: "Business Consultant",
-    company: "Strategic Solutions",
-    content:
-      "I use this for all my clients. The templates are professional and the analytics help track progress effectively.",
-    rating: 5,
-    avatar: "/placeholder-user.jpg",
-  },
-  {
-    name: "Emily Rodriguez",
-    role: "Operations Director",
-    company: "Global Enterprises",
-    content:
-      "Enterprise plan is perfect for our large team. The custom branding and priority support are worth every penny.",
-    rating: 5,
-    avatar: "/placeholder-user.jpg",
-  },
-]
-
-const faqs = [
-  {
-    question: "Can I change my plan at any time?",
-    answer:
-      "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately and billing is prorated.",
-  },
-  {
-    question: "Is there a free trial available?",
-    answer: "Yes, we offer a 14-day free trial for all paid plans. No credit card required to start.",
-  },
-  {
-    question: "What payment methods do you accept?",
-    answer: "We accept all major credit cards, PayPal, and bank transfers for Enterprise customers.",
-  },
-  {
-    question: "Can I cancel my subscription anytime?",
-    answer: "Absolutely. You can cancel your subscription at any time with no cancellation fees.",
-  },
-  {
-    question: "Do you offer discounts for nonprofits or students?",
-    answer: "Yes, we offer 50% discounts for verified nonprofits and students. Contact us for details.",
-  },
-]
+import { Switch } from "@/components/ui/switch"
+import { AppHeader } from "@/components/app-header"
+import { Check, X, Star, ArrowRight, CheckCircle, HelpCircle } from "lucide-react"
+import { useUser } from "@/contexts/user-context"
 
 export default function PricingPage() {
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
+  const [isYearly, setIsYearly] = useState(false)
+  const { user } = useUser()
 
-  const currentPlans = pricingPlans[billingCycle]
+  const plans = [
+    {
+      name: "Starter",
+      description: "Perfect for individuals and small projects",
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      popular: false,
+      features: [
+        { name: "1 Business Plan", included: true },
+        { name: "Basic Templates", included: true },
+        { name: "Export to PDF", included: true },
+        { name: "Email Support", included: true },
+        { name: "Real-time Collaboration", included: false },
+        { name: "Advanced Analytics", included: false },
+        { name: "AI-Powered Insights", included: false },
+        { name: "Priority Support", included: false },
+        { name: "Custom Branding", included: false },
+        { name: "Team Management", included: false },
+      ],
+    },
+    {
+      name: "Professional",
+      description: "Most popular for growing businesses",
+      monthlyPrice: 29,
+      yearlyPrice: 24,
+      popular: true,
+      features: [
+        { name: "Unlimited Business Plans", included: true },
+        { name: "50+ Premium Templates", included: true },
+        { name: "Export to PDF/Word/Excel", included: true },
+        { name: "Priority Email Support", included: true },
+        { name: "Real-time Collaboration", included: true },
+        { name: "Advanced Analytics", included: true },
+        { name: "AI-Powered Insights", included: true },
+        { name: "Priority Support", included: false },
+        { name: "Custom Branding", included: false },
+        { name: "Team Management", included: false },
+      ],
+    },
+    {
+      name: "Enterprise",
+      description: "For large organizations and teams",
+      monthlyPrice: 99,
+      yearlyPrice: 82,
+      popular: false,
+      features: [
+        { name: "Unlimited Everything", included: true },
+        { name: "Custom Templates", included: true },
+        { name: "All Export Formats", included: true },
+        { name: "24/7 Phone & Email Support", included: true },
+        { name: "Real-time Collaboration", included: true },
+        { name: "Advanced Analytics", included: true },
+        { name: "AI-Powered Insights", included: true },
+        { name: "Priority Support", included: true },
+        { name: "Custom Branding", included: true },
+        { name: "Team Management", included: true },
+      ],
+    },
+  ]
+
+  const testimonials = [
+    {
+      name: "Alex Thompson",
+      role: "Startup Founder",
+      content:
+        "The Professional plan gave us everything we needed to secure funding. The collaboration features were essential.",
+      rating: 5,
+      plan: "Professional",
+    },
+    {
+      name: "Maria Garcia",
+      role: "Business Consultant",
+      content: "Enterprise features help me manage multiple client projects efficiently. Worth every penny.",
+      rating: 5,
+      plan: "Enterprise",
+    },
+    {
+      name: "David Kim",
+      role: "Solo Entrepreneur",
+      content: "Started with the free plan and upgraded as my business grew. Perfect progression.",
+      rating: 5,
+      plan: "Starter → Professional",
+    },
+  ]
+
+  const faqs = [
+    {
+      question: "Can I change plans anytime?",
+      answer:
+        "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately and we'll prorate any charges.",
+    },
+    {
+      question: "What happens to my data if I cancel?",
+      answer:
+        "Your data remains accessible for 30 days after cancellation. You can export all your business plans during this period.",
+    },
+    {
+      question: "Do you offer refunds?",
+      answer: "Yes, we offer a 30-day money-back guarantee for all paid plans. No questions asked.",
+    },
+    {
+      question: "Is there a setup fee?",
+      answer: "No setup fees, ever. You only pay the monthly or yearly subscription fee.",
+    },
+    {
+      question: "Can I get a custom plan for my organization?",
+      answer: "Yes, we offer custom enterprise solutions. Contact our sales team to discuss your specific needs.",
+    },
+  ]
+
+  const getPrice = (plan: (typeof plans)[0]) => {
+    return isYearly ? plan.yearlyPrice : plan.monthlyPrice
+  }
+
+  const getSavings = (plan: (typeof plans)[0]) => {
+    if (plan.monthlyPrice === 0) return 0
+    return Math.round(((plan.monthlyPrice * 12 - plan.yearlyPrice * 12) / (plan.monthlyPrice * 12)) * 100)
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header */}
-      <div className="container mx-auto px-4 py-16 text-center">
-        <Badge variant="secondary" className="mb-4">
-          <Zap className="w-4 h-4 mr-2" />
-          Simple, Transparent Pricing
-        </Badge>
-        <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          Choose Your Perfect Plan
-        </h1>
-        <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-          Start free and scale as you grow. All plans include our core features with no hidden fees.
-        </p>
+    <div className="min-h-screen bg-background">
+      <AppHeader />
 
-        {/* Billing Toggle */}
-        <div className="flex items-center justify-center mb-12">
-          <Tabs
-            value={billingCycle}
-            onValueChange={(value) => setBillingCycle(value as "monthly" | "yearly")}
-            className="w-auto"
-          >
-            <TabsList className="grid w-full grid-cols-2 bg-white/50 backdrop-blur-sm">
-              <TabsTrigger value="monthly" className="data-[state=active]:bg-white">
-                Monthly
-              </TabsTrigger>
-              <TabsTrigger value="yearly" className="data-[state=active]:bg-white">
-                Yearly
-                <Badge variant="secondary" className="ml-2 bg-green-100 text-green-700">
-                  Save 17%
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+      {/* Hero Section */}
+      <section className="py-24 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-blue-900/20">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-6">Simple, transparent pricing</h1>
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Choose the perfect plan for your business needs. Start free and scale as you grow.
+          </p>
+
+          {/* Billing Toggle */}
+          <div className="flex items-center justify-center gap-4 mb-12">
+            <span className={`text-sm ${!isYearly ? "font-semibold" : "text-muted-foreground"}`}>Monthly</span>
+            <Switch checked={isYearly} onCheckedChange={setIsYearly} className="data-[state=checked]:bg-blue-600" />
+            <span className={`text-sm ${isYearly ? "font-semibold" : "text-muted-foreground"}`}>Yearly</span>
+            <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
+              Save up to 17%
+            </Badge>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Pricing Cards */}
-      <div className="container mx-auto px-4 pb-16">
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {currentPlans.map((plan, index) => {
-            const Icon = plan.icon
-            return (
+      <section className="py-16 -mt-12">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {plans.map((plan, index) => (
               <Card
-                key={plan.name}
-                className={`relative transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 ${
-                  plan.popular ? "ring-2 ring-blue-500 shadow-xl scale-105" : "hover:shadow-lg"
-                } ${selectedPlan === plan.name ? "ring-2 ring-indigo-500" : ""}`}
-                onClick={() => setSelectedPlan(plan.name)}
+                key={index}
+                className={`relative ${plan.popular ? "ring-2 ring-blue-600 shadow-xl scale-105" : "shadow-lg"} transition-all duration-300 hover:shadow-xl`}
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-1">
-                      Most Popular
-                    </Badge>
+                    <Badge className="bg-blue-600 text-white px-4 py-1">Most Popular</Badge>
                   </div>
                 )}
 
-                <CardHeader className="text-center pb-4">
-                  <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
-                    <Icon className="w-6 h-6 text-blue-600" />
-                  </div>
+                <CardHeader className="text-center pb-8">
                   <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
-                  <CardDescription className="text-gray-600 mt-2">{plan.description}</CardDescription>
+                  <CardDescription className="text-base mt-2">{plan.description}</CardDescription>
 
                   <div className="mt-6">
-                    <div className="flex items-baseline justify-center">
-                      <span className="text-4xl font-bold text-gray-900">${plan.price}</span>
-                      <span className="text-gray-500 ml-2">/{billingCycle === "monthly" ? "month" : "year"}</span>
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-4xl font-bold">${getPrice(plan)}</span>
+                      <span className="text-muted-foreground">/{isYearly ? "year" : "month"}</span>
                     </div>
-                    {plan.originalPrice && (
-                      <div className="text-sm text-gray-500 mt-1">
-                        <span className="line-through">${plan.originalPrice}</span>
-                        <span className="text-green-600 ml-2 font-semibold">
-                          Save ${plan.originalPrice - plan.price}
-                        </span>
+
+                    {isYearly && plan.monthlyPrice > 0 && (
+                      <div className="text-sm text-muted-foreground mt-1">
+                        <span className="line-through">${plan.monthlyPrice * 12}/year</span>
+                        <span className="text-green-600 ml-2">Save {getSavings(plan)}%</span>
                       </div>
                     )}
                   </div>
                 </CardHeader>
 
-                <CardContent className="px-6">
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center">
-                        {feature.included ? (
-                          <Check className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
-                        ) : (
-                          <X className="w-5 h-5 text-gray-300 mr-3 flex-shrink-0" />
-                        )}
-                        <span className={feature.included ? "text-gray-900" : "text-gray-400"}>{feature.name}</span>
-                      </li>
-                    ))}
-                  </ul>
+                <CardContent className="space-y-4">
+                  {plan.features.map((feature, featureIndex) => (
+                    <div key={featureIndex} className="flex items-center gap-3">
+                      {feature.included ? (
+                        <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      ) : (
+                        <X className="w-5 h-5 text-gray-300 flex-shrink-0" />
+                      )}
+                      <span className={feature.included ? "" : "text-muted-foreground"}>{feature.name}</span>
+                    </div>
+                  ))}
                 </CardContent>
 
-                <CardFooter className="px-6 pb-6">
+                <CardFooter className="pt-8">
                   <Button
-                    className={`w-full ${
-                      plan.popular
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                        : ""
-                    }`}
+                    className={`w-full ${plan.popular ? "bg-blue-600 hover:bg-blue-700" : ""}`}
                     variant={plan.popular ? "default" : "outline"}
-                    size="lg"
                     asChild
                   >
-                    <Link href={plan.name === "Enterprise" ? "/contact" : "/plans"}>{plan.cta}</Link>
+                    <Link href={user ? "/plans" : "/register"}>
+                      {plan.monthlyPrice === 0 ? "Get Started Free" : "Start Free Trial"}
+                      <ArrowRight className="ml-2 w-4 h-4" />
+                    </Link>
                   </Button>
                 </CardFooter>
               </Card>
-            )
-          })}
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Feature Comparison Table */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Compare All Features</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">Get a detailed breakdown of what's included in each plan</p>
-        </div>
+      <section className="py-24 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-4">Compare all features</h2>
+            <p className="text-xl text-muted-foreground">See exactly what's included in each plan</p>
+          </div>
 
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-6xl mx-auto">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left p-6 font-semibold text-gray-900">Features</th>
-                  <th className="text-center p-6 font-semibold text-gray-900">Starter</th>
-                  <th className="text-center p-6 font-semibold text-gray-900 bg-blue-50">
-                    Professional
-                    <Badge className="ml-2 bg-blue-600">Popular</Badge>
-                  </th>
-                  <th className="text-center p-6 font-semibold text-gray-900">Enterprise</th>
+          <div className="max-w-6xl mx-auto overflow-x-auto">
+            <table className="w-full bg-white dark:bg-gray-900 rounded-lg shadow-lg">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-6 font-semibold">Features</th>
+                  {plans.map((plan, index) => (
+                    <th key={index} className="text-center p-6 font-semibold">
+                      {plan.name}
+                      {plan.popular && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          Popular
+                        </Badge>
+                      )}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {[
-                  { feature: "Business Plans", starter: "1", professional: "Unlimited", enterprise: "Unlimited" },
-                  { feature: "Templates", starter: "Basic", professional: "Premium", enterprise: "Premium + Custom" },
-                  { feature: "Export Options", starter: "PDF", professional: "PDF, Word", enterprise: "All Formats" },
-                  { feature: "Collaboration", starter: false, professional: true, enterprise: true },
-                  { feature: "Analytics", starter: false, professional: true, enterprise: "Advanced" },
-                  { feature: "Support", starter: "Community", professional: "Email", enterprise: "Priority + Phone" },
-                  { feature: "Custom Branding", starter: false, professional: false, enterprise: true },
-                  { feature: "API Access", starter: false, professional: false, enterprise: true },
-                  { feature: "Team Management", starter: false, professional: false, enterprise: true },
-                  {
-                    feature: "Security",
-                    starter: "Standard",
-                    professional: "Enhanced",
-                    enterprise: "Enterprise-grade",
-                  },
-                ].map((row, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="p-6 font-medium text-gray-900">{row.feature}</td>
-                    <td className="p-6 text-center">
-                      {typeof row.starter === "boolean" ? (
-                        row.starter ? (
+              <tbody>
+                {plans[0].features.map((_, featureIndex) => (
+                  <tr key={featureIndex} className="border-b hover:bg-muted/20">
+                    <td className="p-6 font-medium">{plans[0].features[featureIndex].name}</td>
+                    {plans.map((plan, planIndex) => (
+                      <td key={planIndex} className="p-6 text-center">
+                        {plan.features[featureIndex].included ? (
                           <Check className="w-5 h-5 text-green-500 mx-auto" />
                         ) : (
                           <X className="w-5 h-5 text-gray-300 mx-auto" />
-                        )
-                      ) : (
-                        <span className="text-gray-600">{row.starter}</span>
-                      )}
-                    </td>
-                    <td className="p-6 text-center bg-blue-50/50">
-                      {typeof row.professional === "boolean" ? (
-                        row.professional ? (
-                          <Check className="w-5 h-5 text-green-500 mx-auto" />
-                        ) : (
-                          <X className="w-5 h-5 text-gray-300 mx-auto" />
-                        )
-                      ) : (
-                        <span className="text-gray-900 font-medium">{row.professional}</span>
-                      )}
-                    </td>
-                    <td className="p-6 text-center">
-                      {typeof row.enterprise === "boolean" ? (
-                        row.enterprise ? (
-                          <Check className="w-5 h-5 text-green-500 mx-auto" />
-                        ) : (
-                          <X className="w-5 h-5 text-gray-300 mx-auto" />
-                        )
-                      ) : (
-                        <span className="text-gray-600">{row.enterprise}</span>
-                      )}
-                    </td>
+                        )}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Testimonials */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">What Our Customers Say</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Join thousands of satisfied customers who trust us with their business planning
-          </p>
-        </div>
+      {/* Testimonials Section */}
+      <section className="py-24">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-4">What our customers say</h2>
+            <p className="text-xl text-muted-foreground">Real feedback from businesses using our platform</p>
+          </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {testimonials.map((testimonial, index) => (
-            <Card key={index} className="bg-white/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-gray-700 mb-4 italic">"{testimonial.content}"</p>
-                <div className="flex items-center">
-                  <img
-                    src={testimonial.avatar || "/placeholder.svg"}
-                    alt={testimonial.name}
-                    className="w-10 h-10 rounded-full mr-3"
-                  />
-                  <div>
-                    <p className="font-semibold text-gray-900">{testimonial.name}</p>
-                    <p className="text-sm text-gray-600">
-                      {testimonial.role}, {testimonial.company}
-                    </p>
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {testimonials.map((testimonial, index) => (
+              <Card key={index} className="shadow-lg">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-1 mb-4">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    ))}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <p className="text-muted-foreground mb-6 leading-relaxed">"{testimonial.content}"</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{testimonial.name}</div>
+                      <div className="text-sm text-muted-foreground">{testimonial.role}</div>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {testimonial.plan}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* FAQ Section */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Frequently Asked Questions</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Got questions? We've got answers. Can't find what you're looking for? Contact our support team.
-          </p>
-        </div>
+      <section className="py-24 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-4">Frequently asked questions</h2>
+            <p className="text-xl text-muted-foreground">Everything you need to know about our pricing</p>
+          </div>
 
-        <div className="max-w-3xl mx-auto space-y-6">
-          {faqs.map((faq, index) => (
-            <Card key={index} className="bg-white/80 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-2">{faq.question}</h3>
-                <p className="text-gray-600">{faq.answer}</p>
-              </CardContent>
-            </Card>
-          ))}
+          <div className="max-w-3xl mx-auto space-y-6">
+            {faqs.map((faq, index) => (
+              <Card key={index} className="shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <HelpCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h3 className="font-semibold mb-2">{faq.question}</h3>
+                      <p className="text-muted-foreground leading-relaxed">{faq.answer}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Final CTA */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-12 text-center text-white max-w-4xl mx-auto">
-          <Shield className="w-16 h-16 mx-auto mb-6 opacity-80" />
-          <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
-          <p className="text-xl mb-8 opacity-90">
-            Join over 50,000 entrepreneurs who trust us with their business planning
+      {/* Final CTA Section */}
+      <section className="py-24 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to get started?</h2>
+          <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
+            Join thousands of successful entrepreneurs who trust our platform to build their business plans.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="bg-white text-blue-600 hover:bg-gray-100" asChild>
-              <Link href="/plans">Start Free Trial</Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white text-white hover:bg-white/10 bg-transparent"
-              asChild
-            >
-              <Link href="/contact">
-                <Headphones className="w-4 h-4 mr-2" />
-                Talk to Sales
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+            <Button size="lg" variant="secondary" className="text-lg px-8 py-6" asChild>
+              <Link href={user ? "/plans" : "/register"}>
+                {user ? "Create New Plan" : "Start Free Trial"}
+                <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
             </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="text-lg px-8 py-6 border-white/20 text-white hover:bg-white/10 bg-transparent"
+              asChild
+            >
+              <Link href="/contact">Contact Sales</Link>
+            </Button>
           </div>
-          <p className="text-sm mt-6 opacity-75">14-day free trial • No credit card required • Cancel anytime</p>
+
+          <div className="flex flex-wrap justify-center items-center gap-6 text-sm opacity-90">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              14-day free trial
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              No setup fees
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              Cancel anytime
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              30-day money back guarantee
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   )
 }

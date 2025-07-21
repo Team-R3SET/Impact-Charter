@@ -24,13 +24,13 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 interface BusinessPlan {
   id: string
-  name: string
+  planName: string
   lastModified: string
   status: "draft" | "in-progress" | "completed"
 }
 
 export function AppHeader() {
-  const { currentUser, isAdmin } = useUser()
+  const { user: currentUser, logout, isAdmin } = useUser()
   const pathname = usePathname()
   const [plans, setPlans] = useState<BusinessPlan[]>([])
   const [selectedPlan, setSelectedPlan] = useState<string>("")
@@ -49,7 +49,7 @@ export function AppHeader() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/business-plans?limit=5&userEmail=${encodeURIComponent(currentUser.email)}`)
+      const response = await fetch(`/api/business-plans?limit=5&owner=${encodeURIComponent(currentUser.email)}`)
       if (response.ok) {
         const data = await response.json()
         const plansArray = Array.isArray(data) ? data : data.plans || []
@@ -75,6 +75,11 @@ export function AppHeader() {
   const handlePlanChange = (planId: string) => {
     setSelectedPlan(planId)
     window.location.href = `/plan/${planId}`
+  }
+
+  const handleLogout = () => {
+    logout()
+    window.location.href = "/"
   }
 
   const getStatusColor = (status: string) => {
@@ -143,7 +148,7 @@ export function AppHeader() {
                     {plans.map((plan) => (
                       <SelectItem key={plan.id} value={plan.id}>
                         <div className="flex items-center justify-between w-full">
-                          <span className="truncate">{plan.name}</span>
+                          <span className="truncate">{plan.planName}</span>
                           <Badge variant="secondary" className={`ml-2 text-xs ${getStatusColor(plan.status)}`}>
                             {plan.status}
                           </Badge>
@@ -179,6 +184,27 @@ export function AppHeader() {
                       {item.label}
                     </Link>
                   ))}
+
+                  {!currentUser && (
+                    <>
+                      <div className="border-t pt-4 mt-4">
+                        <Link
+                          href="/login"
+                          className="block text-sm font-medium transition-colors hover:text-primary p-2 rounded-md hover:bg-muted"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          Sign In
+                        </Link>
+                        <Link
+                          href="/register"
+                          className="block text-sm font-medium transition-colors hover:text-primary p-2 rounded-md hover:bg-muted"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          Sign Up
+                        </Link>
+                      </div>
+                    </>
+                  )}
 
                   {isAdmin && (
                     <>
@@ -283,7 +309,7 @@ export function AppHeader() {
                     )}
 
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="cursor-pointer">
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
                       Log out
                     </DropdownMenuItem>
@@ -296,7 +322,7 @@ export function AppHeader() {
                   <Link href="/login">Sign In</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/plans">Get Started</Link>
+                  <Link href="/register">Get Started</Link>
                 </Button>
               </div>
             )}
