@@ -1,150 +1,176 @@
 import Airtable from "airtable"
-import type { UserSettings } from "./user-settings"
 
 export interface BusinessPlan {
   id: string
   planName: string
-  description?: string
+  description: string
   ownerEmail: string
   status: "Draft" | "In Progress" | "Complete" | "Submitted for Review"
   createdDate: string
   lastModified: string
+  sections: PlanSection[]
 }
 
-export interface CreateBusinessPlanData {
-  planName: string
-  description?: string
-  ownerEmail: string
+export interface PlanSection {
+  id: string
+  name: string
+  content: string
+  completed: boolean
+  order: number
 }
 
-function initializeAirtable(settings?: UserSettings) {
-  const apiKey = settings?.airtableApiKey || process.env.AIRTABLE_API_KEY
-  const baseId = settings?.airtableBaseId || process.env.AIRTABLE_BASE_ID
-
-  if (!apiKey || !baseId) {
-    console.warn("Airtable not configured. Using in-memory fallback.")
-    return null
-  }
-
-  try {
-    return new Airtable({ apiKey }).base(baseId)
-  } catch (error) {
-    console.error("Failed to initialize Airtable:", error)
-    return null
-  }
+export interface AirtableSettings {
+  apiKey?: string
+  baseId?: string
 }
 
-const fallbackPlans: BusinessPlan[] = []
+// Initialize Airtable
+let airtableBase: any = null
 
-export async function getBusinessPlans(userEmail: string, settings?: UserSettings): Promise<BusinessPlan[]> {
-  const base = initializeAirtable(settings)
-  if (!base) {
-    return fallbackPlans.filter((p) => p.ownerEmail === userEmail)
+function initializeAirtable(settings?: AirtableSettings) {
+  const apiKey = settings?.apiKey || process.env.AIRTABLE_API_KEY
+  const baseId = settings?.baseId || process.env.AIRTABLE_BASE_ID
+
+  if (apiKey && baseId) {
+    Airtable.configure({ apiKey })
+    airtableBase = Airtable.base(baseId)
+    return true
   }
+  return false
+}
 
-  try {
-    const records = await base("Business Plans")
-      .select({
-        filterByFormula: `{Owner Email} = "${userEmail}"`,
-        sort: [{ field: "Last Modified", direction: "desc" }],
+export async function createBusinessPlan(
+  data: {
+    planName: string
+    description: string
+    ownerEmail: string
+  },
+  settings?: AirtableSettings,
+): Promise<BusinessPlan> {
+  const isAirtableConfigured = initializeAirtable(settings)
+
+  if (isAirtableConfigured && airtableBase) {
+    try {
+      const record = await airtableBase("Business Plans").create({
+        "Plan Name": data.planName,
+        Description: data.description,
+        "Owner Email": data.ownerEmail,
+        Status: "Draft",
+        "Created Date": new Date().toISOString(),
+        "Last Modified": new Date().toISOString(),
       })
-      .all()
 
-    return records.map((record) => ({
-      id: record.id,
-      planName: (record.get("Plan Name") as string) || "Untitled Plan",
-      description: (record.get("Description") as string) || "",
-      ownerEmail: record.get("Owner Email") as string,
-      status: (record.get("Status") as BusinessPlan["status"]) || "Draft",
-      createdDate: record.get("Created Date") as string,
-      lastModified: record.get("Last Modified") as string,
-    }))
-  } catch (error) {
-    console.error("Error fetching from Airtable:", error)
-    return fallbackPlans.filter((p) => p.ownerEmail === userEmail)
+      return {
+        id: record.id,
+        planName: record.fields["Plan Name"] as string,
+        description: record.fields["Description"] as string,
+        ownerEmail: record.fields["Owner Email"] as string,
+        status: (record.fields["Status"] as BusinessPlan["status"]) || "Draft",
+        createdDate: record.fields["Created Date"] as string,
+        lastModified: record.fields["Last Modified"] as string,
+        sections: [],
+      }
+    } catch (error) {
+      console.error("Airtable error:", error)
+      // Fall back to local creation
+    }
   }
-}
 
-export async function createBusinessPlan(data: CreateBusinessPlanData, settings?: UserSettings): Promise<BusinessPlan> {
-  const base = initializeAirtable(settings)
-  const now = new Date().toISOString()
-
-  const newPlanData = {
+  // Fallback: create a local business plan
+  const fallbackPlan: BusinessPlan = {
+    id: `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     planName: data.planName,
     description: data.description,
     ownerEmail: data.ownerEmail,
-    status: "Draft" as const,
-    createdDate: now,
-    lastModified: now,
+    status: "Draft",
+    createdDate: new Date().toISOString(),
+    lastModified: new Date().toISOString(),
+    sections: [
+      { id: "executive-summary", name: "Executive Summary", content: "", completed: false, order: 1 },
+      { id: "market-analysis", name: "Market Analysis", content: "", completed: false, order: 2 },
+      { id: "financial-projections", name: "Financial Projections", content: "", completed: false, order: 3 },
+      { id: "marketing-strategy", name: "Marketing Strategy", content: "", completed: false, order: 4 },
+    ],
   }
 
-  if (!base) {
-    const fallbackPlan = { ...newPlanData, id: `fallback_${Date.now()}` }
-    fallbackPlans.push(fallbackPlan)
-    return fallbackPlan
-  }
-
-  try {
-    const record = await base("Business Plans").create({
-      "Plan Name": data.planName,
-      Description: data.description,
-      "Owner Email": data.ownerEmail,
-      Status: "Draft",
-      "Created Date": now,
-      "Last Modified": now,
-    })
-
-    return {
-      id: record.id,
-      ...newPlanData,
-    }
-  } catch (error) {
-    console.error("Error creating in Airtable:", error)
-    // Return a fallback object on creation error to avoid crashing the client
-    return {
-      id: `error_${Date.now()}`,
-      ...newPlanData,
-    }
-  }
+  return fallbackPlan
 }
 
-export async function getBusinessPlan(planId: string, settings?: UserSettings): Promise<BusinessPlan | undefined> {
-  const base = initializeAirtable(settings)
-  if (!base) {
-    return fallbackPlans.find((p) => p.id === planId)
-  }
+export async function getBusinessPlans(ownerEmail: string, settings?: AirtableSettings): Promise<BusinessPlan[]> {
+  const isAirtableConfigured = initializeAirtable(settings)
 
-  try {
-    const record = await base("Business Plans").find(planId)
-    if (!record) return undefined
-    return {
-      id: record.id,
-      planName: (record.get("Plan Name") as string) || "Untitled Plan",
-      description: (record.get("Description") as string) || "",
-      ownerEmail: record.get("Owner Email") as string,
-      status: (record.get("Status") as BusinessPlan["status"]) || "Draft",
-      createdDate: record.get("Created Date") as string,
-      lastModified: record.get("Last Modified") as string,
-    }
-  } catch (error) {
-    console.error("Error fetching single plan:", error)
-    return fallbackPlans.find((p) => p.id === planId)
-  }
-}
-
-class AirtableService {
-  async healthCheck(): Promise<boolean> {
-    const base = initializeAirtable()
-    if (!base) return true // using fallback, treat as healthy
+  if (isAirtableConfigured && airtableBase) {
     try {
-      // lightweight query – fetch zero records
-      await base("Business Plans").select({ maxRecords: 1 }).firstPage()
-      return true
-    } catch {
-      return false
+      const records = await airtableBase("Business Plans")
+        .select({
+          filterByFormula: `{Owner Email} = "${ownerEmail}"`,
+        })
+        .all()
+
+      return records.map((record) => ({
+        id: record.id,
+        planName: record.fields["Plan Name"] as string,
+        description: record.fields["Description"] as string,
+        ownerEmail: record.fields["Owner Email"] as string,
+        status: (record.fields["Status"] as BusinessPlan["status"]) || "Draft",
+        createdDate: record.fields["Created Date"] as string,
+        lastModified: record.fields["Last Modified"] as string,
+        sections: [],
+      }))
+    } catch (error) {
+      console.error("Airtable error:", error)
     }
+  }
+
+  // Fallback: return empty array
+  return []
+}
+
+export async function getBusinessPlan(planId: string, settings?: AirtableSettings): Promise<BusinessPlan | null> {
+  const isAirtableConfigured = initializeAirtable(settings)
+
+  if (isAirtableConfigured && airtableBase) {
+    try {
+      const record = await airtableBase("Business Plans").find(planId)
+
+      return {
+        id: record.id,
+        planName: record.fields["Plan Name"] as string,
+        description: record.fields["Description"] as string,
+        ownerEmail: record.fields["Owner Email"] as string,
+        status: (record.fields["Status"] as BusinessPlan["status"]) || "Draft",
+        createdDate: record.fields["Created Date"] as string,
+        lastModified: record.fields["Last Modified"] as string,
+        sections: [],
+      }
+    } catch (error) {
+      console.error("Airtable error:", error)
+    }
+  }
+
+  return null
+}
+
+export async function getAirtableHealth(settings?: AirtableSettings): Promise<{ connected: boolean; error?: string }> {
+  const isAirtableConfigured = initializeAirtable(settings)
+
+  if (!isAirtableConfigured) {
+    return { connected: false, error: "Airtable not configured" }
+  }
+
+  try {
+    // Try to fetch one record to test connection
+    await airtableBase("Business Plans").select({ maxRecords: 1 }).firstPage()
+    return { connected: true }
+  } catch (error) {
+    return { connected: false, error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
-export const airtableService = new AirtableService()
-export const getAirtableHealth = () => airtableService.healthCheck()
+// Export the service object
+export const airtableService = {
+  createBusinessPlan,
+  getBusinessPlans,
+  getBusinessPlan,
+  getAirtableHealth,
+}

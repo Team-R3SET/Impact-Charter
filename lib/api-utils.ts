@@ -1,64 +1,60 @@
 import { NextResponse } from "next/server"
 
-export interface ApiError {
-  message: string
-  code?: string
-  details?: any
-}
-
 export interface ApiResponse<T = any> {
-  data?: T
-  error?: ApiError
   success: boolean
+  data?: T
+  error?: string
+  message?: string
 }
 
 export function createApiResponse<T>(data: T, status = 200): NextResponse {
   return NextResponse.json(
     {
-      data,
       success: true,
-    } as ApiResponse<T>,
+      data,
+    },
     { status },
   )
 }
 
-export function createApiError(message: string, status = 500, code?: string, details?: any): NextResponse {
+export function createSuccessResponse<T>(data: T, status = 200): NextResponse {
   return NextResponse.json(
     {
-      error: {
-        message,
-        code,
-        details,
-      },
-      success: false,
-    } as ApiResponse,
+      success: true,
+      data,
+    },
     { status },
   )
 }
 
-export function handleApiError(error: unknown, defaultMessage = "An error occurred"): NextResponse {
-  console.error("API Error:", error)
-
-  if (error instanceof Error) {
-    return createApiError(error.message, 500, "INTERNAL_ERROR", { stack: error.stack })
-  }
-
-  return createApiError(defaultMessage, 500, "UNKNOWN_ERROR")
-}
-
-export function validateRequired(data: Record<string, any>, requiredFields: string[]): string[] {
-  const missing: string[] = []
-  for (const field of requiredFields) {
-    if (!data[field] || (typeof data[field] === "string" && !data[field].trim())) {
-      missing.push(field)
-    }
-  }
-  return missing
+export function createErrorResponse(message: string, status = 400): NextResponse {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status },
+  )
 }
 
 export function validateEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
 }
 
-export const createSuccessResponse = createApiResponse
-export const createErrorResponse = createApiError
+export function validateRequired(value: any, fieldName: string): string | null {
+  if (!value || (typeof value === "string" && value.trim() === "")) {
+    return `${fieldName} is required`
+  }
+  return null
+}
+
+export function handleApiError(error: any): NextResponse {
+  console.error("API Error:", error)
+
+  if (error.message) {
+    return createErrorResponse(error.message, 500)
+  }
+
+  return createErrorResponse("Internal server error", 500)
+}

@@ -1,47 +1,59 @@
-import { NextResponse } from "next/server"
-import { markBusinessPlanSectionComplete } from "@/lib/airtable-user"
+import type { NextRequest } from "next/server"
+import { createApiResponse, createErrorResponse } from "@/lib/api-utils"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 
-/**
- * Mark a section as “complete”.
- *
- *   POST /api/business-plans/:planId/sections/:sectionId/complete
- *   Body: { userEmail: string }
- */
-export async function POST(request: Request, { params }: { params: { planId: string; sectionId: string } }) {
-  let body: { userEmail?: string } = {}
-
+export async function POST(request: NextRequest, { params }: { params: { planId: string; sectionId: string } }) {
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ success: false, error: "Body must be valid JSON." }, { status: 200 })
-  }
+    const supabase = createServerSupabaseClient()
 
-  const { userEmail } = body
-  if (!userEmail) {
-    return NextResponse.json({ success: false, error: "Missing userEmail." }, { status: 200 })
-  }
+    // Get current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return createErrorResponse("Unauthorized", 401)
+    }
 
-  try {
-    await markBusinessPlanSectionComplete(
-      {
-        planId: params.planId,
-        sectionId: params.sectionId,
-        completedBy: userEmail,
-        completedAt: new Date().toISOString(),
-      },
-      userEmail,
-    )
+    const { planId, sectionId } = params
 
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error("[API] Complete-section failed:", err)
+    // Verify user has access to this plan
+    const { data: plan, error: planError } = await supabase
+      .from("business_plans")
+      .select("id, owner_id")
+      .eq("id", planId)
+      .single()
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : "Unknown Airtable error.",
-      },
-      { status: 200 },
-    )
+    if (planError || !plan) {
+      return createErrorResponse("Plan not found", 404)
+    }
+
+    if (plan.owner_id !== user.id) {
+      return createErrorResponse("Access denied", 403)
+    }
+
+    // Mark section as complete
+    const { error: updateError } = await supabase
+      .from("plan_sections")
+      .update({
+        completed: true,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("plan_id", planId)
+      .eq("section_id", sectionId)
+
+    if (updateError) {
+      console.error("Error marking section complete:", updateError)
+      return createErrorResponse("Failed to mark section as complete", 500)
+    }
+
+    return createApiResponse({
+      success: true,
+      message: "Section marked as complete",
+    })
+  } catch (error) {
+    console.error("Error in complete section endpoint:", error)
+    return createErrorResponse("Internal server error", 500)
   }
 }
