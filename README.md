@@ -70,7 +70,7 @@ This project requires several environment variables to function. You will need t
 3.  **Configure Environment Variables**: In the Vercel project settings, add the following variables:
   -   `AIRTABLE_API_KEY`: Your Airtable Personal Access Token.
   -   `AIRTABLE_BASE_ID`: Your Airtable Base ID.
-  -   `NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY`: Your Liveblocks Public Key.
+  -   `LIVEBLOCKS_PUBLIC_KEY`: Your (public) Liveblocks key.
   -   `LIVEBLOCKS_SECRET_KEY`: Your Liveblocks Secret Key.
 4.  **Deploy**. Vercel will build and deploy your application.
 
@@ -84,7 +84,7 @@ The application is configured primarily through environment variables. Once depl
 
 -   **Problem**: Liveblocks configuration issue.
 -   **Solution**:
-  -   Verify your Liveblocks Public Key is set correctly in your Vercel environment variables.
+  -   Verify your **LIVEBLOCKS_PUBLIC_KEY** is set correctly in your Vercel environment variables.
   -   Ensure your Liveblocks Secret Key is also set correctly.
   -   Check the browser console for any Liveblocks-related errors.
 
