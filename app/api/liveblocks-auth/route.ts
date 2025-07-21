@@ -1,67 +1,33 @@
 import { Liveblocks } from "@liveblocks/node"
+import { createClient } from "@/lib/supabase/server"
 
-/**
- * This Route Handler MUST run on Node.js (the Liveblocks SDK uses node:crypto).
- */
-export const runtime = "nodejs"
+const liveblocks = new Liveblocks({
+  secret: process.env.LIVEBLOCKS_SECRET_KEY!,
+})
 
-export async function POST() {
-  const secretKey = process.env.LIVEBLOCKS_SECRET_KEY
+export async function POST(request: Request) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // ⛔️ Missing or wrong secret key → return 500 with a helpful message
-  if (!secretKey || secretKey.startsWith("sk_dev_placeholder")) {
-    console.error("Liveblocks secret key is missing or invalid")
-    return new Response(
-      JSON.stringify({
-        error: "LIVEBLOCKS_SECRET_KEY is missing or invalid",
-        message: "Add your real secret key in Vercel → Project → Settings → Environment Variables",
-        docs: "https://liveblocks.io/docs/get-started/nextjs",
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    )
+  if (!user) {
+    return new Response("Unauthorized", { status: 401 })
   }
 
-  try {
-    const liveblocks = new Liveblocks({ secret: secretKey })
+  const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", user.id).single()
 
-    // TODO: replace this with real authentication logic
-    const user = {
-      id: "user-1",
-      info: {
-        name: "Demo User",
-        email: "user@example.com",
-        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
-      },
-    }
+  const session = liveblocks.prepareSession(user.id, {
+    userInfo: {
+      name: profile?.name ?? user.email,
+      avatar: profile?.avatar_url,
+      color: "#" + Math.floor(Math.random() * 16777215).toString(16), // Random color
+    },
+  })
 
-    const session = liveblocks.prepareSession(user.id, { userInfo: user.info })
-    session.allow("*", session.FULL_ACCESS)
+  const { room } = await request.json()
+  session.allow(room, session.FULL_ACCESS)
 
-    const { status, body } = await session.authorize()
-    return new Response(body, { status })
-  } catch (err) {
-    console.error("Liveblocks auth error:", err)
-    return new Response(
-      JSON.stringify({
-        error: "Internal Liveblocks Auth Error",
-        message: "See the logs for details.",
-        details: err instanceof Error ? err.message : "Unknown error",
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    )
-  }
-}
-
-// Add a GET method for health check
-export async function GET() {
-  const secretKey = process.env.LIVEBLOCKS_SECRET_KEY
-
-  return new Response(
-    JSON.stringify({
-      status: "ok",
-      configured: !!secretKey && !secretKey.startsWith("sk_dev_placeholder"),
-      timestamp: new Date().toISOString(),
-    }),
-    { status: 200, headers: { "Content-Type": "application/json" } },
-  )
+  const { status, body } = await session.authorize()
+  return new Response(body, { status })
 }

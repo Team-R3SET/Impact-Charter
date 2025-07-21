@@ -1,70 +1,45 @@
 import { NextResponse } from "next/server"
-import { updateBusinessPlanSectionWithUserCreds } from "@/lib/airtable-user"
+import { createClient } from "@/lib/supabase/server"
+import { getPlanSections, updateBusinessPlanSection } from "@/lib/supabase/queries"
 
-/**
- * Upsert (create or update) a single section for a business-plan.
- *
- *   POST /api/business-plans/:planId/sections
- *   Body: { sectionName: string, sectionContent: string, userEmail: string }
- *
- * The route ALWAYS returns JSON:
- *   • { success:true }                        – on success
- *   • { success:false, error:"…" }            – on any failure
- * Never sends an HTML 500 page, eliminating “Internal server error” in the client.
- */
+export async function GET(request: Request, { params }: { params: { planId: string } }) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  try {
+    const sections = await getPlanSections(params.planId)
+    return NextResponse.json(sections)
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch sections" }, { status: 500 })
+  }
+}
+
 export async function POST(request: Request, { params }: { params: { planId: string } }) {
-  let body: {
-    sectionName?: string
-    sectionContent?: string
-    userEmail?: string
-  } = {}
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  /* ------------------------------------------------------------------ */
-  /* 1️⃣  Parse and validate input                                       */
-  /* ------------------------------------------------------------------ */
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ success: false, error: "Body must be valid JSON." }, { status: 200 })
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { sectionName, sectionContent = "", userEmail } = body
+  const sectionData = await request.json()
 
-  if (!sectionName || !userEmail) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Missing required fields: sectionName and userEmail.",
-      },
-      { status: 200 },
-    )
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* 2️⃣  Write to Airtable                                              */
-  /* ------------------------------------------------------------------ */
   try {
-    await updateBusinessPlanSectionWithUserCreds(
-      {
-        planId: params.planId,
-        sectionName,
-        sectionContent,
-        lastModified: new Date().toISOString(),
-        modifiedBy: userEmail,
-      },
-      userEmail,
-    )
-
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error("[API] Airtable update failed:", err)
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : "Unknown Airtable error.",
-      },
-      { status: 200 },
-    )
+    const updatedSection = await updateBusinessPlanSection({
+      ...sectionData,
+      plan_id: params.planId,
+      modified_by_email: user.email,
+    })
+    return NextResponse.json(updatedSection)
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to update section" }, { status: 500 })
   }
 }

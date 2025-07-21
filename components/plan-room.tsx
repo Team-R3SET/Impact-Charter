@@ -1,37 +1,32 @@
 "use client"
 
-import type { ReactNode } from "react"
-import { RoomProvider } from "@/lib/liveblocks"
+import { RoomProvider } from "@/liveblocks.config"
+import { LiveList, LiveObject } from "@liveblocks/client"
+import { ClientSideSuspense } from "@liveblocks/react"
+import type { BusinessPlan, BusinessPlanSection } from "@/lib/types"
+import { BusinessPlanEditor } from "./business-plan-editor"
+import { LivePresenceHeader } from "./live-presence-header"
 
 interface PlanRoomProps {
-  roomId: string
-  userName: string
-  userEmail: string
-  children: ReactNode
+  plan: BusinessPlan
+  initialSections: BusinessPlanSection[]
 }
 
-export function PlanRoom({ roomId, userName, userEmail, children }: PlanRoomProps) {
+export function PlanRoom({ plan, initialSections }: PlanRoomProps) {
+  const initialStorage = {
+    sections: new LiveList(initialSections.map((s) => new LiveObject(s))),
+  }
+
   return (
-    <RoomProvider
-      id={roomId}
-      initialPresence={{
-        cursor: null,
-        selectedSection: null,
-        textCursor: null,
-        textSelection: null,
-        isTyping: null,
-        user: {
-          name: userName,
-          email: userEmail,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userEmail}`,
-        },
-      }}
-      initialStorage={{
-        sections: {},
-        completedSections: {},
-      }}
-    >
-      {children}
+    <RoomProvider id={plan.id} initialPresence={{ cursor: null }} initialStorage={initialStorage}>
+      <ClientSideSuspense fallback={<div>Loading...</div>}>
+        {() => (
+          <div className="flex flex-col h-full">
+            <LivePresenceHeader planName={plan.plan_name} />
+            <BusinessPlanEditor planId={plan.id} />
+          </div>
+        )}
+      </ClientSideSuspense>
     </RoomProvider>
   )
 }

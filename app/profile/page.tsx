@@ -1,56 +1,27 @@
-"use client"
-
-import { useState } from "react"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import { UserProfileForm } from "@/components/user-profile-form"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useUser } from "@/contexts/user-context"
-import type { User } from "@/lib/user-types"
+import { getUserProfile } from "@/lib/supabase/queries"
 
-export default function ProfilePage() {
-  const { user, updateUser } = useUser()
-  const [isLoading, setIsLoading] = useState(false)
+export default async function ProfilePage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Please log in to view your profile.</p>
-      </div>
-    )
+    redirect("/login")
   }
 
-  const handleProfileUpdate = async (updatedUser: User) => {
-    setIsLoading(true)
-    try {
-      // Update the user in the context
-      updateUser(updatedUser)
-    } catch (error) {
-      console.error("Failed to update profile:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleUserChange = (newUser: User) => {
-    updateUser(newUser)
-  }
+  const profile = await getUserProfile(user.id)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AppHeader currentUser={user} onUserChange={handleUserChange} />
-
+    <div>
+      <AppHeader />
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Profile</CardTitle>
-              <CardDescription>Manage your account information and preferences</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <UserProfileForm user={user} onProfileUpdate={handleProfileUpdate} isLoading={isLoading} />
-            </CardContent>
-          </Card>
-        </div>
+        <h1 className="text-3xl font-bold mb-6">Your Profile</h1>
+        <UserProfileForm profile={profile} />
       </main>
     </div>
   )

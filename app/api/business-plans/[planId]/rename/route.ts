@@ -1,61 +1,33 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
-const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
-const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
+export async function POST(request: Request, { params }: { params: { planId: string } }) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-export async function PATCH(request: NextRequest, { params }: { params: { planId: string } }) {
-  try {
-    const { planName } = await request.json()
-    const { planId } = params
-
-    if (!planName?.trim()) {
-      return NextResponse.json({ error: "Plan name is required" }, { status: 400 })
-    }
-
-    // If Airtable is not configured, return success with the new name
-    if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
-      return NextResponse.json({
-        success: true,
-        planName: planName.trim(),
-        message: "Plan renamed successfully (local mode)",
-      })
-    }
-
-    try {
-      const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fields: {
-            planName: planName.trim(),
-            lastModified: new Date().toISOString(),
-          },
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Airtable request failed: ${response.status}`)
-      }
-
-      const data = await response.json()
-      return NextResponse.json({
-        success: true,
-        planName: data.fields.planName,
-        message: "Plan renamed successfully",
-      })
-    } catch (airtableError) {
-      console.warn("Airtable rename failed, using fallback:", airtableError)
-      return NextResponse.json({
-        success: true,
-        planName: planName.trim(),
-        message: "Plan renamed successfully (fallback mode)",
-      })
-    }
-  } catch (error) {
-    console.error("Failed to rename business plan:", error)
-    return NextResponse.json({ error: "Failed to rename business plan" }, { status: 500 })
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  const { newName } = await request.json()
+
+  if (!newName) {
+    return NextResponse.json({ error: "New name is required" }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .from("business_plans")
+    .update({ plan_name: newName, updated_at: new Date().toISOString() })
+    .match({ id: params.planId, owner_id: user.id })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Error renaming plan:", error)
+    return NextResponse.json({ error: "Failed to rename plan" }, { status: 500 })
+  }
+
+  return NextResponse.json(data, { status: 200 })
 }
