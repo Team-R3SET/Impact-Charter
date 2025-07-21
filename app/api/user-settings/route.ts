@@ -1,74 +1,79 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { randomUUID } from "crypto"
-
-// In a real app, this would be stored in a secure database
-// For demo purposes, we'll use in-memory storage
-const userSettingsStore = new Map<string, any>()
+import type { NextRequest } from "next/server"
+import { createSuccessResponse, createErrorResponse, handleApiError, validateRequired } from "@/lib/api-utils"
+import { logInfo } from "@/lib/logging"
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const userEmail = searchParams.get("userEmail")
+    const userId = searchParams.get("userId")
 
-    if (!userEmail) {
-      return NextResponse.json({ error: "User email is required" }, { status: 400 })
+    if (!userId) {
+      return createErrorResponse("User ID is required", 400, "MISSING_USER_ID")
     }
 
-    // Get settings from store or return defaults
-    const settings = userSettingsStore.get(userEmail) || {
-      id: randomUUID(),
-      userEmail,
-      airtableApiKey: "",
-      airtableBaseId: "",
-      isAirtableConnected: false,
-      createdDate: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
+    // In a real app, fetch from database
+    const settings = {
+      userId,
+      theme: "system",
+      notifications: {
+        email: true,
+        push: false,
+        comments: true,
+        mentions: true,
+      },
+      privacy: {
+        profileVisible: true,
+        showEmail: false,
+      },
+      integrations: {
+        airtable: {
+          connected: !!process.env.AIRTABLE_API_KEY,
+          apiKey: process.env.AIRTABLE_API_KEY ? "***" : "",
+          baseId: process.env.AIRTABLE_BASE_ID ? "***" : "",
+        },
+        liveblocks: {
+          connected: !!process.env.LIVEBLOCKS_SECRET_KEY,
+        },
+      },
     }
 
-    // Don't return the actual API key for security
-    const safeSettings = {
-      ...settings,
-      airtableApiKey: settings.airtableApiKey ? "••••••••••••••••" : "",
-    }
-
-    return NextResponse.json({ settings: safeSettings })
+    logInfo("User settings retrieved", { userId })
+    return createSuccessResponse(settings)
   } catch (error) {
-    console.error("Failed to fetch user settings:", error)
-    return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 })
+    return handleApiError(error, "Get user settings")
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userEmail, airtableApiKey, airtableBaseId } = body
+    const { userId, settings } = body
 
-    if (!userEmail) {
-      return NextResponse.json({ error: "User email is required" }, { status: 400 })
+    const requiredValidation = validateRequired(userId, "userId")
+    if (requiredValidation) {
+      return createErrorResponse(requiredValidation.message, 400, "VALIDATION_ERROR")
     }
 
-    const settings = {
-      id: randomUUID(),
-      userEmail,
-      airtableApiKey: airtableApiKey || "",
-      airtableBaseId: airtableBaseId || "",
-      isAirtableConnected: !!(airtableApiKey && airtableBaseId),
-      createdDate: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
+    if (!settings || typeof settings !== "object") {
+      return createErrorResponse("Settings object is required", 400, "INVALID_SETTINGS")
     }
 
-    // Store settings
-    userSettingsStore.set(userEmail, settings)
+    // Validate settings structure
+    const validThemes = ["light", "dark", "system"]
+    if (settings.theme && !validThemes.includes(settings.theme)) {
+      return createErrorResponse("Invalid theme value", 400, "INVALID_THEME")
+    }
 
-    // Return safe settings (without actual API key)
-    const safeSettings = {
+    // In a real app, save to database
+    const updatedSettings = {
       ...settings,
-      airtableApiKey: settings.airtableApiKey ? "••••••••••••••••" : "",
+      userId,
+      updatedAt: new Date().toISOString(),
     }
 
-    return NextResponse.json({ settings: safeSettings })
+    logInfo("User settings updated", { userId, theme: settings.theme })
+    return createSuccessResponse(updatedSettings, "Settings updated successfully")
   } catch (error) {
-    console.error("Failed to save user settings:", error)
-    return NextResponse.json({ error: "Failed to save settings" }, { status: 500 })
+    return handleApiError(error, "Update user settings")
   }
 }

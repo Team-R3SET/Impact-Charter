@@ -1,71 +1,36 @@
-"use client"
+export interface UserSettings {
+  airtableApiKey?: string
+  airtableBaseId?: string
+  theme?: "light" | "dark" | "system"
+  notifications?: boolean
+  language?: string
+}
 
-import { z } from "zod"
+const defaultSettings: UserSettings = {
+  theme: "system",
+  notifications: true,
+  language: "en",
+}
 
-/**
- * Schema & Type ──────────────────────────────────────────────
- */
-const UserSettingsSchema = z.object({
-  userEmail: z.string().email(),
-  airtableApiKey: z.string().optional().default(""),
-  airtableBaseId: z.string().optional().default(""),
-  // Derived flag – true only when both key & baseId exist
-  isAirtableConnected: z.boolean().default(false),
-})
-
-export type UserSettings = z.infer<typeof UserSettingsSchema>
-
-/**
- * Helpers ────────────────────────────────────────────────────
- */
-const keyFor = (email: string) => `bp:user-settings:${email}`
-
-/**
- * Read settings for a given user from localStorage.
- * If nothing is stored yet, return the zero-state object.
- */
-export function getUserSettings(email: string): UserSettings {
-  if (typeof window === "undefined") {
-    // SSR – return empty so components can render
-    return {
-      userEmail: email,
-      airtableApiKey: "",
-      airtableBaseId: "",
-      isAirtableConnected: false,
-    }
-  }
-
+export async function getUserSettings(userEmail: string): Promise<UserSettings> {
   try {
-    const raw = localStorage.getItem(keyFor(email))
-    if (raw) {
-      const parsed = UserSettingsSchema.parse(JSON.parse(raw))
-      return parsed
-    }
-  } catch (err) {
-    console.error("[user-settings] Failed to parse settings", err)
-  }
-
-  return {
-    userEmail: email,
-    airtableApiKey: "",
-    airtableBaseId: "",
-    isAirtableConnected: false,
+    // In a real app, you'd fetch from a database
+    // For now, return default settings
+    console.log("Getting user settings for:", userEmail)
+    return defaultSettings
+  } catch (error) {
+    console.error("Error getting user settings:", error)
+    return defaultSettings
   }
 }
 
-/**
- * Save settings (merges & recalculates connection flag).
- * Returns the persisted object.
- */
-export function saveUserSettings(settings: UserSettings): UserSettings {
-  const combined: UserSettings = {
-    ...settings,
-    isAirtableConnected: Boolean(settings.airtableApiKey && settings.airtableBaseId),
+export async function updateUserSettings(userEmail: string, settings: Partial<UserSettings>): Promise<UserSettings> {
+  try {
+    // In a real app, you'd save to a database
+    console.log("Updating user settings for:", userEmail, settings)
+    return { ...defaultSettings, ...settings }
+  } catch (error) {
+    console.error("Error updating user settings:", error)
+    throw error
   }
-
-  if (typeof window !== "undefined") {
-    localStorage.setItem(keyFor(settings.userEmail), JSON.stringify(combined))
-  }
-
-  return combined
 }

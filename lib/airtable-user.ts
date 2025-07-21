@@ -1,135 +1,255 @@
-/**
- * User-specific Airtable operations for business plan sections
- */
+import Airtable from "airtable"
 
-const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
-const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
+const base = new Airtable({
+  apiKey: process.env.AIRTABLE_API_KEY,
+}).base(process.env.AIRTABLE_BASE_ID || "")
 
-/**
- * Update a business plan section with user credentials
- */
+export interface BusinessPlanSection {
+  id: string
+  planId: string
+  sectionId: string
+  content: string
+  isCompleted: boolean
+  lastModified: string
+  lastModifiedBy: string
+}
+
+export interface Comment {
+  id: string
+  planId: string
+  sectionId: string
+  userId: string
+  userName: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
 export async function updateBusinessPlanSectionWithUserCreds(
   planId: string,
-  sectionName: string,
+  sectionId: string,
+  content: string,
   userId: string,
-  content: unknown,
-): Promise<void> {
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
-    console.warn("Airtable credentials not configured, skipping update")
-    return
-  }
-
+  userName: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
-    // First, get the current plan
-    const planResponse = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-    })
-
-    if (!planResponse.ok) {
-      throw new Error(`Failed to fetch plan: ${planResponse.status}`)
+    if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+      // Fallback to localStorage for demo
+      const key = `section-${planId}-${sectionId}`
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          content,
+          lastModified: new Date().toISOString(),
+          lastModifiedBy: userName,
+        }),
+      )
+      return { success: true }
     }
 
-    const plan = await planResponse.json()
-    const currentSections = plan.fields.Sections || {}
+    // First, get the business plan
+    const planRecord = await base("BusinessPlans").find(planId)
+    const sections = JSON.parse((planRecord.get("Sections") as string) || "{}")
 
     // Update the specific section
-    const updatedSections = {
-      ...currentSections,
-      [sectionName]: {
-        content,
-        updatedBy: userId,
-        updatedAt: new Date().toISOString(),
-      },
+    sections[sectionId] = {
+      content,
+      lastModified: new Date().toISOString(),
+      lastModifiedBy: userName,
+      userId,
     }
 
-    // Update the plan
-    const updateResponse = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        fields: {
-          Sections: updatedSections,
-          UpdatedAt: new Date().toISOString(),
-        },
-      }),
+    // Update the business plan record
+    await base("BusinessPlans").update(planId, {
+      Sections: JSON.stringify(sections),
+      UpdatedAt: new Date().toISOString(),
     })
 
-    if (!updateResponse.ok) {
-      throw new Error(`Failed to update plan: ${updateResponse.status}`)
-    }
+    return { success: true }
   } catch (error) {
     console.error("Error updating business plan section:", error)
-    throw error
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    }
   }
 }
 
-/**
- * Mark a business plan section as complete
- */
 export async function markBusinessPlanSectionComplete(
   planId: string,
-  sectionName: string,
+  sectionId: string,
+  isCompleted: boolean,
   userId: string,
-): Promise<void> {
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
-    console.warn("Airtable credentials not configured, skipping completion mark")
-    return
-  }
-
+): Promise<{ success: boolean; error?: string }> {
   try {
-    // First, get the current plan
-    const planResponse = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+    if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+      // Fallback to localStorage for demo
+      const key = `section-${planId}-${sectionId}-completed`
+      localStorage.setItem(key, isCompleted.toString())
+      return { success: true }
+    }
+
+    // Get the business plan
+    const planRecord = await base("BusinessPlans").find(planId)
+    const sections = JSON.parse((planRecord.get("Sections") as string) || "{}")
+
+    // Update completion status
+    if (!sections[sectionId]) {
+      sections[sectionId] = {}
+    }
+    sections[sectionId].isCompleted = isCompleted
+    sections[sectionId].completedAt = isCompleted ? new Date().toISOString() : null
+    sections[sectionId].completedBy = isCompleted ? userId : null
+
+    // Update the business plan record
+    await base("BusinessPlans").update(planId, {
+      Sections: JSON.stringify(sections),
+      UpdatedAt: new Date().toISOString(),
     })
 
-    if (!planResponse.ok) {
-      throw new Error(`Failed to fetch plan: ${planResponse.status}`)
+    return { success: true }
+  } catch (error) {
+    console.error("Error marking section complete:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
     }
+  }
+}
 
-    const plan = await planResponse.json()
-    const currentSections = plan.fields.Sections || {}
-    const currentSection = currentSections[sectionName] || {}
-
-    // Mark section as complete
-    const updatedSections = {
-      ...currentSections,
-      [sectionName]: {
-        ...currentSection,
-        completed: true,
-        completedBy: userId,
-        completedAt: new Date().toISOString(),
-      },
-    }
-
-    // Update the plan
-    const updateResponse = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        fields: {
-          Sections: updatedSections,
-          UpdatedAt: new Date().toISOString(),
+export async function getBusinessPlanSectionComments(planId: string, sectionId: string): Promise<Comment[]> {
+  try {
+    if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+      // Return mock comments for demo
+      return [
+        {
+          id: "mock-comment-1",
+          planId,
+          sectionId,
+          userId: "demo-user",
+          userName: "Demo User",
+          content: "This section looks good, but consider adding more market research data.",
+          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+          updatedAt: new Date(Date.now() - 86400000).toISOString(),
         },
-      }),
+      ]
+    }
+
+    const records = await base("Comments")
+      .select({
+        filterByFormula: `AND({PlanId} = '${planId}', {SectionId} = '${sectionId}')`,
+        sort: [{ field: "CreatedAt", direction: "asc" }],
+      })
+      .all()
+
+    return records.map((record) => ({
+      id: record.id,
+      planId: record.get("PlanId") as string,
+      sectionId: record.get("SectionId") as string,
+      userId: record.get("UserId") as string,
+      userName: record.get("UserName") as string,
+      content: record.get("Content") as string,
+      createdAt: record.get("CreatedAt") as string,
+      updatedAt: record.get("UpdatedAt") as string,
+    }))
+  } catch (error) {
+    console.error("Error fetching comments:", error)
+    return []
+  }
+}
+
+export async function addBusinessPlanSectionComment(
+  planId: string,
+  sectionId: string,
+  content: string,
+  userId: string,
+  userName: string,
+): Promise<{ success: boolean; comment?: Comment; error?: string }> {
+  try {
+    if (!content.trim()) {
+      return {
+        success: false,
+        error: "Comment content cannot be empty",
+      }
+    }
+
+    if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+      // Return mock comment for demo
+      const mockComment: Comment = {
+        id: `mock-${Date.now()}`,
+        planId,
+        sectionId,
+        userId,
+        userName,
+        content: content.trim(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      return {
+        success: true,
+        comment: mockComment,
+      }
+    }
+
+    const record = await base("Comments").create({
+      PlanId: planId,
+      SectionId: sectionId,
+      UserId: userId,
+      UserName: userName,
+      Content: content.trim(),
+      CreatedAt: new Date().toISOString(),
+      UpdatedAt: new Date().toISOString(),
     })
 
-    if (!updateResponse.ok) {
-      throw new Error(`Failed to mark section complete: ${updateResponse.status}`)
+    const comment: Comment = {
+      id: record.id,
+      planId: record.get("PlanId") as string,
+      sectionId: record.get("SectionId") as string,
+      userId: record.get("UserId") as string,
+      userName: record.get("UserName") as string,
+      content: record.get("Content") as string,
+      createdAt: record.get("CreatedAt") as string,
+      updatedAt: record.get("UpdatedAt") as string,
+    }
+
+    return {
+      success: true,
+      comment,
     }
   } catch (error) {
-    console.error("Error marking business plan section complete:", error)
-    throw error
+    console.error("Error adding comment:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    }
+  }
+}
+
+export async function deleteBusinessPlanSectionComment(
+  commentId: string,
+  userId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+      return { success: true } // Mock success for demo
+    }
+
+    // First verify the user owns the comment
+    const record = await base("Comments").find(commentId)
+    if (record.get("UserId") !== userId) {
+      return {
+        success: false,
+        error: "You can only delete your own comments",
+      }
+    }
+
+    await base("Comments").destroy(commentId)
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting comment:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    }
   }
 }

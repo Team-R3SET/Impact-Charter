@@ -1,9 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -12,8 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Edit3 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 interface RenamePlanDialogProps {
   isOpen: boolean
@@ -28,17 +28,14 @@ export function RenamePlanDialog({ isOpen, onClose, planId, currentName, onSucce
   const [isRenaming, setIsRenaming] = useState(false)
   const { toast } = useToast()
 
-  const handleRename = async () => {
-    if (!newName.trim()) {
-      toast({
-        title: "Error",
-        description: "Plan name cannot be empty",
-        variant: "destructive",
-      })
-      return
+  useEffect(() => {
+    if (isOpen) {
+      setNewName(currentName)
     }
+  }, [isOpen, currentName])
 
-    if (newName.trim() === currentName) {
+  const handleRename = async () => {
+    if (!newName.trim() || newName.trim() === currentName) {
       onClose()
       return
     }
@@ -46,33 +43,26 @@ export function RenamePlanDialog({ isOpen, onClose, planId, currentName, onSucce
     setIsRenaming(true)
     try {
       const response = await fetch(`/api/business-plans/${planId}/rename`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          planName: newName.trim(),
-        }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newName: newName.trim() }),
       })
 
       if (!response.ok) {
         throw new Error("Failed to rename plan")
       }
 
-      const { planName } = await response.json()
-
+      onSuccess(newName.trim())
       toast({
-        title: "Success",
-        description: "Business plan renamed successfully!",
+        title: "Plan renamed",
+        description: `The plan has been renamed to "${newName.trim()}".`,
       })
-
-      onSuccess(planName)
       onClose()
     } catch (error) {
-      console.error("Failed to rename plan:", error)
+      console.error("Error renaming plan:", error)
       toast({
         title: "Error",
-        description: "Failed to rename business plan. Please try again.",
+        description: "Failed to rename the plan. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -80,45 +70,35 @@ export function RenamePlanDialog({ isOpen, onClose, planId, currentName, onSucce
     }
   }
 
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      setNewName(currentName) // Reset to original name when closing
-      onClose()
-    }
-  }
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Edit3 className="w-5 h-5" />
-            Rename Business Plan
-          </DialogTitle>
-          <DialogDescription>
-            Enter a new name for your business plan. This will update the plan name everywhere it appears.
-          </DialogDescription>
+          <DialogTitle>Rename Plan</DialogTitle>
+          <DialogDescription>Enter a new name for your business plan.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="plan-name">Plan Name</Label>
-            <Input
-              id="plan-name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleRename()}
-              placeholder="Enter plan name..."
-              disabled={isRenaming}
-              autoFocus
-            />
-          </div>
+        <div className="py-4">
+          <Label htmlFor="plan-name" className="sr-only">
+            Plan Name
+          </Label>
+          <Input
+            id="plan-name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Enter new plan name"
+            autoFocus
+          />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isRenaming}>
+          <Button variant="outline" onClick={onClose} disabled={isRenaming}>
             Cancel
           </Button>
-          <Button onClick={handleRename} disabled={isRenaming || !newName.trim()}>
-            {isRenaming ? "Renaming..." : "Rename Plan"}
+          <Button
+            onClick={handleRename}
+            disabled={isRenaming || !newName.trim() || newName.trim() === currentName}
+            className="w-24"
+          >
+            {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

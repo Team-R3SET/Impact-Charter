@@ -1,256 +1,295 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState, useCallback, useRef } from "react"
+import { RoomProvider, useRoom, useMutation, useStorage } from "@liveblocks/react/suspense"
+import { LiveblocksProvider } from "@liveblocks/react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useToast } from "@/hooks/use-toast"
-import { useUser } from "@/contexts/user-context"
-import { CheckCircle, Clock, Save, Shield, X } from "lucide-react"
-import { businessPlanSections } from "@/lib/business-plan-sections"
+import { Textarea } from "@/components/ui/textarea"
+import { Save, AlertCircle, Wifi, WifiOff, Clock, CheckCircle } from "lucide-react"
+import { configManager } from "@/lib/config"
+import { toast } from "sonner"
+
+interface SyncStatus {
+  status: "synced" | "syncing" | "error" | "offline"
+  lastSynced?: Date
+  pendingChanges: number
+  error?: string
+}
 
 interface CollaborativeTextEditorProps {
-  sectionId: string
-  sectionTitle: string
   planId: string
-  currentUser: {
-    name: string
-    email: string
-    avatar: string
-  }
-  onSectionComplete: (sectionId: string, isComplete: boolean) => void
-  onSectionSelect: (sectionId: string) => void
+  sectionId: string
+  initialContent?: string
+  onContentChange?: (content: string) => void
 }
 
-export function CollaborativeTextEditor({
-  sectionId,
-  sectionTitle,
-  planId,
-  currentUser,
-  onSectionComplete,
-  onSectionSelect,
-}: CollaborativeTextEditorProps) {
-  const [content, setContent] = useState("")
-  const [isCompleted, setIsCompleted] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const { toast } = useToast()
-  const { currentUser: contextUser } = useUser()
+function TextEditor({ planId, sectionId, initialContent = "", onContentChange }: CollaborativeTextEditorProps) {
+  const room = useRoom()
+  const [content, setContent] = useState(initialContent)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    status: "synced",
+    pendingChanges: 0,
+  })
+  const [isOnline, setIsOnline] = useState(true)
+  const saveTimeoutRef = useRef<NodeJS.Timeout>()
+  const lastSavedContentRef = useRef(initialContent)
 
-  const storageKey = `section-${planId}-${sectionId}`
-  const completedKey = `${storageKey}-completed`
+  // Liveblocks storage for real-time collaboration
+  const updateLiveblocks = useMutation(({ storage }, newContent: string) => {
+    storage.set("content", newContent)
+  }, [])
 
-  // Check if current user is admin
-  const isAdmin = contextUser?.role === "admin" || contextUser?.role === "super_admin"
+  const liveblocksContent = useStorage((root) => root.content) as string | undefined
 
-  // Load content and completion status
+  // Monitor online status
   useEffect(() => {
-    const savedContent = localStorage.getItem(storageKey) || ""
-    const savedCompleted = localStorage.getItem(completedKey) === "true"
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
 
-    setContent(savedContent)
-    setIsCompleted(savedCompleted)
-    setHasUnsavedChanges(false)
-  }, [storageKey, completedKey])
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+    setIsOnline(navigator.onLine)
 
-  // Auto-save functionality
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [])
+
+  // Sync content from Liveblocks
   useEffect(() => {
-    if (!hasUnsavedChanges) return
-
-    const timeoutId = setTimeout(() => {
-      handleSave()
-    }, 2000) // Auto-save after 2 seconds of inactivity
-
-    return () => clearTimeout(timeoutId)
-  }, [content, hasUnsavedChanges])
-
-  const handleSave = useCallback(async () => {
-    setIsSaving(true)
-
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    try {
-      localStorage.setItem(storageKey, content)
-      setHasUnsavedChanges(false)
-
-      toast({
-        title: "Saved",
-        description: "Your changes have been saved automatically.",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save changes. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSaving(false)
+    if (liveblocksContent !== undefined && liveblocksContent !== content) {
+      setContent(liveblocksContent)
+      onContentChange?.(liveblocksContent)
     }
-  }, [content, storageKey, toast])
+  }, [liveblocksContent, content, onContentChange])
 
-  const handleContentChange = (value: string) => {
-    setContent(value)
-    setHasUnsavedChanges(true)
-  }
+  // Save to API with retry logic
+  const saveToAPI = useCallback(
+    async (contentToSave: string, retryCount = 0): Promise<boolean> => {
+      if (!isOnline) {
+        setSyncStatus((prev) => ({ ...prev, status: "offline" }))
+        return false
+      }
 
-  const handleMarkComplete = async () => {
-    if (content.trim().length < 50) {
-      toast({
-        title: "Section Incomplete",
-        description: "Please add at least 50 characters before marking as complete.",
-        variant: "destructive",
-      })
-      return
+      try {
+        setSyncStatus((prev) => ({ ...prev, status: "syncing" }))
+
+        const response = await fetch(`/api/business-plans/${planId}/sections/${sectionId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content: contentToSave,
+            lastModified: new Date().toISOString(),
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const result = await response.json()
+
+        if (!result.success) {
+          throw new Error(result.error?.message || "Save failed")
+        }
+
+        lastSavedContentRef.current = contentToSave
+        setSyncStatus({
+          status: "synced",
+          lastSynced: new Date(),
+          pendingChanges: 0,
+        })
+
+        return true
+      } catch (error) {
+        console.error("Save error:", error)
+
+        // Retry logic with exponential backoff
+        if (retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000
+          setTimeout(() => {
+            saveToAPI(contentToSave, retryCount + 1)
+          }, delay)
+          return false
+        }
+
+        const errorMessage = error instanceof Error ? error.message : "Unknown error"
+        setSyncStatus({
+          status: "error",
+          pendingChanges: contentToSave !== lastSavedContentRef.current ? 1 : 0,
+          error: errorMessage,
+        })
+
+        toast.error(`Failed to save: ${errorMessage}`)
+        return false
+      }
+    },
+    [planId, sectionId, isOnline],
+  )
+
+  // Handle content changes with debounced saving
+  const handleContentChange = useCallback(
+    (newContent: string) => {
+      setContent(newContent)
+      onContentChange?.(newContent)
+
+      // Update Liveblocks for real-time collaboration
+      updateLiveblocks(newContent)
+
+      // Update sync status to show pending changes
+      setSyncStatus((prev) => ({
+        ...prev,
+        pendingChanges: newContent !== lastSavedContentRef.current ? 1 : 0,
+      }))
+
+      // Debounced save to API
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+
+      saveTimeoutRef.current = setTimeout(() => {
+        saveToAPI(newContent)
+      }, 2000) // Save after 2 seconds of inactivity
+    },
+    [updateLiveblocks, onContentChange, saveToAPI],
+  )
+
+  // Manual save
+  const handleManualSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
     }
+    saveToAPI(content)
+  }, [content, saveToAPI])
 
-    const newCompletedState = !isCompleted
-    setIsCompleted(newCompletedState)
-    localStorage.setItem(completedKey, newCompletedState.toString())
-    onSectionComplete(sectionId, newCompletedState)
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
 
-    toast({
-      title: newCompletedState ? "Section Completed" : "Section Marked Incomplete",
-      description: newCompletedState
-        ? "Great work! This section has been marked as complete."
-        : "This section has been marked as incomplete.",
-    })
+  // Sync status indicator
+  const getSyncStatusIcon = () => {
+    switch (syncStatus.status) {
+      case "synced":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "syncing":
+        return <Clock className="h-4 w-4 text-blue-500 animate-spin" />
+      case "error":
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      case "offline":
+        return <WifiOff className="h-4 w-4 text-gray-500" />
+      default:
+        return <Wifi className="h-4 w-4 text-gray-500" />
+    }
   }
 
-  const handleAdminMarkIncomplete = async () => {
-    if (!isAdmin) return
-
-    setIsCompleted(false)
-    localStorage.setItem(completedKey, "false")
-    onSectionComplete(sectionId, false)
-
-    toast({
-      title: "Admin Action",
-      description: "Section marked as incomplete by administrator.",
-      variant: "default",
-    })
+  const getSyncStatusText = () => {
+    switch (syncStatus.status) {
+      case "synced":
+        return syncStatus.lastSynced ? `Saved ${syncStatus.lastSynced.toLocaleTimeString()}` : "All changes saved"
+      case "syncing":
+        return "Saving..."
+      case "error":
+        return `Error: ${syncStatus.error}`
+      case "offline":
+        return "Offline - changes will sync when online"
+      default:
+        return "Ready"
+    }
   }
-
-  const currentSection = businessPlanSections.find((s) => s.id === sectionId)
-  const wordCount = content
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 0).length
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2">
-                {isCompleted ? (
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <Clock className="w-5 h-5 text-yellow-600" />
-                )}
-                {sectionTitle}
-              </CardTitle>
-              {currentSection && <p className="text-sm text-muted-foreground">{currentSection.description}</p>}
-            </div>
-            <div className="flex items-center gap-2">
-              {isCompleted && (
-                <Badge
-                  variant="secondary"
-                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                >
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Complete
-                </Badge>
-              )}
-              {hasUnsavedChanges && (
-                <Badge variant="outline" className="text-orange-600 border-orange-600">
-                  Unsaved
-                </Badge>
-              )}
-              {isSaving && (
-                <Badge variant="outline" className="text-blue-600 border-blue-600">
-                  Saving...
-                </Badge>
-              )}
-            </div>
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">Section Editor</CardTitle>
+        <div className="flex items-center space-x-2">
+          {syncStatus.pendingChanges > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {syncStatus.pendingChanges} pending
+            </Badge>
+          )}
+          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+            {getSyncStatusIcon()}
+            <span>{getSyncStatusText()}</span>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Content ({wordCount} words)</span>
-              <span>{content.length} characters</span>
-            </div>
-            <Textarea
-              value={content}
-              onChange={(e) => handleContentChange(e.target.value)}
-              placeholder={`Write your ${sectionTitle.toLowerCase()} here...`}
-              className="min-h-[400px] resize-none"
-            />
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleManualSave}
+            disabled={syncStatus.status === "syncing" || !isOnline}
+          >
+            <Save className="h-4 w-4 mr-1" />
+            Save
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {syncStatus.status === "error" && (
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {syncStatus.error}. Your changes are saved locally and will sync when the connection is restored.
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div className="flex items-center gap-2">
-              <Button onClick={handleSave} disabled={!hasUnsavedChanges || isSaving} variant="outline" size="sm">
-                <Save className="w-4 h-4 mr-2" />
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
+        {!isOnline && (
+          <Alert className="mb-4">
+            <WifiOff className="h-4 w-4" />
+            <AlertDescription>
+              You're offline. Changes will be saved locally and synced when you're back online.
+            </AlertDescription>
+          </Alert>
+        )}
 
-              {content.trim().length >= 50 && (
-                <Button
-                  onClick={handleMarkComplete}
-                  variant={isCompleted ? "outline" : "default"}
-                  size="sm"
-                  className={isCompleted ? "text-orange-600 border-orange-600 hover:bg-orange-50" : ""}
-                >
-                  {isCompleted ? (
-                    <>
-                      <X className="w-4 h-4 mr-2" />
-                      Mark Incomplete
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Mark Complete
-                    </>
-                  )}
-                </Button>
-              )}
-
-              {isAdmin && isCompleted && (
-                <Button
-                  onClick={handleAdminMarkIncomplete}
-                  variant="outline"
-                  size="sm"
-                  className="text-red-600 border-red-600 hover:bg-red-50 bg-transparent"
-                >
-                  <Shield className="w-4 h-4 mr-2" />
-                  Admin: Mark Incomplete
-                </Button>
-              )}
-            </div>
-
-            <div className="text-sm text-muted-foreground">
-              {content.trim().length < 50 && (
-                <span className="text-orange-600">{50 - content.trim().length} more characters needed to complete</span>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {isAdmin && (
-        <Alert>
-          <Shield className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Admin Notice:</strong> You have administrative privileges to mark any completed section as
-            incomplete, regardless of content requirements. This action will reset the section's completion status.
-          </AlertDescription>
-        </Alert>
-      )}
-    </div>
+        <Textarea
+          value={content}
+          onChange={(e) => handleContentChange(e.target.value)}
+          placeholder="Start writing your business plan section..."
+          className="min-h-[400px] resize-none"
+        />
+      </CardContent>
+    </Card>
   )
 }
+
+// keep default export
+export default function CollaborativeTextEditor(props: CollaborativeTextEditorProps) {
+  const liveblocksConfig = configManager.getLiveblocksConfig()
+
+  if (!configManager.isLiveblocksConfigured()) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Liveblocks is not configured. Please set up your environment variables to enable real-time collaboration.
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  return (
+    <LiveblocksProvider publicApiKey={liveblocksConfig.publicKey}>
+      <RoomProvider
+        id={`plan-${props.planId}-section-${props.sectionId}`}
+        initialPresence={{}}
+        initialStorage={{ content: props.initialContent || "" }}
+      >
+        <TextEditor {...props} />
+      </RoomProvider>
+    </LiveblocksProvider>
+  )
+}
+
+/* NEW — named re-export for the runtime checker */
+export { CollaborativeTextEditor }

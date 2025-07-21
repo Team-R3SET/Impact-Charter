@@ -1,167 +1,183 @@
-/**
- * Client-side local storage utilities for caching user data and preferences
- */
-
-export interface StoredUserData {
-  id: string
-  email: string
-  name?: string
-  avatarUrl?: string
-  lastLogin?: string
-  preferences?: Record<string, any>
+export interface StorageItem<T = any> {
+  value: T
+  timestamp: number
+  expiresAt?: number
 }
 
-export interface StoredBusinessPlan {
-  id: string
-  name: string
-  ownerId: string
-  sections?: Record<string, any>
-  lastModified?: string
-}
+export class LocalStorageManager {
+  private static instance: LocalStorageManager
+  private prefix = "impact_charter_"
 
-/**
- * Get user data from localStorage
- */
-export function getUserFromStorage(): StoredUserData | null {
-  if (typeof window === "undefined") return null
+  private constructor() {}
 
-  try {
-    const userData = localStorage.getItem("impact-charter-user")
-    return userData ? JSON.parse(userData) : null
-  } catch (error) {
-    console.error("Error reading user data from localStorage:", error)
-    return null
+  static getInstance(): LocalStorageManager {
+    if (!LocalStorageManager.instance) {
+      LocalStorageManager.instance = new LocalStorageManager()
+    }
+    return LocalStorageManager.instance
   }
-}
 
-/**
- * Save user data to localStorage
- */
-export function saveUserToStorage(userData: StoredUserData): void {
-  if (typeof window === "undefined") return
-
-  try {
-    localStorage.setItem(
-      "impact-charter-user",
-      JSON.stringify({
-        ...userData,
-        lastLogin: new Date().toISOString(),
-      }),
-    )
-  } catch (error) {
-    console.error("Error saving user data to localStorage:", error)
+  private getKey(key: string): string {
+    return `${this.prefix}${key}`
   }
-}
 
-/**
- * Remove user data from localStorage
- */
-export function removeUserFromStorage(): void {
-  if (typeof window === "undefined") return
-
-  try {
-    localStorage.removeItem("impact-charter-user")
-  } catch (error) {
-    console.error("Error removing user data from localStorage:", error)
+  private isExpired(item: StorageItem): boolean {
+    if (!item.expiresAt) return false
+    return Date.now() > item.expiresAt
   }
-}
 
-/**
- * Get cached business plans from localStorage
- */
-export function getBusinessPlansFromStorage(userId: string): StoredBusinessPlan[] {
-  if (typeof window === "undefined") return []
-
-  try {
-    const plansData = localStorage.getItem(`impact-charter-plans-${userId}`)
-    return plansData ? JSON.parse(plansData) : []
-  } catch (error) {
-    console.error("Error reading business plans from localStorage:", error)
-    return []
-  }
-}
-
-/**
- * Save business plans to localStorage
- */
-export function saveBusinessPlansToStorage(userId: string, plans: StoredBusinessPlan[]): void {
-  if (typeof window === "undefined") return
-
-  try {
-    localStorage.setItem(`impact-charter-plans-${userId}`, JSON.stringify(plans))
-  } catch (error) {
-    console.error("Error saving business plans to localStorage:", error)
-  }
-}
-
-/**
- * Get user preferences from localStorage
- */
-export function getUserPreferences(): Record<string, any> {
-  if (typeof window === "undefined") return {}
-
-  try {
-    const preferences = localStorage.getItem("impact-charter-preferences")
-    return preferences ? JSON.parse(preferences) : {}
-  } catch (error) {
-    console.error("Error reading preferences from localStorage:", error)
-    return {}
-  }
-}
-
-/**
- * Save user preferences to localStorage
- */
-export function saveUserPreferences(preferences: Record<string, any>): void {
-  if (typeof window === "undefined") return
-
-  try {
-    localStorage.setItem("impact-charter-preferences", JSON.stringify(preferences))
-  } catch (error) {
-    console.error("Error saving preferences to localStorage:", error)
-  }
-}
-
-/**
- * Clear all app data from localStorage
- */
-export function clearAllStorageData(): void {
-  if (typeof window === "undefined") return
-
-  try {
-    const keys = Object.keys(localStorage)
-    keys.forEach((key) => {
-      if (key.startsWith("impact-charter-")) {
-        localStorage.removeItem(key)
+  set<T>(key: string, value: T, expirationMinutes?: number): boolean {
+    try {
+      const item: StorageItem<T> = {
+        value,
+        timestamp: Date.now(),
+        expiresAt: expirationMinutes ? Date.now() + expirationMinutes * 60 * 1000 : undefined,
       }
-    })
-  } catch (error) {
-    console.error("Error clearing storage data:", error)
+
+      localStorage.setItem(this.getKey(key), JSON.stringify(item))
+      return true
+    } catch (error) {
+      console.error("Error setting localStorage item:", error)
+      return false
+    }
+  }
+
+  get<T>(key: string): T | null {
+    try {
+      const stored = localStorage.getItem(this.getKey(key))
+      if (!stored) return null
+
+      const item: StorageItem<T> = JSON.parse(stored)
+
+      if (this.isExpired(item)) {
+        this.remove(key)
+        return null
+      }
+
+      return item.value
+    } catch (error) {
+      console.error("Error getting localStorage item:", error)
+      return null
+    }
+  }
+
+  remove(key: string): boolean {
+    try {
+      localStorage.removeItem(this.getKey(key))
+      return true
+    } catch (error) {
+      console.error("Error removing localStorage item:", error)
+      return false
+    }
+  }
+
+  clear(): boolean {
+    try {
+      const keys = Object.keys(localStorage).filter((key) => key.startsWith(this.prefix))
+      keys.forEach((key) => localStorage.removeItem(key))
+      return true
+    } catch (error) {
+      console.error("Error clearing localStorage:", error)
+      return false
+    }
+  }
+
+  exists(key: string): boolean {
+    return this.get(key) !== null
+  }
+
+  getAll(): Record<string, any> {
+    try {
+      const result: Record<string, any> = {}
+      const keys = Object.keys(localStorage).filter((key) => key.startsWith(this.prefix))
+
+      keys.forEach((key) => {
+        const cleanKey = key.replace(this.prefix, "")
+        const value = this.get(cleanKey)
+        if (value !== null) {
+          result[cleanKey] = value
+        }
+      })
+
+      return result
+    } catch (error) {
+      console.error("Error getting all localStorage items:", error)
+      return {}
+    }
+  }
+
+  size(): number {
+    try {
+      return Object.keys(localStorage).filter((key) => key.startsWith(this.prefix)).length
+    } catch (error) {
+      console.error("Error getting localStorage size:", error)
+      return 0
+    }
   }
 }
 
-/**
- * Get storage usage information
- */
-export function getStorageInfo(): { used: number; available: number } {
-  if (typeof window === "undefined") return { used: 0, available: 0 }
+// Convenience functions
+export const storage = LocalStorageManager.getInstance()
 
-  try {
-    let used = 0
-    const keys = Object.keys(localStorage)
+export function setItem<T>(key: string, value: T, expirationMinutes?: number): boolean {
+  return storage.set(key, value, expirationMinutes)
+}
 
-    keys.forEach((key) => {
-      if (key.startsWith("impact-charter-")) {
-        used += localStorage.getItem(key)?.length || 0
-      }
-    })
+export function getItem<T>(key: string): T | null {
+  return storage.get<T>(key)
+}
 
-    // Rough estimate of available space (most browsers allow ~5-10MB)
-    const available = 5 * 1024 * 1024 - used // 5MB estimate
+export function removeItem(key: string): boolean {
+  return storage.remove(key)
+}
 
-    return { used, available }
-  } catch (error) {
-    console.error("Error getting storage info:", error)
-    return { used: 0, available: 0 }
-  }
+export function clearStorage(): boolean {
+  return storage.clear()
+}
+
+export function itemExists(key: string): boolean {
+  return storage.exists(key)
+}
+
+// Business plan specific storage functions
+export function saveSectionContent(planId: string, sectionId: string, content: string): boolean {
+  return setItem(`section_${planId}_${sectionId}`, {
+    content,
+    lastModified: new Date().toISOString(),
+  })
+}
+
+export function getSectionContent(planId: string, sectionId: string): { content: string; lastModified: string } | null {
+  return getItem(`section_${planId}_${sectionId}`)
+}
+
+export function markSectionComplete(planId: string, sectionId: string, isComplete: boolean): boolean {
+  return setItem(`section_${planId}_${sectionId}_completed`, isComplete)
+}
+
+export function isSectionComplete(planId: string, sectionId: string): boolean {
+  return getItem(`section_${planId}_${sectionId}_completed`) === true
+}
+
+export function saveUserPreferences(userId: string, preferences: Record<string, any>): boolean {
+  return setItem(`user_preferences_${userId}`, preferences)
+}
+
+export function getUserPreferences(userId: string): Record<string, any> | null {
+  return getItem(`user_preferences_${userId}`)
+}
+
+export function saveRecentPlans(userId: string, planIds: string[]): boolean {
+  return setItem(`recent_plans_${userId}`, planIds.slice(0, 10)) // Keep only 10 most recent
+}
+
+export function getRecentPlans(userId: string): string[] {
+  return getItem(`recent_plans_${userId}`) || []
+}
+
+export function addToRecentPlans(userId: string, planId: string): boolean {
+  const recent = getRecentPlans(userId)
+  const filtered = recent.filter((id) => id !== planId)
+  filtered.unshift(planId)
+  return saveRecentPlans(userId, filtered)
 }

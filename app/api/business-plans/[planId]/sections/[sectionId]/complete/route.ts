@@ -4,10 +4,10 @@ import { markBusinessPlanSectionComplete } from "@/lib/airtable-user"
 /**
  * Mark a section as “complete”.
  *
- *   POST /api/business-plans/:planId/sections/:sectionName/complete
+ *   POST /api/business-plans/:planId/sections/:sectionId/complete
  *   Body: { userEmail: string }
  */
-export async function POST(request: Request, { params }: { params: { planId: string; sectionName: string } }) {
+export async function POST(request: Request, { params }: { params: { planId: string; sectionId: string } }) {
   let body: { userEmail?: string } = {}
 
   try {
@@ -25,7 +25,7 @@ export async function POST(request: Request, { params }: { params: { planId: str
     await markBusinessPlanSectionComplete(
       {
         planId: params.planId,
-        sectionName: params.sectionName,
+        sectionId: params.sectionId,
         completedBy: userEmail,
         completedAt: new Date().toISOString(),
       },

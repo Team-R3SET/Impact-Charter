@@ -50,6 +50,10 @@ export const logError = async (
   console.error("[ERROR LOG]", errorLog)
 }
 
+export const logInfo = async (message: string, context?: Record<string, any>) => {
+  console.info("[INFO]", { message, ...context })
+}
+
 export const getAccessLogs = async (limit?: number): Promise<AccessLog[]> => {
   const logs = [...accessLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   return limit ? logs.slice(0, limit) : logs

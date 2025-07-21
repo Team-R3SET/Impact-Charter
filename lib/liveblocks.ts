@@ -3,7 +3,26 @@ import { createRoomContext } from "@liveblocks/react"
 
 // The client fetches a token from our API route; no keys are exposed in the bundle
 const client = createClient({
-  authEndpoint: "/api/liveblocks-auth",
+  // Use a function for dynamic auth endpoint
+  authEndpoint: async (roomId) => {
+    const response = await fetch(`/api/liveblocks-auth`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ roomId }),
+    })
+
+    if (!response.ok) {
+      const errorBody = await response.text()
+      console.error("Liveblocks auth failed:", errorBody)
+      // Throw an error to notify Liveblocks client about the failure
+      throw new Error(`Authentication failed: ${response.status} ${response.statusText}`)
+    }
+
+    // Liveblocks client expects a JSON response with a token
+    return await response.json()
+  },
 })
 
 type Presence = {

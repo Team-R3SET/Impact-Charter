@@ -1,122 +1,110 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { PlansHeader } from "@/components/plans-header"
+import { useEffect, useMemo, useState } from "react"
+
 import { BusinessPlansGrid } from "@/components/business-plans-grid"
 import { CreatePlanDialog } from "@/components/create-plan-dialog"
-import { AppHeader } from "@/components/app-header"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/hooks/use-toast"
+import { PlanCardSkeleton } from "@/components/plan-card-skeleton"
+import { PlansEmptyState } from "@/components/plans-empty-state"
+import { PlansHeader } from "@/components/plans-header"
 import { useUser } from "@/contexts/user-context"
-import type { BusinessPlan } from "@/lib/types"
-import { redirect } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import type { BusinessPlan } from "@/lib/airtable"
+
+type SortKey = "planName" | "createdDate" | "status" | "lastModified"
+type ViewMode = "grid" | "list"
+type StatusFilter = BusinessPlan["status"] | "all"
 
 export default function PlansPage() {
-  const { user, isLoading: isUserLoading } = useUser()
-  const [plans, setPlans] = useState<BusinessPlan[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [sortBy, setSortBy] = useState("updated_at")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const { user } = useUser()
   const { toast } = useToast()
 
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      redirect("/login")
-    }
-  }, [isUserLoading, user])
+  const [plans, setPlans] = useState<BusinessPlan[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCreateDialogOpen, setCreateDialogOpen] = useState(false)
 
-  const fetchPlans = async () => {
-    if (!user) return
-    try {
-      setIsLoading(true)
-      const response = await fetch(`/api/business-plans`)
-      if (!response.ok) throw new Error("Failed to fetch plans")
-      const data = await response.json()
-      setPlans(data.plans as BusinessPlan[])
-    } catch (error) {
-      console.error("Error fetching plans:", error)
-      toast({
-        title: "Failed to load plans",
-        description: "There was an error loading your business plans.",
-        variant: "destructive",
-      })
-    } finally {
+  const [viewMode, setViewMode] = useState<ViewMode>("grid")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const [sortBy, setSortBy] = useState<SortKey>("lastModified")
+
+  /* ------------------------------------------------------------------ */
+  /* Data fetching                                                      */
+  /* ------------------------------------------------------------------ */
+  useEffect(() => {
+    if (!user?.email) {
       setIsLoading(false)
+      return
     }
-  }
 
-  useEffect(() => {
-    if (user) {
-      fetchPlans()
-    }
-  }, [user])
+    async function fetchPlans() {
+      try {
+        setIsLoading(true)
+        const res = await fetch(`/api/business-plans?userEmail=${encodeURIComponent(user.email)}`)
+        const json = await res.json()
 
-  const filteredAndSortedPlans = useMemo(() => {
-    let filtered: BusinessPlan[] = Array.isArray(plans) ? [...plans] : []
-    if (searchQuery) {
-      filtered = filtered.filter((plan) => plan.plan_name.toLowerCase().includes(searchQuery.toLowerCase()))
-    }
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((plan) => plan.status === statusFilter)
-    }
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "plan_name":
-          return a.plan_name.localeCompare(b.plan_name)
-        case "created_at":
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        case "status":
-          return (a.status ?? "").localeCompare(b.status ?? "")
-        case "updated_at":
-        default:
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        if (!json.success) {
+          throw new Error(json.error?.message || "Failed to fetch plans")
+        }
+        setPlans(Array.isArray(json.data) ? json.data : [])
+      } catch (err) {
+        console.error(err)
+        toast({
+          title: "Error loading plans",
+          description:
+            err instanceof Error ? err.message : "Unable to fetch your business plans. Please try again later.",
+          variant: "destructive",
+        })
+        setPlans([])
+      } finally {
+        setIsLoading(false)
       }
-    })
-    return filtered
+    }
+
+    fetchPlans()
+  }, [user, toast])
+
+  /* ------------------------------------------------------------------ */
+  /* CRUD helpers                                                       */
+  /* ------------------------------------------------------------------ */
+  const handlePlanCreated = (plan: BusinessPlan) => setPlans((prev) => [plan, ...prev])
+
+  const handlePlanUpdate = (id: string, updates: Partial<BusinessPlan>) =>
+    setPlans((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)))
+
+  const handlePlanDelete = (id: string) => setPlans((prev) => prev.filter((p) => p.id !== id))
+
+  /* ------------------------------------------------------------------ */
+  /* Derived list (search + filter + sort)                              */
+  /* ------------------------------------------------------------------ */
+  const visiblePlans = useMemo(() => {
+    return plans
+      .filter((p) => {
+        const matchesSearch = searchQuery.trim() === "" || p.planName.toLowerCase().includes(searchQuery.toLowerCase())
+
+        const matchesStatus = statusFilter === "all" || p.status === statusFilter
+        return matchesSearch && matchesStatus
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "planName":
+            return a.planName.localeCompare(b.planName)
+          case "createdDate":
+            return new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()
+          case "status":
+            return a.status.localeCompare(b.status)
+          default: // lastModified
+            return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+        }
+      })
   }, [plans, searchQuery, statusFilter, sortBy])
 
-  if (isUserLoading || isLoading) {
-    return (
-      <>
-        <AppHeader />
-        <div className="container mx-auto px-4 py-8 space-y-8">
-          <Skeleton className="h-8 w-64" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-64 rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </>
-    )
-  }
-
+  /* ------------------------------------------------------------------ */
+  /* Render                                                             */
+  /* ------------------------------------------------------------------ */
   return (
     <>
-      <AppHeader />
-      <div className="container mx-auto px-4 py-8 space-y-8">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/">Home</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>My Business Plans</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+      <div className="flex-1 space-y-6 p-4 md:p-8">
         <PlansHeader
           plans={plans}
           searchQuery={searchQuery}
@@ -129,22 +117,37 @@ export default function PlansPage() {
           onViewModeChange={setViewMode}
           onCreatePlan={() => setCreateDialogOpen(true)}
         />
-        <BusinessPlansGrid
-          plans={filteredAndSortedPlans}
-          viewMode={viewMode}
-          onCreatePlan={() => setCreateDialogOpen(true)}
-          onRefresh={fetchPlans}
-          onPlanUpdate={() => fetchPlans()}
-        />
-        {user && (
-          <CreatePlanDialog
-            open={createDialogOpen}
-            onOpenChange={setCreateDialogOpen}
-            ownerId={user.id}
-            onPlanCreated={fetchPlans}
+
+        {isLoading ? (
+          <div
+            className={`grid gap-6 ${
+              viewMode === "grid" ? "md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1"
+            }`}
+          >
+            {Array.from({ length: 4 }).map((_, i) => (
+              <PlanCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : visiblePlans.length > 0 ? (
+          <BusinessPlansGrid
+            plans={visiblePlans}
+            viewMode={viewMode}
+            onPlanUpdate={handlePlanUpdate}
+            onPlanDelete={handlePlanDelete}
           />
+        ) : (
+          <PlansEmptyState onCreatePlan={() => setCreateDialogOpen(true)} />
         )}
       </div>
+
+      {user?.email && (
+        <CreatePlanDialog
+          open={isCreateDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          userEmail={user.email}
+          onPlanCreated={handlePlanCreated}
+        />
+      )}
     </>
   )
 }

@@ -70,8 +70,29 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   const { data, error } = await supabase.from("user_profiles").select("*").eq("id", userId).single()
 
   if (error) {
-    console.error("Error fetching user profile:", error)
+    console.error("Error fetching user profile:", error.message)
     return null
   }
   return data
+}
+
+export async function canUserAccessPlan(userId: string, planId: string): Promise<boolean> {
+  const supabase = createClient()
+
+  // This query checks if the user is the owner of the plan.
+  // TODO: Extend this to check a `plan_collaborators` table if you add sharing functionality.
+  const { data, error } = await supabase
+    .from("business_plans")
+    .select("id")
+    .eq("id", planId)
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (error) {
+    console.error("Error checking plan access:", error)
+    return false
+  }
+
+  // If data is not null, a record was found where the planId and userId match.
+  return data !== null
 }

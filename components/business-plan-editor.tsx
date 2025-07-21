@@ -10,6 +10,7 @@ import { LiveCollabButton } from "./live-collab-button"
 import { AppHeader } from "./app-header"
 import { businessPlanSections } from "@/lib/business-plan-sections"
 import { CheckCircle, Clock, FileText } from "lucide-react"
+import { CommentsPanel } from "./comments-panel"
 
 interface BusinessPlanEditorProps {
   planId: string
@@ -150,17 +151,24 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
           </div>
 
           <div className={`transition-all duration-300 ${isSidebarCollapsed ? "lg:col-span-1" : "lg:col-span-3"}`}>
-            {currentSectionData && (
-              <CollaborativeTextEditor
-                key={selectedSection}
-                sectionId={selectedSection}
-                sectionTitle={currentSectionData.title}
-                planId={planId}
-                currentUser={currentUser}
-                onSectionComplete={handleSectionComplete}
-                onSectionSelect={setSelectedSection}
-              />
-            )}
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                {currentSectionData && (
+                  <CollaborativeTextEditor
+                    key={selectedSection}
+                    sectionId={selectedSection}
+                    sectionTitle={currentSectionData.title}
+                    planId={planId}
+                    currentUser={currentUser}
+                    onSectionComplete={handleSectionComplete}
+                    onSectionSelect={setSelectedSection}
+                  />
+                )}
+              </div>
+              <div className="lg:col-span-1">
+                <CommentsPanel planId={planId} sectionId={selectedSection} currentUser={currentUser} />
+              </div>
+            </div>
           </div>
         </div>
       </div>

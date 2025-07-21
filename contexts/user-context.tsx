@@ -1,55 +1,82 @@
 "use client"
 
-import type React from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type { User } from "@/lib/user-types"
+import { getAllUsers } from "@/lib/user-management"
 
-import { createContext, useContext, useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
-import type { UserProfile } from "@/lib/types"
-
-type UserContextType = {
-  user: User | null
-  profile: UserProfile | null
+interface UserContextType {
+  currentUser: User | null
   isLoading: boolean
+  login: (user: User) => Promise<void>
+  logout: () => void
+  updateUser: (updates: Partial<User>) => void
+  users: User[]
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+export function UserProvider({ children }: { children: ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [users] = useState<User[]>(getAllUsers())
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        const { data: userProfile } = await supabase
-          .from("user_profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
-        setProfile(userProfile)
-      } else {
-        setProfile(null)
+    // Check for stored user session
+    const storedUserId = localStorage.getItem("currentUserId")
+    if (storedUserId) {
+      const user = users.find((u) => u.id === storedUserId)
+      if (user) {
+        setCurrentUser(user)
       }
-      setIsLoading(false)
-    })
-
-    return () => {
-      subscription.unsubscribe()
     }
-  }, [supabase])
+    setIsLoading(false)
+  }, [users])
 
-  const value = { user, profile, isLoading }
+  const login = async (user: User) => {
+    setIsLoading(true)
+    try {
+      // Simulate API call delay
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-  return <UserContext.Provider value={value}>{children}</UserContext.Provider>
+      setCurrentUser(user)
+      localStorage.setItem("currentUserId", user.id)
+    } catch (error) {
+      console.error("Login error:", error)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const logout = () => {
+    setCurrentUser(null)
+    localStorage.removeItem("currentUserId")
+  }
+
+  const updateUser = (updates: Partial<User>) => {
+    if (currentUser) {
+      const updatedUser = { ...currentUser, ...updates }
+      setCurrentUser(updatedUser)
+    }
+  }
+
+  return (
+    <UserContext.Provider
+      value={{
+        currentUser,
+        isLoading,
+        login,
+        logout,
+        updateUser,
+        users,
+      }}
+    >
+      {children}
+    </UserContext.Provider>
+  )
 }
 
-export const useUser = () => {
+export function useUser() {
   const context = useContext(UserContext)
   if (context === undefined) {
     throw new Error("useUser must be used within a UserProvider")

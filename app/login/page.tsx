@@ -1,20 +1,16 @@
 "use client"
 
 import { CardFooter } from "@/components/ui/card"
-
 import { useEffect } from "react"
-
 import { useRouter } from "next/navigation"
-
 import { useState } from "react"
-
 import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { FileText, Mail, Lock } from "lucide-react"
+import { FileText, Mail, Lock, Eye, EyeOff } from "lucide-react"
 import { useUser } from "@/contexts/user-context"
 import { getUserByEmail } from "@/lib/user-management"
 import type { User } from "@/lib/user-types"
@@ -26,7 +22,7 @@ export default function LoginPage({ searchParams }: { searchParams: { message: s
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const router = useRouter()
-  const { login: userLogin, isLoading, currentUser } = useUser()
+  const { login, isLoading, currentUser } = useUser()
 
   const handleRedirect = (user: User | null) => {
     if (!user) return
@@ -57,7 +53,7 @@ export default function LoginPage({ searchParams }: { searchParams: { message: s
       if (!user) {
         throw new Error("Invalid email or password")
       }
-      await userLogin(user)
+      await login(user)
       setSuccess("Sign in successful! Redirecting...")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred during sign in")
@@ -73,7 +69,7 @@ export default function LoginPage({ searchParams }: { searchParams: { message: s
       if (!user) {
         throw new Error(`Demo ${userType} account not found.`)
       }
-      await userLogin(user)
+      await login(user)
       setSuccess(`Signed in as demo ${userType}! Redirecting...`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred during sign in")
@@ -101,9 +97,19 @@ export default function LoginPage({ searchParams }: { searchParams: { message: s
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {error && <div className="text-sm font-medium text-destructive">{error}</div>}
-            {success && <div className="text-sm font-medium text-green-800 dark:text-green-400">{success}</div>}
-            {searchParams?.message && <p className="text-sm font-medium text-destructive">{searchParams.message}</p>}
+            {error && (
+              <div className="text-sm font-medium text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
+            )}
+            {success && (
+              <div className="text-sm font-medium text-green-800 dark:text-green-400 bg-green-100 dark:bg-green-900/20 p-3 rounded-md">
+                {success}
+              </div>
+            )}
+            {searchParams?.message && (
+              <p className="text-sm font-medium text-destructive bg-destructive/10 p-3 rounded-md">
+                {searchParams.message}
+              </p>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -146,9 +152,9 @@ export default function LoginPage({ searchParams }: { searchParams: { message: s
                     disabled={isLoading}
                   >
                     {showPassword ? (
-                      <Lock className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <Eye className="h-4 w-4 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
@@ -170,7 +176,7 @@ export default function LoginPage({ searchParams }: { searchParams: { message: s
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full bg-muted" />
+                <div className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
