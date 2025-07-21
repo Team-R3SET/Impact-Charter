@@ -8,10 +8,12 @@ const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
 /**
  * Test Airtable connection
  */
-export async function getAirtableConnection(): Promise<boolean> {
+export async function getAirtableConnection(settings: any): Promise<{ isConnected: boolean; error?: string }> {
+  const AIRTABLE_API_KEY = settings.airtableApiKey || process.env.AIRTABLE_API_KEY
+  const AIRTABLE_BASE_ID = settings.airtableBaseId || process.env.AIRTABLE_BASE_ID
+
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
-    console.error("Missing Airtable credentials")
-    return false
+    return { isConnected: false, error: "Missing Airtable credentials" }
   }
 
   try {
@@ -22,17 +24,20 @@ export async function getAirtableConnection(): Promise<boolean> {
       },
     })
 
-    return response.ok
+    return { isConnected: response.ok, error: response.ok ? undefined : `HTTP ${response.status}` }
   } catch (error) {
     console.error("Airtable connection test failed:", error)
-    return false
+    return { isConnected: false, error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
 /**
  * Get list of tables in the base
  */
-export async function getAirtableTables(): Promise<string[]> {
+export async function getAirtableTables(settings: any): Promise<string[]> {
+  const AIRTABLE_API_KEY = settings.airtableApiKey || process.env.AIRTABLE_API_KEY
+  const AIRTABLE_BASE_ID = settings.airtableBaseId || process.env.AIRTABLE_BASE_ID
+
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
     console.error("Missing Airtable credentials")
     return []
@@ -61,11 +66,21 @@ export async function getAirtableTables(): Promise<string[]> {
 /**
  * Test a query against Airtable
  */
-export async function testAirtableQuery(tableName: string): Promise<Record<string, unknown>[]> {
+export async function testAirtableQuery(tableName: string, options: any, settings: any): Promise<any> {
+  const AIRTABLE_API_KEY = settings.airtableApiKey || process.env.AIRTABLE_API_KEY
+  const AIRTABLE_BASE_ID = settings.airtableBaseId || process.env.AIRTABLE_BASE_ID
+
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
-    console.error("Missing Airtable credentials")
-    return []
+    return {
+      success: false,
+      status: 0,
+      error: "Missing Airtable credentials",
+      responseTime: 0,
+      timestamp: new Date().toISOString(),
+    }
   }
+
+  const startTime = Date.now()
 
   try {
     const response = await fetch(
@@ -78,20 +93,25 @@ export async function testAirtableQuery(tableName: string): Promise<Record<strin
       },
     )
 
-    if (!response.ok) {
-      throw new Error(`Airtable API error: ${response.status}`)
-    }
-
+    const responseTime = Date.now() - startTime
     const data = await response.json()
-    return (
-      data.records?.map((record: any) => ({
-        id: record.id,
-        fields: record.fields,
-        createdTime: record.createdTime,
-      })) || []
-    )
+
+    return {
+      success: response.ok,
+      status: response.status,
+      data: response.ok ? data.records?.slice(0, 3) : undefined,
+      error: response.ok ? undefined : data.error?.message || `HTTP ${response.status}`,
+      responseTime,
+      timestamp: new Date().toISOString(),
+    }
   } catch (error) {
-    console.error("Error testing Airtable query:", error)
-    return []
+    const responseTime = Date.now() - startTime
+    return {
+      success: false,
+      status: 0,
+      error: error instanceof Error ? error.message : "Unknown error",
+      responseTime,
+      timestamp: new Date().toISOString(),
+    }
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Local storage utilities for client-side data persistence
+ * Client-side local storage utilities for caching user data and preferences
  */
 
 export interface StoredUserData {
@@ -8,24 +8,26 @@ export interface StoredUserData {
   name?: string
   avatarUrl?: string
   lastLogin?: string
+  preferences?: Record<string, any>
 }
 
-export interface StoredPlanData {
+export interface StoredBusinessPlan {
   id: string
   name: string
-  lastAccessed: string
+  ownerId: string
   sections?: Record<string, any>
+  lastModified?: string
 }
 
 /**
  * Get user data from localStorage
  */
-export function getStoredUserData(): StoredUserData | null {
+export function getUserFromStorage(): StoredUserData | null {
   if (typeof window === "undefined") return null
 
   try {
-    const data = localStorage.getItem("user-data")
-    return data ? JSON.parse(data) : null
+    const userData = localStorage.getItem("impact-charter-user")
+    return userData ? JSON.parse(userData) : null
   } catch (error) {
     console.error("Error reading user data from localStorage:", error)
     return null
@@ -33,72 +35,133 @@ export function getStoredUserData(): StoredUserData | null {
 }
 
 /**
- * Store user data in localStorage
+ * Save user data to localStorage
  */
-export function setStoredUserData(userData: StoredUserData): void {
+export function saveUserToStorage(userData: StoredUserData): void {
   if (typeof window === "undefined") return
 
   try {
-    localStorage.setItem("user-data", JSON.stringify(userData))
+    localStorage.setItem(
+      "impact-charter-user",
+      JSON.stringify({
+        ...userData,
+        lastLogin: new Date().toISOString(),
+      }),
+    )
   } catch (error) {
-    console.error("Error storing user data in localStorage:", error)
+    console.error("Error saving user data to localStorage:", error)
   }
 }
 
 /**
- * Clear user data from localStorage
+ * Remove user data from localStorage
  */
-export function clearStoredUserData(): void {
+export function removeUserFromStorage(): void {
   if (typeof window === "undefined") return
 
   try {
-    localStorage.removeItem("user-data")
+    localStorage.removeItem("impact-charter-user")
   } catch (error) {
-    console.error("Error clearing user data from localStorage:", error)
+    console.error("Error removing user data from localStorage:", error)
   }
 }
 
 /**
- * Get recently accessed plans from localStorage
+ * Get cached business plans from localStorage
  */
-export function getRecentPlans(): StoredPlanData[] {
+export function getBusinessPlansFromStorage(userId: string): StoredBusinessPlan[] {
   if (typeof window === "undefined") return []
 
   try {
-    const data = localStorage.getItem("recent-plans")
-    return data ? JSON.parse(data) : []
+    const plansData = localStorage.getItem(`impact-charter-plans-${userId}`)
+    return plansData ? JSON.parse(plansData) : []
   } catch (error) {
-    console.error("Error reading recent plans from localStorage:", error)
+    console.error("Error reading business plans from localStorage:", error)
     return []
   }
 }
 
 /**
- * Add a plan to recent plans list
+ * Save business plans to localStorage
  */
-export function addToRecentPlans(planData: StoredPlanData): void {
+export function saveBusinessPlansToStorage(userId: string, plans: StoredBusinessPlan[]): void {
   if (typeof window === "undefined") return
 
   try {
-    const recentPlans = getRecentPlans()
-    const filteredPlans = recentPlans.filter((plan) => plan.id !== planData.id)
-    const updatedPlans = [planData, ...filteredPlans].slice(0, 10) // Keep only 10 most recent
-
-    localStorage.setItem("recent-plans", JSON.stringify(updatedPlans))
+    localStorage.setItem(`impact-charter-plans-${userId}`, JSON.stringify(plans))
   } catch (error) {
-    console.error("Error adding plan to recent plans:", error)
+    console.error("Error saving business plans to localStorage:", error)
   }
 }
 
 /**
- * Clear recent plans from localStorage
+ * Get user preferences from localStorage
  */
-export function clearRecentPlans(): void {
+export function getUserPreferences(): Record<string, any> {
+  if (typeof window === "undefined") return {}
+
+  try {
+    const preferences = localStorage.getItem("impact-charter-preferences")
+    return preferences ? JSON.parse(preferences) : {}
+  } catch (error) {
+    console.error("Error reading preferences from localStorage:", error)
+    return {}
+  }
+}
+
+/**
+ * Save user preferences to localStorage
+ */
+export function saveUserPreferences(preferences: Record<string, any>): void {
   if (typeof window === "undefined") return
 
   try {
-    localStorage.removeItem("recent-plans")
+    localStorage.setItem("impact-charter-preferences", JSON.stringify(preferences))
   } catch (error) {
-    console.error("Error clearing recent plans from localStorage:", error)
+    console.error("Error saving preferences to localStorage:", error)
+  }
+}
+
+/**
+ * Clear all app data from localStorage
+ */
+export function clearAllStorageData(): void {
+  if (typeof window === "undefined") return
+
+  try {
+    const keys = Object.keys(localStorage)
+    keys.forEach((key) => {
+      if (key.startsWith("impact-charter-")) {
+        localStorage.removeItem(key)
+      }
+    })
+  } catch (error) {
+    console.error("Error clearing storage data:", error)
+  }
+}
+
+/**
+ * Get storage usage information
+ */
+export function getStorageInfo(): { used: number; available: number } {
+  if (typeof window === "undefined") return { used: 0, available: 0 }
+
+  try {
+    let used = 0
+    const keys = Object.keys(localStorage)
+
+    keys.forEach((key) => {
+      if (key.startsWith("impact-charter-")) {
+        used += localStorage.getItem(key)?.length || 0
+      }
+    })
+
+    // Rough estimate of available space (most browsers allow ~5-10MB)
+    const available = 5 * 1024 * 1024 - used // 5MB estimate
+
+    return { used, available }
+  } catch (error) {
+    console.error("Error getting storage info:", error)
+    return { used: 0, available: 0 }
   }
 }
