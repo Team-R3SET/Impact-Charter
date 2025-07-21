@@ -9,6 +9,9 @@ const client = createClient({
 type Presence = {
   cursor: { x: number; y: number } | null
   selectedSection: string | null
+  textCursor: { sectionId: string; position: number } | null
+  textSelection: { sectionId: string; start: number; end: number } | null
+  isTyping: { sectionId: string; timestamp: number } | null
   user: {
     name: string
     email: string
@@ -24,8 +27,10 @@ type Storage = {
       content: string
       lastModified: string
       modifiedBy: string
+      isCompleted?: boolean
     }
   >
+  completedSections: Record<string, boolean>
 }
 
 type UserMeta = {
@@ -37,7 +42,12 @@ type UserMeta = {
   }
 }
 
-type RoomEvent = {}
+type RoomEvent = {
+  type: "TEXT_CHANGE"
+  sectionId: string
+  content: string
+  userId: string
+}
 
 export const {
   RoomProvider,
