@@ -1,18 +1,13 @@
+import { AdminLayout } from "@/components/admin-layout"
 import { AdminDashboard } from "@/components/admin-dashboard"
-import { getCurrentUser, canAccessAdminFeatures } from "@/lib/user-management"
-import { redirect } from "next/navigation"
 
-export default async function AdminPage() {
-  // Mock current user - in a real app, get this from your auth system
-  const currentUser = await getCurrentUser("admin@example.com")
-
-  if (!currentUser || !canAccessAdminFeatures(currentUser)) {
-    redirect("/")
-  }
-
+export default function AdminPage() {
   return (
-    <div className="container mx-auto py-8">
-      <AdminDashboard currentUser={currentUser} />
-    </div>
+    <AdminLayout
+      title="Admin Dashboard"
+      description="Monitor system health, user activity, and manage administrative tasks"
+    >
+      <AdminDashboard />
+    </AdminLayout>
   )
 }
