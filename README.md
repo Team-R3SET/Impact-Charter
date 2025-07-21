@@ -232,7 +232,7 @@ export const businessPlanSections = [
 #### 3. Real-time collaboration not working
 **Problem**: Liveblocks configuration issue
 **Solution**:
-- Verify \`NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY\` is set correctly
+- Verify `LIVEBLOCKS_PUBLIC_KEY` is set correctly
 - Ensure \`LIVEBLOCKS_SECRET_KEY\` is configured in Vercel
 - Check Liveblocks project settings
 
