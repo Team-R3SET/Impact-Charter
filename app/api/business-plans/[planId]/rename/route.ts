@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-
-const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
-const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
+import { userSettingsStore } from "@/lib/shared-store"
 
 export async function PATCH(request: NextRequest, { params }: { params: { planId: string } }) {
   try {
@@ -12,12 +10,18 @@ export async function PATCH(request: NextRequest, { params }: { params: { planId
       return NextResponse.json({ error: "Plan name is required" }, { status: 400 })
     }
 
+    const userEmail = "user@example.com" // In a real app, this would come from authentication
+    const userSettings = userSettingsStore.get(userEmail)
+    
+    const AIRTABLE_PERSONAL_ACCESS_TOKEN = userSettings?.airtablePersonalAccessToken
+    const AIRTABLE_BASE_ID = userSettings?.airtableBaseId
+
     // If Airtable is not configured, return success with the new name
-    if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
       return NextResponse.json({
         success: true,
         planName: planName.trim(),
-        message: "Plan renamed successfully (local mode)",
+        message: "Charter renamed successfully (local mode)",
       })
     }
 
@@ -25,13 +29,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { planId
       const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           fields: {
-            planName: planName.trim(),
-            lastModified: new Date().toISOString(),
+            "Plan Name": planName.trim(),
+            "Last Modified": new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD for Airtable
           },
         }),
       })
@@ -43,15 +47,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { planId
       const data = await response.json()
       return NextResponse.json({
         success: true,
-        planName: data.fields.planName,
-        message: "Plan renamed successfully",
+        planName: data.fields["Plan Name"],
+        message: "Charter renamed successfully",
       })
     } catch (airtableError) {
       console.warn("Airtable rename failed, using fallback:", airtableError)
       return NextResponse.json({
         success: true,
         planName: planName.trim(),
-        message: "Plan renamed successfully (fallback mode)",
+        message: "Charter renamed successfully (fallback mode)",
       })
     }
   } catch (error) {

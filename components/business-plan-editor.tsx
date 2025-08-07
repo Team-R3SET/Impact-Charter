@@ -5,12 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { CollaborativeTextEditor } from "./collaborative-text-editor"
 import { SectionNavigator } from "./section-navigator"
 import { LiveCollabButton } from "./live-collab-button"
 import { AppHeader } from "./app-header"
 import { businessPlanSections } from "@/lib/business-plan-sections"
-import { CheckCircle, Clock, FileText, ChevronUp, ChevronDown } from 'lucide-react'
+import { CheckCircle, Clock, FileText, ChevronUp, ChevronDown, Edit2, Check, X } from 'lucide-react'
+import { useToast } from "@/hooks/use-toast"
 
 interface BusinessPlanEditorProps {
   planId: string
@@ -24,8 +26,12 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
   const [completedSections, setCompletedSections] = useState<Set<string>>(new Set())
   const [isCollaborative, setIsCollaborative] = useState(false)
   const [showProgressOverview, setShowProgressOverview] = useState(true)
-  // Added full-screen mode state
   const [isFullScreen, setIsFullScreen] = useState(false)
+  // Added state for inline rename functionality
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [editedName, setEditedName] = useState(planName)
+  const [currentPlanName, setCurrentPlanName] = useState(planName)
+  const { toast } = useToast()
 
   const currentUser = {
     name: "Demo User",
@@ -64,6 +70,12 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
     window.addEventListener("storage", handleStorageChange)
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [planId])
+
+  // Update local plan name when prop changes
+  useEffect(() => {
+    setCurrentPlanName(planName)
+    setEditedName(planName)
+  }, [planName])
 
   const currentSectionData = businessPlanSections.find((section) => section.id === selectedSection)
   const completionPercentage = Math.round((completedSections.size / businessPlanSections.length) * 100)
@@ -131,18 +143,123 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
     setIsFullScreen(!isFullScreen)
   }, [isFullScreen])
 
+  // Added rename functionality
+  const handleStartRename = () => {
+    setIsRenaming(true)
+    setEditedName(currentPlanName)
+  }
+
+  const handleSaveRename = async () => {
+    if (!editedName.trim() || editedName.trim() === currentPlanName) {
+      setIsRenaming(false)
+      setEditedName(currentPlanName)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/business-plans/${planId}/rename`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planName: editedName.trim(),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setCurrentPlanName(data.planName)
+        setEditedName(data.planName)
+        setIsRenaming(false)
+        toast({
+          title: "Charter renamed",
+          description: data.message || "Charter has been successfully renamed.",
+        })
+        
+        // Update the page title
+        document.title = `${data.planName} - Business Plan Builder`
+      } else {
+        throw new Error(data.error || 'Failed to rename charter')
+      }
+    } catch (error) {
+      console.error('Error renaming charter:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to rename charter. Please try again.",
+        variant: "destructive",
+      })
+      setEditedName(currentPlanName)
+      setIsRenaming(false)
+    }
+  }
+
+  const handleCancelRename = () => {
+    setIsRenaming(false)
+    setEditedName(currentPlanName)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveRename()
+    } else if (e.key === 'Escape') {
+      handleCancelRename()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Hide header in full-screen mode */}
       {showHeader && !isFullScreen && <AppHeader currentUser={currentUser} currentPlanId={planId} />}
 
       <div className="container mx-auto px-4 py-6">
-        {/* Hide title section in full-screen mode */}
         {!isFullScreen && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{planName}</h1>
+                {/* Added inline rename functionality to the title */}
+                <div className="flex items-center gap-3 mb-2">
+                  {isRenaming ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="text-3xl font-bold h-12 text-gray-900 dark:text-gray-100 bg-transparent border-2 border-blue-500 focus:border-blue-600"
+                        autoFocus
+                        onBlur={handleSaveRename}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveRename}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelRename}
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group">
+                      <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{currentPlanName}</h1>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleStartRename}
+                        className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Rename charter"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-4">
                   <Badge variant="outline" className="flex items-center gap-1">
                     <FileText className="w-4 h-4" />
