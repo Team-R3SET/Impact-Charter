@@ -111,6 +111,7 @@ export function AppHeader() {
 
   const navigationItems = [
     { href: "/", label: "Home" },
+    ...(currentUser ? [{ href: "/plans", label: "My Charters" }] : []),
     { href: "/pricing", label: "Pricing" },
     { href: "/setup/airtable", label: "Setup Guide" },
     { href: "/settings", label: "Settings" },
