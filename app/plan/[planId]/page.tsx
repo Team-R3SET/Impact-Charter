@@ -26,6 +26,17 @@ async function getPlanWithRetry(planId: string, maxRetries = 3, delay = 300): Pr
         }
       }
 
+      // Added check for localStorage availability in server component
+      if (typeof window === 'undefined') {
+        console.log(`[getPlanWithRetry] Running on server, localStorage not available. Attempt ${attempt}`)
+        // Wait before retrying on server
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+        return null
+      }
+
       const plan = await getBusinessPlan(planId, credentials)
       if (plan) {
         return plan
@@ -41,9 +52,10 @@ async function getPlanWithRetry(planId: string, maxRetries = 3, delay = 300): Pr
     } catch (error) {
       console.warn(`Plan fetch attempt ${attempt} failed:`, error)
       
-      // If this is the last attempt, throw the error
+      // Don't throw on last attempt, just return null
       if (attempt === maxRetries) {
-        throw error
+        console.error(`All ${maxRetries} attempts to fetch plan failed`)
+        return null
       }
       
       // Wait before retrying
@@ -66,6 +78,7 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
     const plan = await getPlanWithRetry(planId)
 
     if (!plan) {
+      console.log(`[PlanPage] Plan not found: ${planId}, redirecting to 404`)
       notFound()
     }
 
@@ -110,7 +123,8 @@ export async function generateMetadata({ params }: { params: { planId: string } 
   const { planId } = params
 
   try {
-    const plan = await getPlanWithRetry(planId)
+    // Added safe error handling for metadata generation
+    const plan = await getPlanWithRetry(planId).catch(() => null)
     return {
       title: plan?.planName ? `${plan.planName} - Business Plan Builder` : "Business Plan Builder",
       description: "Collaborative business plan editor with real-time editing",

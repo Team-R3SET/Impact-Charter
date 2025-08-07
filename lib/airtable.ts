@@ -169,6 +169,12 @@ export async function getBusinessPlan(planId: string, credentials?: { baseId: st
       () => {
         console.log(`[getBusinessPlan] Falling back to local storage for plan: ${planId}`)
         try {
+          // Check if localStorage is available (for server components)
+          if (typeof window === 'undefined') {
+            console.log(`[getBusinessPlan] localStorage not available (server component)`)
+            return null
+          }
+          
           // Added detailed logging for local storage retrieval
           const allPlans = LocalStorageManager.getAllBusinessPlans()
           console.log(`[getBusinessPlan] All plans in localStorage:`, allPlans.map(p => ({ id: p.id, name: p.planName })))
