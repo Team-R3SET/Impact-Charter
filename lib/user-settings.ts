@@ -24,6 +24,9 @@ export interface UserSettings {
   collaborationMode: "real-time" | "manual"
   language: string
   timezone: string
+  airtablePersonalAccessToken?: string
+  airtableBaseId?: string
+  isAirtableConnected?: boolean
   createdDate: string
   lastModified: string
 }
@@ -39,6 +42,9 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
       collaborationMode: "real-time",
       language: "en",
       timezone: "UTC",
+      airtablePersonalAccessToken: undefined,
+      airtableBaseId: undefined,
+      isAirtableConnected: false,
       createdDate: new Date().toISOString(),
       lastModified: new Date().toISOString(),
     }
