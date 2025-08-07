@@ -145,28 +145,12 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
   const handleOpenPlan = async () => {
     try {
       setIsOpening(true)
+      console.log(`[PlanCard] Opening plan: ${plan.id}`)
       
-      // Verify the plan exists before navigation
-      console.log(`[PlanCard] Attempting to open plan: ${plan.id}`)
-      const verifyResponse = await fetch(`/api/business-plans/${plan.id}`)
-      
-      if (!verifyResponse.ok) {
-        console.error(`[PlanCard] Plan verification failed: ${verifyResponse.status}`)
-        toast({
-          title: "Plan not found",
-          description: "This plan could not be found. It may have been deleted or moved.",
-          variant: "destructive",
-        })
-        return
-      }
-      
-      const planData = await verifyResponse.json()
-      console.log(`[PlanCard] Plan verified successfully:`, planData)
-      
-      // Add a small delay to ensure data consistency
+      // Add a small delay to ensure any pending operations complete
       await new Promise(resolve => setTimeout(resolve, 200))
       
-      // Navigate to the plan
+      // Navigate directly to the plan
       router.push(`/plan/${plan.id}`)
     } catch (error) {
       console.error(`[PlanCard] Error opening plan:`, error)
