@@ -1,4 +1,4 @@
-const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
+const AIRTABLE_PERSONAL_ACCESS_TOKEN = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
 
 export interface AirtableConnection {
@@ -37,7 +37,7 @@ export interface AirtableRecord {
 }
 
 export async function getAirtableConnection(): Promise<AirtableConnection> {
-  const hasApiKey = !!AIRTABLE_API_KEY
+  const hasApiKey = !!AIRTABLE_PERSONAL_ACCESS_TOKEN
   const baseId = AIRTABLE_BASE_ID
 
   if (!hasApiKey || !baseId) {
@@ -45,7 +45,7 @@ export async function getAirtableConnection(): Promise<AirtableConnection> {
       isConnected: false,
       hasApiKey,
       baseId,
-      error: "Missing API key or Base ID"
+      error: "Missing personal access token or Base ID"
     }
   }
 
@@ -71,13 +71,13 @@ export async function getAirtableConnection(): Promise<AirtableConnection> {
 export async function testAirtableQuery(tableName: string = "Users"): Promise<AirtableTestResult> {
   const timestamp = new Date().toISOString()
   
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     return {
       success: false,
       message: "Missing Airtable credentials",
       timestamp,
       details: {
-        hasApiKey: !!AIRTABLE_API_KEY,
+        hasApiKey: !!AIRTABLE_PERSONAL_ACCESS_TOKEN,
         hasBaseId: !!AIRTABLE_BASE_ID
       }
     }
@@ -88,7 +88,7 @@ export async function testAirtableQuery(tableName: string = "Users"): Promise<Ai
       `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}?maxRecords=1`,
       {
         headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
         },
       }
     )
@@ -130,12 +130,12 @@ export async function testAirtableConnection(): Promise<{
   message: string
   details?: any
 }> {
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     return {
       success: false,
-      message: "Missing Airtable API key or Base ID in environment variables",
+      message: "Missing Airtable personal access token or Base ID in environment variables",
       details: {
-        hasApiKey: !!AIRTABLE_API_KEY,
+        hasApiKey: !!AIRTABLE_PERSONAL_ACCESS_TOKEN,
         hasBaseId: !!AIRTABLE_BASE_ID,
       },
     }
@@ -144,7 +144,7 @@ export async function testAirtableConnection(): Promise<{
   try {
     const response = await fetch(`https://api.airtable.com/v0/meta/bases/${AIRTABLE_BASE_ID}/tables`, {
       headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
         "X-Airtable-Accept-Meta-Api-Betas": "true",
       },
     })
@@ -190,7 +190,7 @@ export async function testAirtableConnection(): Promise<{
 }
 
 export async function getAirtableTables(): Promise<AirtableTable[]> {
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     console.warn("Missing Airtable credentials")
     return []
   }
@@ -198,7 +198,7 @@ export async function getAirtableTables(): Promise<AirtableTable[]> {
   try {
     const response = await fetch(`https://api.airtable.com/v0/meta/bases/${AIRTABLE_BASE_ID}/tables`, {
       headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
         "X-Airtable-Accept-Meta-Api-Betas": "true",
       },
     })
@@ -220,7 +220,7 @@ export async function getAirtableTables(): Promise<AirtableTable[]> {
 }
 
 export async function getAirtableRecords(tableId: string, maxRecords = 10): Promise<AirtableRecord[]> {
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     return []
   }
 
@@ -229,7 +229,7 @@ export async function getAirtableRecords(tableId: string, maxRecords = 10): Prom
       `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableId}?maxRecords=${maxRecords}`,
       {
         headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
         },
       },
     )
@@ -250,7 +250,7 @@ export async function createAirtableRecord(
   tableId: string,
   fields: Record<string, any>,
 ): Promise<{ success: boolean; record?: AirtableRecord; error?: string }> {
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     return { success: false, error: "Missing Airtable credentials" }
   }
 
@@ -258,7 +258,7 @@ export async function createAirtableRecord(
     const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableId}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ fields }),
@@ -287,7 +287,7 @@ export async function updateAirtableRecord(
   recordId: string,
   fields: Record<string, any>,
 ): Promise<{ success: boolean; record?: AirtableRecord; error?: string }> {
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     return { success: false, error: "Missing Airtable credentials" }
   }
 
@@ -295,7 +295,7 @@ export async function updateAirtableRecord(
     const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableId}/${recordId}`, {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ fields }),
@@ -323,7 +323,7 @@ export async function deleteAirtableRecord(
   tableId: string,
   recordId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     return { success: false, error: "Missing Airtable credentials" }
   }
 
@@ -331,7 +331,7 @@ export async function deleteAirtableRecord(
     const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableId}/${recordId}`, {
       method: "DELETE",
       headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
       },
     })
 

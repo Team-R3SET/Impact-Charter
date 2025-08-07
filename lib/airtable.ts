@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto"
 import { LocalStorageManager } from "./local-storage"
 
-const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
+// Updated to use personal access token instead of deprecated API key
+const AIRTABLE_PERSONAL_ACCESS_TOKEN = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
 
 export interface BusinessPlan {
@@ -39,8 +40,9 @@ export interface UserProfile {
 
 // Enhanced error handling with local fallback
 async function withLocalFallback<T>(operation: () => Promise<T>, fallback: () => T, operationName: string): Promise<T> {
+  // Updated credential check to use personal access token
   // Skip Airtable entirely if credentials are missing
-  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     console.log(`[${operationName}] Airtable credentials missing - using local fallback`)
     return fallback()
   }
@@ -60,7 +62,8 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
       const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          // Updated authorization header to use personal access token
+          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ fields: plan }),
@@ -100,7 +103,8 @@ export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan
       )}&sort[0][field]=lastModified&sort[0][direction]=desc`
 
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+        // Updated authorization header to use personal access token
+        headers: { Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}` },
         cache: "no-store",
       })
 
@@ -174,7 +178,8 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
         const createRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+            // Updated authorization header to use personal access token
+            Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ fields }),
@@ -191,7 +196,8 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
           {
             method: "PATCH",
             headers: {
-              Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+              // Updated authorization header to use personal access token
+              Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ fields }),
@@ -237,7 +243,8 @@ export async function markSectionAsComplete(planId: string, sectionName: string,
       const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections?filterByFormula=${encodeURIComponent(filterFormula)}&maxRecords=1`
 
       const searchRes = await fetch(searchUrl, {
-        headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+        // Updated authorization header to use personal access token
+        headers: { Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}` },
         cache: "no-store",
       })
 
@@ -273,7 +280,8 @@ export async function markSectionAsComplete(planId: string, sectionName: string,
       const res = await fetch(url, {
         method,
         headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          // Updated authorization header to use personal access token
+          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ fields: updateData }),
@@ -320,7 +328,8 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
   return withLocalFallback(
     async () => {
       const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-        headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+        // Updated authorization header to use personal access token
+        headers: { Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}` },
         cache: "no-store",
       })
 
@@ -375,7 +384,8 @@ export async function getUserProfile(email: string): Promise<UserProfile | null>
       )}&maxRecords=1`
 
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+        // Updated authorization header to use personal access token
+        headers: { Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}` },
         cache: "no-store",
       })
 
@@ -443,7 +453,8 @@ export async function createOrUpdateUserProfile(
       const res = await fetch(url, {
         method,
         headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          // Updated authorization header to use personal access token
+          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ fields }),

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { Save, TestTube, CheckCircle, XCircle, ExternalLink, Key, Database, AlertTriangle, Info } from "lucide-react"
+import { Save, TestTube, CheckCircle, XCircle, ExternalLink, Key, Database, AlertTriangle, Info } from 'lucide-react'
 import type { UserSettings, AirtableConnectionTest } from "@/lib/user-settings"
 
 interface UserSettingsFormProps {
@@ -23,7 +23,7 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<AirtableConnectionTest | null>(null)
   const [formData, setFormData] = useState({
-    airtableApiKey: "",
+    airtablePersonalAccessToken: "",
     airtableBaseId: "",
   })
   const { toast } = useToast()
@@ -37,7 +37,7 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
           const { settings } = await response.json()
           setSettings(settings)
           setFormData({
-            airtableApiKey: "", // Don't populate masked key
+            airtablePersonalAccessToken: "", // Don't populate masked token
             airtableBaseId: settings.airtableBaseId || "",
           })
         }
@@ -57,10 +57,10 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
   }, [userEmail, toast])
 
   const handleTestConnection = async () => {
-    if (!formData.airtableApiKey || !formData.airtableBaseId) {
+    if (!formData.airtablePersonalAccessToken || !formData.airtableBaseId) {
       toast({
         title: "Error",
-        description: "Please enter both API key and Base ID",
+        description: "Please enter both personal access token and Base ID",
         variant: "destructive",
       })
       return
@@ -76,7 +76,7 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          airtableApiKey: formData.airtableApiKey,
+          airtablePersonalAccessToken: formData.airtablePersonalAccessToken,
           airtableBaseId: formData.airtableBaseId,
         }),
       })
@@ -122,7 +122,7 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
         },
         body: JSON.stringify({
           userEmail,
-          airtableApiKey: formData.airtableApiKey,
+          airtablePersonalAccessToken: formData.airtablePersonalAccessToken,
           airtableBaseId: formData.airtableBaseId,
         }),
       })
@@ -139,10 +139,10 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
         description: "Settings saved successfully!",
       })
 
-      // Clear the form API key field since it will be masked
+      // Clear the form token field since it will be masked
       setFormData((prev) => ({
         ...prev,
-        airtableApiKey: "",
+        airtablePersonalAccessToken: "",
       }))
     } catch (error) {
       console.error("Failed to save settings:", error)
@@ -243,13 +243,13 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
 
           <div className="grid gap-4">
             <div className="space-y-2">
-              <Label htmlFor="api-key">Personal Access Token</Label>
+              <Label htmlFor="personal-access-token">Personal Access Token</Label>
               <Input
-                id="api-key"
+                id="personal-access-token"
                 type="password"
-                placeholder={settings?.airtableApiKey ? "••••••••••••••••" : "Enter your Airtable API key"}
-                value={formData.airtableApiKey}
-                onChange={(e) => setFormData((prev) => ({ ...prev, airtableApiKey: e.target.value }))}
+                placeholder={settings?.airtablePersonalAccessToken ? "••••••••••••••••" : "Enter your Airtable personal access token"}
+                value={formData.airtablePersonalAccessToken}
+                onChange={(e) => setFormData((prev) => ({ ...prev, airtablePersonalAccessToken: e.target.value }))}
               />
               <p className="text-xs text-muted-foreground">
                 Your personal access token from Airtable (starts with "pat")
@@ -276,7 +276,7 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
             <div className="flex items-center gap-3">
               <Button
                 onClick={handleTestConnection}
-                disabled={isTesting || !formData.airtableApiKey || !formData.airtableBaseId}
+                disabled={isTesting || !formData.airtablePersonalAccessToken || !formData.airtableBaseId}
                 variant="outline"
                 className="gap-2 bg-transparent"
               >
@@ -339,7 +339,7 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
         <CardContent>
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>• Your Airtable credentials are stored securely and never shared with third parties</p>
-            <p>• API keys are encrypted and only used to sync your business plan data</p>
+            <p>• Personal access tokens are encrypted and only used to sync your business plan data</p>
             <p>• You can disconnect your Airtable integration at any time</p>
             <p>• Only you have access to your personal business plan data</p>
           </div>
