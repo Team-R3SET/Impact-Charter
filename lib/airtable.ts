@@ -212,11 +212,12 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
       }
 
       const fields = {
-        Name: plan.planName,
-        Description: plan.description || "",
-        CreatedBy: plan.ownerEmail,
-        CreatedAt: plan.createdDate,
-        UpdatedAt: plan.lastModified,
+        "Plan ID": plan.id,
+        "Plan Name": plan.planName,
+        "Owner": plan.ownerEmail,
+        "Status": "Active", // Default status
+        "Created Date": plan.createdDate,
+        "Last Modified": plan.lastModified,
       }
 
       const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans`
@@ -232,7 +233,7 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
       if (!res.ok) {
         const errorText = await res.text()
         if (res.status === 404) {
-          throw new Error(`Table "Business Plans" not found in your Airtable base. Please create this table with the following fields: Name (Single line text), Description (Long text), CreatedBy (Single line text), CreatedAt (Date), UpdatedAt (Date)`)
+          throw new Error(`Table "Business Plans" not found in your Airtable base. Please create this table with the following fields: Plan ID (Single line text), Plan Name (Single line text), Owner (Single line text), Status (Single select), Created Date (Date), Last Modified (Date)`)
         } else if (res.status === 403) {
           throw new Error(`Access forbidden. Ensure your Personal Access Token has 'data.records:write' scope and access to the "Business Plans" table.`)
         } else if (res.status === 401) {
