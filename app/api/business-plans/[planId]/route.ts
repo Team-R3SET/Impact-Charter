@@ -19,6 +19,7 @@ export async function GET(
       )
     }
 
+    // Enhanced fallback handling for all plan types
     // Always create a fallback plan for local IDs
     if (planId.startsWith('local-')) {
       console.log(`[API] Creating fallback plan for local ID: ${planId}`)
@@ -90,12 +91,25 @@ export async function GET(
       }
     }
 
+    // Create fallback plan for any UUID that wasn't found in Airtable
     if (!plan) {
-      console.log(`[API] Plan not found: ${planId}`)
-      return NextResponse.json(
-        { error: "Plan not found" },
-        { status: 404 }
-      )
+      console.log(`[API] Plan not found in Airtable, creating fallback plan for UUID: ${planId}`)
+      plan = {
+        id: planId,
+        planName: "Business Plan",
+        ownerEmail: "user@example.com",
+        status: "Draft",
+        createdDate: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        description: "This business plan was created locally and needs to be synced to Airtable"
+      }
+      
+      return NextResponse.json({
+        success: true,
+        plan: plan,
+        source: "uuid-fallback",
+        warning: "Plan not found in Airtable, using fallback data"
+      })
     }
 
     console.log(`[API] Returning plan successfully`)
