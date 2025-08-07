@@ -17,7 +17,7 @@ export function LiveCollabButton({ planId }: LiveCollabButtonProps) {
   const router = useRouter()
   const { toast } = useToast()
 
-  // Check if we're in collaborative mode
+  // Check if we're in collaborative mode on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     setIsCollaborative(urlParams.get("collab") === "true")
@@ -26,36 +26,31 @@ export function LiveCollabButton({ planId }: LiveCollabButtonProps) {
   const handleToggleCollab = async () => {
     try {
       setIsConnecting(true)
+      
+      const newCollabState = !isCollaborative
+      setIsCollaborative(newCollabState)
 
-      if (isCollaborative) {
-        // Stop collaboration
-        const url = new URL(window.location.href)
-        url.searchParams.delete("collab")
-        router.replace(url.pathname + url.search)
-        
-        // Update state immediately after URL change
-        setIsCollaborative(false)
-
-        toast({
-          title: "Collaboration stopped",
-          description: "You're now working in solo mode.",
-        })
-      } else {
-        // Start collaboration
-        const url = new URL(window.location.href)
+      // Update URL after state change
+      const url = new URL(window.location.href)
+      if (newCollabState) {
         url.searchParams.set("collab", "true")
-        router.replace(url.pathname + url.search)
-        
-        // Update state immediately after URL change
-        setIsCollaborative(true)
-
         toast({
           title: "Live collaboration started!",
           description: "Share this URL with others to collaborate in real-time.",
         })
+      } else {
+        url.searchParams.delete("collab")
+        toast({
+          title: "Collaboration stopped",
+          description: "You're now working in solo mode.",
+        })
       }
+      
+      router.replace(url.pathname + url.search)
+
     } catch (error) {
       console.error("Failed to toggle collaboration:", error)
+      setIsCollaborative(!isCollaborative)
       toast({
         title: "Error",
         description: "Failed to toggle collaboration mode.",
