@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { markBusinessPlanSectionComplete } from "@/lib/airtable-user"
 
 /**
- * Mark a section as “complete”.
+ * Mark a section as "complete".
  *
  *   POST /api/business-plans/:planId/sections/:sectionName/complete
  *   Body: { userEmail: string }
@@ -36,10 +36,57 @@ export async function POST(request: Request, { params }: { params: { planId: str
   } catch (err) {
     console.error("[API] Complete-section failed:", err)
 
+    const errorMessage = err instanceof Error ? err.message : "Unknown Airtable error."
+    const errorId = `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    
+    // Determine error type and provide specific guidance
+    let errorType = "UNKNOWN"
+    let troubleshootingSteps = []
+    
+    if (errorMessage.includes("404") || errorMessage.includes("table not found")) {
+      errorType = "TABLE_NOT_FOUND"
+      troubleshootingSteps = [
+        "Check if the 'Business Plan Sections' table exists in your Airtable base",
+        "Verify your Airtable Base ID is correct in environment variables",
+        "Ensure your API key has access to the specified base"
+      ]
+    } else if (errorMessage.includes("401") || errorMessage.includes("API key")) {
+      errorType = "AUTH_ERROR"
+      troubleshootingSteps = [
+        "Verify your Airtable API key is correct",
+        "Check if your API key has expired",
+        "Ensure the API key has proper permissions"
+      ]
+    } else if (errorMessage.includes("403") || errorMessage.includes("Permission denied")) {
+      errorType = "PERMISSION_ERROR"
+      troubleshootingSteps = [
+        "Check if your API key has write permissions to the base",
+        "Verify you have access to the 'Business Plan Sections' table",
+        "Contact your Airtable workspace admin for permissions"
+      ]
+    } else {
+      troubleshootingSteps = [
+        "Check your internet connection",
+        "Verify Airtable service status",
+        "Try again in a few minutes"
+      ]
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: err instanceof Error ? err.message : "Unknown Airtable error.",
+        error: errorMessage,
+        errorDetails: {
+          errorId,
+          errorType,
+          troubleshootingSteps,
+          timestamp: new Date().toISOString(),
+          context: {
+            planId: params.planId,
+            sectionName: params.sectionName,
+            userEmail
+          }
+        }
       },
       { status: 200 },
     )

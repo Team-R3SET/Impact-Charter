@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight } from "lucide-react"
+import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { businessPlanSections, getNextSection, getPreviousSection, getSectionIndex } from "@/lib/business-plan-sections"
 import { logAccess, logError } from "@/lib/logging"
@@ -388,9 +388,9 @@ export function CollaborativeTextEditor({
           description: `${sectionTitle} has been marked as complete and submitted for review.`,
         })
       } else {
-        // Handle API error but don't revert local state
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-        console.warn("Failed to save completion to Airtable:", errorData.error)
+        // Handle API error with detailed information
+        const errorData = await response.json().catch(() => ({ error: "Unknown error", errorDetails: null }))
+        console.warn("Failed to save completion to Airtable:", errorData)
 
         // Log the error
         await logError(
@@ -401,13 +401,29 @@ export function CollaborativeTextEditor({
           currentUser as User,
           undefined,
           undefined,
-          { planId, sectionId, action: "complete_section" },
+          { planId, sectionId, action: "complete_section", errorDetails: errorData.errorDetails },
         )
 
+        // Show detailed error message with troubleshooting link
+        const errorId = errorData.errorDetails?.errorId || 'unknown'
         toast({
-          title: "Section completed locally",
-          description: "Completion saved locally. Check your Airtable connection in Settings.",
-          variant: "default",
+          title: "Section completion failed",
+          description: (
+            <div className="space-y-2">
+              <p>{errorData.error || "Failed to save completion to server"}</p>
+              <p className="text-sm text-muted-foreground">
+                <a 
+                  href={`/error-log/${errorId}?planId=${planId}&sectionId=${sectionId}`}
+                  className="text-blue-500 hover:text-blue-700 underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View troubleshooting guide →
+                </a>
+              </p>
+            </div>
+          ),
+          variant: "destructive",
         })
       }
     } catch (error) {
@@ -425,11 +441,26 @@ export function CollaborativeTextEditor({
         { planId, sectionId, action: "complete_section" },
       )
 
-      // Don't revert local state, just show warning
+      // Enhanced error message with troubleshooting link
+      const errorId = `client-error-${Date.now()}`
       toast({
-        title: "Section completed locally",
-        description: "Completion saved locally. Check your connection and try again later.",
-        variant: "default",
+        title: "Section completion failed",
+        description: (
+          <div className="space-y-2">
+            <p>An unexpected error occurred while completing the section.</p>
+            <p className="text-sm text-muted-foreground">
+              <a 
+                href={`/error-log/${errorId}?planId=${planId}&sectionId=${sectionId}&error=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`}
+                className="text-blue-500 hover:text-blue-700 underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View troubleshooting guide →
+              </a>
+            </p>
+          </div>
+        ),
+        variant: "destructive",
       })
     } finally {
       setIsCompleting(false)
