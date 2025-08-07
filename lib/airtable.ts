@@ -602,8 +602,25 @@ export async function syncLocalPlansToAirtable(ownerEmail: string): Promise<{
           const updatedPlan = { ...localPlan, id: createdData.id };
           LocalStorageManager.updateBusinessPlan(updatedPlan);
         } else {
-          const errorText = await createRes.text();
-          results.errors.push(`Failed to sync "${localPlan.planName}": ${errorText}`);
+          // Enhanced error handling for specific HTTP status codes
+          let errorMessage = `Failed to sync "${localPlan.planName}"`;
+          
+          if (createRes.status === 404) {
+            errorMessage += ': Table "Business Plans" not found. Please create this table in your Airtable base with fields: Name (Single line text), Description (Long text), CreatedBy (Single line text), CreatedAt (Date), UpdatedAt (Date)';
+          } else if (createRes.status === 403) {
+            errorMessage += ': Permission denied. Please ensure your personal access token has "data.records:write" scope and access to this base';
+          } else if (createRes.status === 401) {
+            errorMessage += ': Invalid credentials. Please check your personal access token';
+          } else {
+            try {
+              const errorData = await createRes.json();
+              errorMessage += `: ${errorData.error?.message || createRes.statusText}`;
+            } catch {
+              errorMessage += `: HTTP ${createRes.status} ${createRes.statusText}`;
+            }
+          }
+          
+          results.errors.push(errorMessage);
           results.success = false;
         }
       } catch (error) {
