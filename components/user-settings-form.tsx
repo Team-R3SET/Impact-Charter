@@ -116,10 +116,12 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
   }
 
   const handleSyncPlans = async () => {
-    if (!settings?.isAirtableConnected) {
+    const hasCredentials = (formData.airtablePersonalAccessToken && formData.airtableBaseId) || settings?.isAirtableConnected
+    
+    if (!hasCredentials) {
       toast({
         title: "Error",
-        description: "Please save your Airtable credentials first",
+        description: "Please enter and save your Airtable credentials first",
         variant: "destructive",
       })
       return
@@ -165,10 +167,12 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
   }
 
   const handleTestSyncFlow = async () => {
-    if (!settings?.isAirtableConnected) {
+    const hasCredentials = (formData.airtablePersonalAccessToken && formData.airtableBaseId) || settings?.isAirtableConnected
+    
+    if (!hasCredentials) {
       toast({
         title: "Error",
-        description: "Please save your Airtable credentials first",
+        description: "Please enter and save your Airtable credentials first",
         variant: "destructive",
       })
       return
@@ -225,6 +229,15 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
   }
 
   const handleSave = async () => {
+    if (!formData.airtablePersonalAccessToken || !formData.airtableBaseId) {
+      toast({
+        title: "Error",
+        description: "Please enter both personal access token and Base ID",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSaving(true)
     try {
       const response = await fetch("/api/user-settings", {
