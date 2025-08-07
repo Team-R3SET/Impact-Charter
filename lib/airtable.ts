@@ -122,45 +122,59 @@ export async function getBusinessPlans(ownerEmail: string): Promise<{
 }
 
 export async function getBusinessPlan(planId: string): Promise<BusinessPlan | null> {
-  const result = await withLocalFallback(
-    async () => {
-      const baseId = process.env.AIRTABLE_BASE_ID
-      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+  try {
+    const result = await withLocalFallback(
+      async () => {
+        const baseId = process.env.AIRTABLE_BASE_ID
+        const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
-      if (!baseId || !token) {
-        throw new Error("Airtable credentials missing")
-      }
+        if (!baseId || !token) {
+          throw new Error("Airtable credentials missing")
+        }
 
-      const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans/${planId}`
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+        const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans/${planId}`
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
 
-      if (!res.ok) {
-        if (res.status === 404) {
+        if (!res.ok) {
+          if (res.status === 404) {
+            return null
+          }
+          const errorText = await res.text()
+          throw new Error(`HTTP ${res.status}: ${errorText}`)
+        }
+
+        const data = await res.json()
+        return {
+          id: data.id,
+          planName: data.fields.Name || "",
+          createdDate: data.fields.CreatedAt || new Date().toISOString(),
+          lastModified: data.fields.UpdatedAt || new Date().toISOString(),
+          ownerEmail: data.fields.CreatedBy || "",
+          status: data.fields.Status || "Draft",
+          description: data.fields.Description || "",
+        }
+      },
+      () => {
+        // Added try-catch to ensure local storage never throws
+        try {
+          return LocalStorageManager.getBusinessPlan(planId)
+        } catch (error) {
+          console.warn("Local storage getBusinessPlan failed:", error)
           return null
         }
-        const errorText = await res.text()
-        throw new Error(`HTTP ${res.status}: ${errorText}`)
       }
+    )
 
-      const data = await res.json()
-      return {
-        id: data.id,
-        planName: data.fields.Name || "",
-        createdDate: data.fields.CreatedAt || new Date().toISOString(),
-        lastModified: data.fields.UpdatedAt || new Date().toISOString(),
-        ownerEmail: data.fields.CreatedBy || "",
-        status: data.fields.Status || "Draft",
-        description: data.fields.Description || "",
-      }
-    },
-    () => LocalStorageManager.getBusinessPlan(planId)
-  )
-
-  return result.data
+    return result.data
+  } catch (error) {
+    // Added top-level try-catch to ensure function never throws
+    console.warn("getBusinessPlan failed completely:", error)
+    return null
+  }
 }
 
 export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promise<{ 
