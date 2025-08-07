@@ -208,6 +208,15 @@ export async function createBusinessPlan(
 ): Promise<{ plan: BusinessPlan; airtableWorked: boolean; error?: string; troubleshooting?: string }> {
   console.log(`[createBusinessPlan] Creating plan: ${planData.planName}`)
   
+  // Always save to local storage first to ensure plan names are preserved
+  let localPlan: BusinessPlan | null = null
+  try {
+    localPlan = LocalStorageManager.createBusinessPlan(planData)
+    console.log(`[createBusinessPlan] Saved to localStorage first:`, localPlan)
+  } catch (localError) {
+    console.warn(`[createBusinessPlan] Failed to save to localStorage:`, localError)
+  }
+  
   const result = await withLocalFallback(
     async () => {
       console.log(`[createBusinessPlan] Trying Airtable for plan: ${planData.planName}`)
@@ -230,7 +239,8 @@ export async function createBusinessPlan(
         },
         body: JSON.stringify({
           fields: {
-            "Plan ID": `plan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            // Use the local plan ID if available to maintain consistency
+            "Plan ID": localPlan?.id || `plan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             "Plan Name": planData.planName,
             "Owner": planData.ownerEmail,
             "Status": planData.status || "Draft",
@@ -257,7 +267,8 @@ export async function createBusinessPlan(
 
       const data = await res.json()
       const plan = {
-        id: data.id,
+        // Use the local plan ID if available to maintain consistency
+        id: localPlan?.id || data.id,
         planName: data.fields["Plan Name"] || planData.planName,
         createdDate: data.fields["Created Date"] || planData.createdDate,
         lastModified: data.fields["Last Modified"] || planData.lastModified,
@@ -265,12 +276,34 @@ export async function createBusinessPlan(
         status: data.fields["Status"] || planData.status || "Draft",
       }
       console.log(`[createBusinessPlan] Created plan in Airtable:`, plan)
+      
+      // Update local storage with the Airtable response data
+      if (localPlan) {
+        try {
+          LocalStorageManager.updateBusinessPlan(localPlan.id, {
+            planName: plan.planName,
+            status: plan.status,
+            lastModified: plan.lastModified
+          })
+          console.log(`[createBusinessPlan] Updated localStorage with Airtable data`)
+        } catch (updateError) {
+          console.warn(`[createBusinessPlan] Failed to update localStorage:`, updateError)
+        }
+      }
+      
       return plan
     },
     () => {
-      console.log(`[createBusinessPlan] Falling back to local storage for plan: ${planData.planName}`)
+      console.log(`[createBusinessPlan] Using local storage plan: ${planData.planName}`)
+      // Return the already created local plan instead of creating a new one
+      if (localPlan) {
+        console.log(`[createBusinessPlan] Returning existing localStorage plan:`, localPlan)
+        return localPlan
+      }
+      
+      // Fallback if local creation failed
       const plan = LocalStorageManager.createBusinessPlan(planData)
-      console.log(`[createBusinessPlan] Created plan in localStorage:`, plan)
+      console.log(`[createBusinessPlan] Created fallback plan in localStorage:`, plan)
       return plan
     }
   )

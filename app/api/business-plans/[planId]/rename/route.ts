@@ -18,10 +18,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { planId
     const AIRTABLE_BASE_ID = userSettings?.airtableBaseId
 
     try {
-      LocalStorageManager.updateBusinessPlan(planId, { 
+      const updatedPlan = LocalStorageManager.updateBusinessPlan(planId, { 
         planName: planName.trim(),
         lastModified: new Date().toISOString()
       })
+      console.log(`[Rename] Updated local storage with name: ${updatedPlan?.planName}`)
     } catch (localError) {
       console.warn("Failed to update local storage:", localError)
     }
@@ -36,30 +37,46 @@ export async function PATCH(request: NextRequest, { params }: { params: { planId
     }
 
     try {
-      const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-        method: "PATCH",
+      const filterResponse = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans?filterByFormula={Plan ID}='${planId}'`, {
         headers: {
           Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          fields: {
-            "Plan Name": planName.trim(),
-            "Last Modified": new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD for Airtable
-          },
-        }),
       })
 
-      if (!response.ok) {
-        throw new Error(`Airtable request failed: ${response.status}`)
+      if (filterResponse.ok) {
+        const filterData = await filterResponse.json()
+        if (filterData.records && filterData.records.length > 0) {
+          const recordId = filterData.records[0].id
+          
+          // Update the found record
+          const updateResponse = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${recordId}`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              fields: {
+                "Plan Name": planName.trim(),
+                "Last Modified": new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD for Airtable
+              },
+            }),
+          })
+
+          if (updateResponse.ok) {
+            const data = await updateResponse.json()
+            console.log(`[Rename] Successfully updated Airtable record`)
+            return NextResponse.json({
+              success: true,
+              planName: data.fields["Plan Name"],
+              message: "Charter renamed successfully",
+            })
+          }
+        }
       }
-
-      const data = await response.json()
-      return NextResponse.json({
-        success: true,
-        planName: data.fields["Plan Name"],
-        message: "Charter renamed successfully",
-      })
+      
+      throw new Error("Plan not found in Airtable")
     } catch (airtableError) {
       console.warn("Airtable rename failed, using fallback:", airtableError)
       return NextResponse.json({

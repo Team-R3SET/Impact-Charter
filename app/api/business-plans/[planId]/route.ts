@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { deleteBusinessPlan, getBusinessPlan } from "@/lib/airtable"
 import { userSettingsStore } from "@/lib/shared-store"
+import { LocalStorageManager } from "@/lib/local-storage"
 
-// Added GET endpoint to fetch individual plans
+// Enhanced GET endpoint to properly retrieve actual plan names from local storage
 export async function GET(
   request: NextRequest,
   { params }: { params: { planId: string } }
@@ -17,32 +18,6 @@ export async function GET(
         { error: "Plan ID is required" },
         { status: 400 }
       )
-    }
-
-    // Enhanced fallback handling for all plan types
-    // Always create a fallback plan for local IDs
-    if (planId.startsWith('local-')) {
-      console.log(`[API] Creating fallback plan for local ID: ${planId}`)
-      
-      const localParts = planId.split('-');
-      const timestamp = localParts.length > 1 ? parseInt(localParts[1]) : 0;
-      const dateCreated = timestamp ? new Date(timestamp) : new Date();
-      
-      const plan = {
-        id: planId,
-        planName: "Impact Charter", // Changed from "Local Business Plan" to "Impact Charter"
-        ownerEmail: "user@example.com",
-        status: "Draft",
-        createdDate: dateCreated.toISOString(),
-        lastModified: new Date().toISOString(),
-        description: "This is a locally created business plan"
-      }
-      
-      return NextResponse.json({
-        success: true,
-        plan: plan,
-        source: "local-fallback"
-      })
     }
 
     // Try to get user credentials from the shared store
@@ -83,7 +58,12 @@ export async function GET(
               lastModified: record.fields['Last Modified'],
               description: `Business plan for ${record.fields['Plan Name']}`
             }
-            console.log(`[API] Plan found in Airtable`)
+            console.log(`[API] Plan found in Airtable: ${plan.planName}`)
+            return NextResponse.json({
+              success: true,
+              plan: plan,
+              source: "airtable"
+            })
           } else {
             console.log(`[API] No matching records found in Airtable`)
           }
@@ -96,31 +76,63 @@ export async function GET(
       }
     }
 
-    // Create fallback plan for any UUID that wasn't found in Airtable
-    if (!plan) {
-      console.log(`[API] Plan not found in Airtable, creating fallback plan for UUID: ${planId}`)
-      plan = {
-        id: planId,
-        ownerEmail: "user@example.com",
-        status: "Draft",
-        createdDate: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        description: "This business plan was created locally and needs to be synced to Airtable"
+    // Try to get the plan from local storage first before creating fallback
+    try {
+      const localPlan = LocalStorageManager.getBusinessPlan(planId)
+      if (localPlan) {
+        console.log(`[API] Plan found in local storage: ${localPlan.planName}`)
+        return NextResponse.json({
+          success: true,
+          plan: localPlan,
+          source: "local-storage"
+        })
       }
-      
-      return NextResponse.json({
-        success: true,
-        plan: plan,
-        source: "uuid-fallback",
-        warning: "Plan not found in Airtable, using fallback data"
-      })
+    } catch (localError) {
+      console.warn("[API] Failed to get plan from local storage:", localError)
     }
 
-    console.log(`[API] Returning plan successfully`)
+    // Enhanced fallback handling that tries to preserve plan names
+    console.log(`[API] Plan not found, creating fallback plan for: ${planId}`)
+    
+    // For local IDs, try to extract timestamp for better date handling
+    let createdDate = new Date().toISOString()
+    let planName = "Impact Charter"
+    
+    if (planId.startsWith('local-')) {
+      const localParts = planId.split('-')
+      const timestamp = localParts.length > 1 ? parseInt(localParts[1]) : 0
+      if (timestamp && !isNaN(timestamp)) {
+        createdDate = new Date(timestamp).toISOString()
+      }
+      
+      // Try to get all plans and find this one by ID to get the actual name
+      try {
+        const allPlans = LocalStorageManager.getAllBusinessPlans()
+        const existingPlan = allPlans.find(p => p.id === planId)
+        if (existingPlan && existingPlan.planName) {
+          planName = existingPlan.planName
+          console.log(`[API] Found existing plan name in storage: ${planName}`)
+        }
+      } catch (error) {
+        console.warn("[API] Could not retrieve existing plan name:", error)
+      }
+    }
+    
+    plan = {
+      id: planId,
+      planName: planName,
+      ownerEmail: "user@example.com",
+      status: "Draft",
+      createdDate: createdDate,
+      lastModified: new Date().toISOString(),
+      description: `Business plan for ${planName}`
+    }
+    
     return NextResponse.json({
       success: true,
       plan: plan,
-      source: "airtable"
+      source: "fallback",
+      warning: "Plan not found in Airtable or local storage, using fallback data"
     })
 
   } catch (error) {
