@@ -162,8 +162,11 @@ export function CreatePlanDialog({ open, onOpenChange, userEmail }: CreatePlanDi
       setSelectedTemplate("")
       setPlanName("")
 
-      // Navigate to the new plan
-      router.push(`/plan/${newPlan.id}`)
+      // Add a small delay before navigation to ensure the plan is saved
+      setTimeout(() => {
+        // Navigate to the new plan
+        router.push(`/plan/${newPlan.id}`)
+      }, 500)
     } catch (error) {
       console.error("Error creating plan:", error)
       toast({
