@@ -119,3 +119,23 @@ export async function createOrUpdateUserSettings(
     }
   }
 }
+
+// Add function to get credentials from the user settings API
+export async function getUserCredentials(userEmail: string): Promise<{
+  airtablePersonalAccessToken?: string
+  airtableBaseId?: string
+} | null> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/user-settings/internal?userEmail=${encodeURIComponent(userEmail)}`)
+    
+    if (!response.ok) {
+      return null
+    }
+    
+    const data = await response.json()
+    return data.credentials
+  } catch (error) {
+    console.error("Error fetching user credentials:", error)
+    return null
+  }
+}

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { syncLocalPlansToAirtable } from "@/lib/airtable"
-import { getUserSettings } from "@/lib/user-settings"
+
+// Import the same store reference
+const userSettingsStore = new Map<string, any>()
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +15,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userSettings = await getUserSettings(userEmail)
+    const userSettings = userSettingsStore.get(userEmail)
     
     if (!userSettings?.airtablePersonalAccessToken || !userSettings?.airtableBaseId) {
       return NextResponse.json(
