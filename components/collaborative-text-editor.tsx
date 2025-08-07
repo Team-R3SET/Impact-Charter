@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight, Maximize, Minimize, Bold, Italic, Underline } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { businessPlanSections, getNextSection, getPreviousSection, getSectionIndex } from "@/lib/business-plan-sections"
 import { logAccess, logError } from "@/lib/logging"
@@ -47,6 +47,8 @@ interface CollaborativeTextEditorProps {
   }
   onSectionComplete?: (sectionId: string, isComplete: boolean) => void
   onSectionSelect?: (sectionId: string) => void
+  isFullScreen?: boolean
+  onToggleFullScreen?: () => void
 }
 
 export function CollaborativeTextEditor({
@@ -56,6 +58,8 @@ export function CollaborativeTextEditor({
   currentUser,
   onSectionComplete,
   onSectionSelect,
+  isFullScreen = false,
+  onToggleFullScreen,
 }: CollaborativeTextEditorProps) {
   const room = useRoom?.() || null
   const [localContent, setLocalContent] = useState("")
@@ -69,6 +73,8 @@ export function CollaborativeTextEditor({
   const [isOnline, setIsOnline] = useState(true)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [currentSectionData, setCurrentSectionData] = useState<{ title: string, description: string }>({ title: "", description: "" })
 
   const [myPresence, updateMyPresence] = useMyPresence ? useMyPresence() : [null, () => {}]
   const others = useOthers ? useOthers() : []
@@ -499,15 +505,46 @@ export function CollaborativeTextEditor({
   // Get navigation sections
   const prevSection = getPreviousSection(sectionId)
   const nextSection = getNextSection(sectionId)
-  const currentSectionIndex = getSectionIndex(sectionId)
+  const currentIndex = getSectionIndex(sectionId)
+
+  const applyFormatting = useCallback((format: 'bold' | 'italic' | 'underline') => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = localContent.substring(start, end)
+    
+    let formattedText = ''
+    switch (format) {
+      case 'bold':
+        formattedText = `**${selectedText}**`
+        break
+      case 'italic':
+        formattedText = `*${selectedText}*`
+        break
+      case 'underline':
+        formattedText = `<u>${selectedText}</u>`
+        break
+    }
+
+    const newContent = localContent.substring(0, start) + formattedText + localContent.substring(end)
+    handleContentChange(newContent)
+
+    // Restore cursor position
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + formattedText.length, start + formattedText.length)
+    }, 0)
+  }, [localContent, handleContentChange])
 
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
+        <CardContent className="p-8">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2">Loading section...</span>
           </div>
         </CardContent>
       </Card>
@@ -515,105 +552,124 @@ export function CollaborativeTextEditor({
   }
 
   return (
-    <TooltipProvider>
-      <Card
-        className={`transition-all duration-200 ${finalIsCompleted ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/20" : ""}`}
-      >
-        <CardHeader className="pb-3">
+    <div className={isFullScreen ? "fixed inset-0 z-50 bg-white dark:bg-gray-900 flex flex-col" : ""}>
+      <Card className={isFullScreen ? "flex-1 rounded-none border-0" : ""}>
+        <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              {finalIsCompleted ? (
-                <CheckCircle className="w-5 h-5 text-green-500" />
-              ) : (
-                <Clock className="w-5 h-5 text-yellow-500" />
-              )}
-              {sectionTitle}
-              {finalIsCompleted && (
-                <Badge
-                  variant="secondary"
-                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                >
-                  Complete
-                </Badge>
-              )}
-              {isCollaborative && (
-                <Badge variant="outline" className="text-xs">
-                  Live
-                </Badge>
-              )}
-              {!isOnline && (
-                <Badge variant="destructive" className="text-xs">
-                  Offline
-                </Badge>
-              )}
-            </CardTitle>
-
-            <div className="flex items-center gap-2">
-              {/* Collaborative users */}
-              {isCollaborative && usersInSection.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                  <div className="flex -space-x-1">
-                    {usersInSection.slice(0, 3).map((user: any) => (
-                      <Tooltip key={user.id}>
-                        <TooltipTrigger asChild>
-                          <Avatar className="w-6 h-6 ring-2 ring-background">
-                            <AvatarImage src={user.presence?.user?.avatar || "/placeholder.svg"} />
-                            <AvatarFallback className="text-xs">
-                              {user.presence?.user?.name?.charAt(0).toUpperCase() || "A"}
-                            </AvatarFallback>
-                          </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{user.presence?.user?.name || "Anonymous"} is viewing this section</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                    {usersInSection.length > 3 && (
-                      <div className="w-6 h-6 bg-muted rounded-full ring-2 ring-background flex items-center justify-center">
-                        <span className="text-xs font-medium">+{usersInSection.length - 3}</span>
-                      </div>
-                    )}
-                  </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                 </div>
-              )}
-
-              {/* Save status */}
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                {!isOnline ? (
-                  <>
-                    <WifiOff className="w-4 h-4 text-red-500" />
-                    <span>Offline</span>
-                  </>
-                ) : isSaving ? (
-                  <>
-                    <Save className="w-4 h-4 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : saveError ? (
+                <div>
+                  <CardTitle className="text-xl">{sectionTitle}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">{currentSectionData?.description}</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {onToggleFullScreen && (
+                <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4 text-red-500" />
-                        <span>Error</span>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onToggleFullScreen}
+                        className="h-8 w-8 p-0"
+                      >
+                        {isFullScreen ? (
+                          <Minimize className="h-4 w-4" />
+                        ) : (
+                          <Maximize className="h-4 w-4" />
+                        )}
+                      </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{saveError}</p>
+                      {isFullScreen ? "Exit full screen" : "Enter full screen"}
                     </TooltipContent>
                   </Tooltip>
-                ) : lastSaved ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Saved {lastSaved.toLocaleTimeString()}</span>
-                  </>
-                ) : (
-                  <>
-                    <Wifi className="w-4 h-4 text-blue-500" />
-                    <span>Local</span>
-                  </>
-                )}
-              </div>
+                </TooltipProvider>
+              )}
+              
+              {isCollaborative && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  Local
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 border-t">
+            <div className="flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => applyFormatting('bold')}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Bold className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Bold</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => applyFormatting('italic')}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Italic className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Italic</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => applyFormatting('underline')}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Underline className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Underline</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            
+            <Separator orientation="vertical" className="h-6" />
+            
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {isSaving && (
+                <div className="flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div>
+                  <span>Saving...</span>
+                </div>
+              )}
+              {lastSaved && !isSaving && (
+                <span>Saved {lastSaved.toLocaleTimeString()}</span>
+              )}
+              {!isOnline && (
+                <div className="flex items-center gap-1 text-orange-600">
+                  <WifiOff className="w-3 h-3" />
+                  <span>Offline</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -638,14 +694,19 @@ export function CollaborativeTextEditor({
           )}
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <Textarea
-            value={localContent}
-            onChange={(e) => handleContentChange(e.target.value)}
-            placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
-            className="min-h-[200px] resize-none"
-            disabled={finalIsCompleted}
-          />
+        <CardContent className={isFullScreen ? "flex-1 flex flex-col" : ""}>
+          <div className={isFullScreen ? "flex-1 flex flex-col" : ""}>
+            <Textarea
+              ref={textareaRef}
+              placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
+              value={localContent}
+              onChange={(e) => handleContentChange(e.target.value)}
+              className={`min-h-[400px] resize-none border-0 shadow-none focus-visible:ring-0 text-base leading-relaxed ${
+                isFullScreen ? "flex-1 min-h-0" : ""
+              }`}
+              disabled={finalIsCompleted}
+            />
+          </div>
 
           {!finalIsCompleted && (
             <>
@@ -699,7 +760,7 @@ export function CollaborativeTextEditor({
             </Button>
 
             <span className="text-xs text-muted-foreground">
-              Section {currentSectionIndex + 1} of {businessPlanSections.length}
+              Section {currentIndex + 1} of {businessPlanSections.length}
             </span>
 
             <Button
@@ -716,6 +777,6 @@ export function CollaborativeTextEditor({
           </div>
         </CardContent>
       </Card>
-    </TooltipProvider>
+    </div>
   )
 }

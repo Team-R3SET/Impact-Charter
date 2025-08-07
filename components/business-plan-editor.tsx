@@ -24,6 +24,8 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
   const [completedSections, setCompletedSections] = useState<Set<string>>(new Set())
   const [isCollaborative, setIsCollaborative] = useState(false)
   const [showProgressOverview, setShowProgressOverview] = useState(true)
+  // Added full-screen mode state
+  const [isFullScreen, setIsFullScreen] = useState(false)
 
   const currentUser = {
     name: "Demo User",
@@ -124,44 +126,56 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
     updateCompletion()
   }, [planId, currentUser.email])
 
+  // Added full-screen toggle handler
+  const handleToggleFullScreen = useCallback(() => {
+    setIsFullScreen(!isFullScreen)
+  }, [isFullScreen])
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {showHeader && <AppHeader currentUser={currentUser} currentPlanId={planId} />}
+      {/* Hide header in full-screen mode */}
+      {showHeader && !isFullScreen && <AppHeader currentUser={currentUser} currentPlanId={planId} />}
 
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{planName}</h1>
-              <div className="flex items-center gap-4">
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <FileText className="w-4 h-4" />
-                  Business Plan
-                </Badge>
-                {isCollaborative && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    Live Collaboration
+        {/* Hide title section in full-screen mode */}
+        {!isFullScreen && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{planName}</h1>
+                <div className="flex items-center gap-4">
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <FileText className="w-4 h-4" />
+                    Business Plan
                   </Badge>
-                )}
+                  {isCollaborative && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      Live Collaboration
+                    </Badge>
+                  )}
+                </div>
               </div>
+              <LiveCollabButton planId={planId} />
             </div>
-            <LiveCollabButton planId={planId} />
           </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1">
-            <SectionNavigator
-              sections={businessPlanSections}
-              selectedSection={selectedSection}
-              onSectionSelect={setSelectedSection}
-              completedSections={completedSections}
-              onToggleComplete={handleToggleComplete}
-            />
-          </div>
+        <div className={`grid gap-6 ${isFullScreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-4"}`}>
+          {/* Hide sidebar in full-screen mode */}
+          {!isFullScreen && (
+            <div className="lg:col-span-1">
+              <SectionNavigator
+                sections={businessPlanSections}
+                selectedSection={selectedSection}
+                onSectionSelect={setSelectedSection}
+                completedSections={completedSections}
+                onToggleComplete={handleToggleComplete}
+              />
+            </div>
+          )}
 
-          <div className="lg:col-span-3 space-y-6">
+          <div className={`space-y-6 ${isFullScreen ? "col-span-1" : "lg:col-span-3"}`}>
             {currentSectionData && (
               <CollaborativeTextEditor
                 key={selectedSection}
@@ -171,53 +185,58 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
                 currentUser={currentUser}
                 onSectionComplete={handleSectionComplete}
                 onSectionSelect={setSelectedSection}
+                isFullScreen={isFullScreen}
+                onToggleFullScreen={handleToggleFullScreen}
               />
             )}
 
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Progress Overview</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowProgressOverview(!showProgressOverview)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {showProgressOverview ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+            {/* Hide progress overview in full-screen mode */}
+            {!isFullScreen && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Progress Overview</CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowProgressOverview(!showProgressOverview)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {showProgressOverview ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {showProgressOverview && (
+                    <div className="text-sm text-muted-foreground">
+                      {completedSections.size} of {businessPlanSections.length} sections complete
+                    </div>
+                  )}
+                </CardHeader>
                 {showProgressOverview && (
-                  <div className="text-sm text-muted-foreground">
-                    {completedSections.size} of {businessPlanSections.length} sections complete
-                  </div>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Progress value={completionPercentage} className="flex-1" />
+                        <span className="text-sm font-medium">{completionPercentage}%</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span>{completedSections.size} Completed</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-4 h-4 text-yellow-500" />
+                          <span>{businessPlanSections.length - completedSections.size} Remaining</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
                 )}
-              </CardHeader>
-              {showProgressOverview && (
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Progress value={completionPercentage} className="flex-1" />
-                      <span className="text-sm font-medium">{completionPercentage}%</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>{completedSections.size} Completed</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4 text-yellow-500" />
-                        <span>{businessPlanSections.length - completedSections.size} Remaining</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              )}
-            </Card>
+              </Card>
+            )}
           </div>
         </div>
       </div>
