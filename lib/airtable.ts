@@ -573,14 +573,35 @@ export async function syncLocalPlansToAirtable(
       }
 
       try {
+        // Format dates properly for Airtable
+        const formatDateForAirtable = (dateValue: any): string => {
+          if (!dateValue) return new Date().toISOString().split('T')[0];
+          
+          // If it's already a Date object
+          if (dateValue instanceof Date) {
+            return dateValue.toISOString().split('T')[0];
+          }
+          
+          // If it's a string, try to parse it
+          if (typeof dateValue === 'string') {
+            const parsed = new Date(dateValue);
+            if (!isNaN(parsed.getTime())) {
+              return parsed.toISOString().split('T')[0];
+            }
+          }
+          
+          // Fallback to current date
+          return new Date().toISOString().split('T')[0];
+        };
+
         // Create plan in Airtable
         const fields = {
           "Plan ID": localPlan.id,
           "Plan Name": localPlan.planName,
           "Owner": localPlan.ownerEmail,
           "Status": "Draft", // Default status for synced plans
-          "Created Date": localPlan.createdDate,
-          "Last Modified": localPlan.lastModified,
+          "Created Date": formatDateForAirtable(localPlan.createdDate),
+          "Last Modified": formatDateForAirtable(localPlan.lastModified),
         };
 
         const createUrl = `https://api.airtable.com/v0/${baseId}/Business%20Plans`;
