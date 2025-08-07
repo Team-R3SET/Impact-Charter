@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu, HelpCircle } from 'lucide-react'
+import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu, HelpCircle, ChevronDown } from 'lucide-react'
 import { useUser } from "@/contexts/user-context"
 import { RoleSwitcher } from "./role-switcher"
 import { NotificationsDropdown } from "./notifications-dropdown"
@@ -93,11 +93,11 @@ export function AppHeader() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-100 text-green-800"
+        return "bg-emerald-50 text-emerald-700 border-emerald-200"
       case "in-progress":
-        return "bg-blue-100 text-blue-800"
+        return "bg-blue-50 text-blue-700 border-blue-200"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-slate-50 text-slate-700 border-slate-200"
     }
   }
 
@@ -116,12 +116,12 @@ export function AppHeader() {
   ]
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto px-4 lg:px-6">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+          {/* Enhanced logo with better spacing and visual hierarchy */}
+          <Link href="/" className="flex items-center space-x-3 group">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
               <FileText className="w-5 h-5 text-white" />
             </div>
             <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
@@ -129,14 +129,16 @@ export function AppHeader() {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
+          {/* Improved desktop navigation with better hover states */}
+          <nav className="hidden md:flex items-center space-x-1">
             {navigationItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  pathname === item.href ? "text-primary" : "text-muted-foreground"
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 hover:bg-muted/50 ${
+                  pathname === item.href 
+                    ? "text-primary bg-primary/10 shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {item.label}
@@ -144,21 +146,24 @@ export function AppHeader() {
             ))}
           </nav>
 
-          {/* Right Side Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Plan Switcher - Only show if user has plans and is on a plan page */}
+          {/* Enhanced right side with better spacing and visual consistency */}
+          <div className="flex items-center space-x-3">
+            {/* Improved plan switcher with better styling */}
             {currentUser && plans.length > 0 && pathname.startsWith("/plan/") && (
               <div className="hidden lg:block">
                 <Select value={selectedPlan} onValueChange={handlePlanChange}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-52 h-9 bg-background border-border/60 hover:border-border transition-colors">
                     <SelectValue placeholder="Select a plan..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-52">
                     {plans.map((plan) => (
-                      <SelectItem key={plan.id} value={plan.id}>
+                      <SelectItem key={plan.id} value={plan.id} className="cursor-pointer">
                         <div className="flex items-center justify-between w-full">
-                          <span className="truncate">{plan.planName}</span>
-                          <Badge variant="secondary" className={`ml-2 text-xs ${getStatusColor(plan.status)}`}>
+                          <span className="truncate font-medium">{plan.planName}</span>
+                          <Badge 
+                            variant="outline" 
+                            className={`ml-2 text-xs font-medium ${getStatusColor(plan.status)}`}
+                          >
                             {plan.status}
                           </Badge>
                         </div>
@@ -169,24 +174,29 @@ export function AppHeader() {
               </div>
             )}
 
-            {/* Theme Switcher */}
-            <ThemeSwitcher />
+            {/* Better spacing for theme switcher */}
+            <div className="hidden sm:block">
+              <ThemeSwitcher />
+            </div>
 
-            {/* Mobile Menu */}
+            {/* Improved mobile menu button */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
+                <Button variant="ghost" size="sm" className="h-9 w-9">
+                  <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80">
-                <div className="flex flex-col space-y-4 mt-8">
+                <div className="flex flex-col space-y-2 mt-8">
+                  {/* Better mobile navigation styling */}
                   {navigationItems.map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`text-sm font-medium transition-colors hover:text-primary p-2 rounded-md ${
-                        pathname === item.href ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted"
+                      className={`text-sm font-medium transition-colors px-3 py-2 rounded-md ${
+                        pathname === item.href 
+                          ? "text-primary bg-primary/10" 
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                       }`}
                       onClick={() => setMobileMenuOpen(false)}
                     >
@@ -196,20 +206,20 @@ export function AppHeader() {
 
                   {!currentUser && (
                     <>
-                      <div className="border-t pt-4 mt-4">
+                      <div className="border-t pt-4 mt-4 space-y-2">
                         <Link
                           href="/login"
-                          className="block text-sm font-medium transition-colors hover:text-primary p-2 rounded-md hover:bg-muted"
+                          className="block text-sm font-medium transition-colors px-3 py-2 rounded-md hover:bg-muted/50"
                           onClick={() => setMobileMenuOpen(false)}
                         >
                           Sign In
                         </Link>
                         <Link
                           href="/register"
-                          className="block text-sm font-medium transition-colors hover:text-primary p-2 rounded-md hover:bg-muted"
+                          className="block text-sm font-medium transition-colors px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
                           onClick={() => setMobileMenuOpen(false)}
                         >
-                          Sign Up
+                          Get Started
                         </Link>
                       </div>
                     </>
@@ -217,18 +227,18 @@ export function AppHeader() {
 
                   {isAdmin && (
                     <>
-                      <div className="border-t pt-4 mt-4">
-                        <p className="text-sm font-semibold text-muted-foreground mb-2">Admin</p>
+                      <div className="border-t pt-4 mt-4 space-y-2">
+                        <p className="text-sm font-semibold text-muted-foreground px-3 mb-2">Admin</p>
                         {adminItems.map((item) => {
                           const Icon = item.icon
                           return (
                             <Link
                               key={item.href}
                               href={item.href}
-                              className="flex items-center text-sm font-medium transition-colors hover:text-primary p-2 rounded-md hover:bg-muted"
+                              className="flex items-center text-sm font-medium transition-colors px-3 py-2 rounded-md hover:bg-muted/50"
                               onClick={() => setMobileMenuOpen(false)}
                             >
-                              <Icon className="w-4 h-4 mr-2" />
+                              <Icon className="w-4 h-4 mr-3" />
                               {item.label}
                             </Link>
                           )
@@ -240,26 +250,30 @@ export function AppHeader() {
               </SheetContent>
             </Sheet>
 
-            {/* User Menu or Auth Buttons */}
+            {/* Enhanced user section with better visual hierarchy */}
             {currentUser ? (
               <div className="flex items-center space-x-2">
-                {/* Role Switcher */}
-                <RoleSwitcher 
-                  currentUser={currentUser}
-                  onUserChange={handleUserChange}
-                  availableUsers={getDemoUsers()}
-                />
+                {/* Improved role switcher positioning */}
+                <div className="hidden sm:block">
+                  <RoleSwitcher 
+                    currentUser={currentUser}
+                    onUserChange={handleUserChange}
+                    availableUsers={getDemoUsers()}
+                  />
+                </div>
 
-                {/* Notifications */}
-                <NotificationsDropdown />
+                {/* Better notifications positioning */}
+                <div className="hidden sm:block">
+                  <NotificationsDropdown />
+                </div>
 
-                {/* User Dropdown */}
+                {/* Enhanced user dropdown with better styling */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                      <Avatar className="h-10 w-10">
+                    <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-muted/50 transition-colors">
+                      <Avatar className="h-8 w-8">
                         <AvatarImage src={currentUser.avatar || "/placeholder.svg"} alt={currentUser.name} />
-                        <AvatarFallback>
+                        <AvatarFallback className="text-xs font-medium bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700">
                           {currentUser.name
                             ?.split(" ")
                             .map((n) => n[0])
@@ -268,13 +282,13 @@ export function AppHeader() {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuContent className="w-64" align="end" forceMount>
                     <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+                      <div className="flex flex-col space-y-2">
+                        <p className="text-sm font-semibold leading-none">{currentUser.name}</p>
                         <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
                         {isAdmin && (
-                          <Badge variant="secondary" className="w-fit text-xs">
+                          <Badge variant="secondary" className="w-fit text-xs font-medium bg-blue-50 text-blue-700 border-blue-200">
                             Admin
                           </Badge>
                         )}
@@ -284,28 +298,28 @@ export function AppHeader() {
 
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
+                        <User className="mr-3 h-4 w-4" />
                         Profile
                       </Link>
                     </DropdownMenuItem>
 
                     <DropdownMenuItem asChild>
                       <Link href="/plans" className="cursor-pointer">
-                        <FileText className="mr-2 h-4 w-4" />
+                        <FileText className="mr-3 h-4 w-4" />
                         My Plans
                       </Link>
                     </DropdownMenuItem>
 
                     <DropdownMenuItem asChild>
                       <Link href="/settings" className="cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4" />
+                        <Settings className="mr-3 h-4 w-4" />
                         Settings
                       </Link>
                     </DropdownMenuItem>
 
                     <DropdownMenuItem asChild>
                       <Link href="/setup/airtable" className="cursor-pointer">
-                        <HelpCircle className="mr-2 h-4 w-4" />
+                        <HelpCircle className="mr-3 h-4 w-4" />
                         Setup Guide
                       </Link>
                     </DropdownMenuItem>
@@ -313,13 +327,13 @@ export function AppHeader() {
                     {isAdmin && (
                       <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuLabel>Admin</DropdownMenuLabel>
+                        <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">Admin</DropdownMenuLabel>
                         {adminItems.map((item) => {
                           const Icon = item.icon
                           return (
                             <DropdownMenuItem key={item.href} asChild>
                               <Link href={item.href} className="cursor-pointer">
-                                <Icon className="mr-2 h-4 w-4" />
+                                <Icon className="mr-3 h-4 w-4" />
                                 {item.label}
                               </Link>
                             </DropdownMenuItem>
@@ -329,19 +343,19 @@ export function AppHeader() {
                     )}
 
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                      <LogOut className="mr-2 h-4 w-4" />
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
+                      <LogOut className="mr-3 h-4 w-4" />
                       Log out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             ) : (
-              <div className="hidden md:flex items-center space-x-2">
-                <Button variant="ghost" asChild>
+              <div className="hidden md:flex items-center space-x-3">
+                <Button variant="ghost" size="sm" asChild className="h-9">
                   <Link href="/login">Sign In</Link>
                 </Button>
-                <Button asChild>
+                <Button size="sm" asChild className="h-9">
                   <Link href="/register">Get Started</Link>
                 </Button>
               </div>
