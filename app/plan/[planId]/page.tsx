@@ -13,36 +13,20 @@ interface PlanPageProps {
 async function getPlanWithRetry(planId: string, maxRetries = 3, delay = 300): Promise<any> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Try to get user credentials for better Airtable access
-      // For now, we'll use a demo email since we don't have user context in server components
-      const demoEmail = "user@example.com"
-      const userSettings = userSettingsStore.get(demoEmail)
-      let credentials: { baseId: string; token: string } | undefined
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/business-plans/${planId}`, {
+        cache: 'no-store' // Ensure we get fresh data
+      })
 
-      if (userSettings?.airtablePersonalAccessToken && userSettings?.airtableBaseId) {
-        credentials = {
-          baseId: userSettings.airtableBaseId,
-          token: userSettings.airtablePersonalAccessToken
-        }
+      if (response.ok) {
+        const data = await response.json()
+        return data.plan
       }
 
-      // Added check for localStorage availability in server component
-      if (typeof window === 'undefined') {
-        console.log(`[getPlanWithRetry] Running on server, localStorage not available. Attempt ${attempt}`)
-        // Wait before retrying on server
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, delay))
-          continue
-        }
-        return null
+      if (response.status === 404) {
+        return null // Plan not found
       }
 
-      const plan = await getBusinessPlan(planId, credentials)
-      if (plan) {
-        return plan
-      }
-      
-      // If no plan found and we have retries left, wait and try again
+      // If we get other errors and have retries left, wait and try again
       if (attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
