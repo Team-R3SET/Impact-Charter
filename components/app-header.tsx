@@ -313,6 +313,7 @@ export function AppHeader() {
                     <DropdownMenuItem asChild>
                       <Link href="/plans" className="cursor-pointer">
                         <FileText className="mr-3 h-4 w-4" />
+                        My Charters
                       </Link>
                     </DropdownMenuItem>
 
