@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { randomUUID } from "crypto"
-
-// In a real app, this would be stored in a secure database
-// For demo purposes, we'll use in-memory storage
-const userSettingsStore = new Map<string, any>()
+import { userSettingsStore, debugStore } from "@/lib/shared-store"
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +10,9 @@ export async function GET(request: NextRequest) {
     if (!userEmail) {
       return NextResponse.json({ error: "User email is required" }, { status: 400 })
     }
+
+    console.log(`Fetching settings for user: ${userEmail}`)
+    debugStore()
 
     // Get settings from store or return defaults
     const settings = userSettingsStore.get(userEmail) || {
@@ -47,6 +47,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User email is required" }, { status: 400 })
     }
 
+    console.log(`Saving settings for user: ${userEmail}`)
+    console.log(`Credentials provided: ${Boolean(airtablePersonalAccessToken)} ${Boolean(airtableBaseId)}`)
+
     const settings = {
       id: randomUUID(),
       userEmail,
@@ -59,6 +62,8 @@ export async function POST(request: NextRequest) {
 
     // Store settings
     userSettingsStore.set(userEmail, settings)
+    console.log(`Settings saved successfully`)
+    debugStore()
 
     // Return safe settings (without actual personal access token)
     const safeSettings = {

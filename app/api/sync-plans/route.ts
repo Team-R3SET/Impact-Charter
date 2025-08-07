@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { syncLocalPlansToAirtable } from "@/lib/airtable"
-
-// Import the same store reference
-const userSettingsStore = new Map<string, any>()
+import { userSettingsStore, debugStore } from "@/lib/shared-store"
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +13,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log(`Attempting to sync plans for user: ${userEmail}`)
+    debugStore()
+    
     const userSettings = userSettingsStore.get(userEmail)
+    console.log(`User settings found: ${Boolean(userSettings)}`)
     
     if (!userSettings?.airtablePersonalAccessToken || !userSettings?.airtableBaseId) {
+      console.log("Missing credentials:", {
+        hasToken: Boolean(userSettings?.airtablePersonalAccessToken),
+        hasBaseId: Boolean(userSettings?.airtableBaseId)
+      })
+      
       return NextResponse.json(
         { 
           success: false,
@@ -30,6 +37,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log(`Credentials found, proceeding with sync`)
     const result = await syncLocalPlansToAirtable(
       userEmail, 
       userSettings.airtableBaseId, 
