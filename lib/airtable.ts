@@ -122,13 +122,17 @@ export async function getBusinessPlans(ownerEmail: string): Promise<{
 }
 
 export async function getBusinessPlan(planId: string): Promise<BusinessPlan | null> {
+  console.log(`[getBusinessPlan] Attempting to fetch plan: ${planId}`)
+  
   try {
     const result = await withLocalFallback(
       async () => {
+        console.log(`[getBusinessPlan] Trying Airtable for plan: ${planId}`)
         const baseId = process.env.AIRTABLE_BASE_ID
         const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
         if (!baseId || !token) {
+          console.log(`[getBusinessPlan] Airtable credentials missing`)
           throw new Error("Airtable credentials missing")
         }
 
@@ -141,14 +145,16 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
 
         if (!res.ok) {
           if (res.status === 404) {
+            console.log(`[getBusinessPlan] Plan not found in Airtable: ${planId}`)
             return null
           }
           const errorText = await res.text()
+          console.log(`[getBusinessPlan] Airtable error: ${res.status} - ${errorText}`)
           throw new Error(`HTTP ${res.status}: ${errorText}`)
         }
 
         const data = await res.json()
-        return {
+        const plan = {
           id: data.id,
           planName: data.fields.Name || "",
           createdDate: data.fields.CreatedAt || new Date().toISOString(),
@@ -157,11 +163,24 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
           status: data.fields.Status || "Draft",
           description: data.fields.Description || "",
         }
+        console.log(`[getBusinessPlan] Found plan in Airtable:`, plan)
+        return plan
       },
       () => {
-        // Added try-catch to ensure local storage never throws
+        console.log(`[getBusinessPlan] Falling back to local storage for plan: ${planId}`)
         try {
-          return LocalStorageManager.getBusinessPlan(planId)
+          // Added detailed logging for local storage retrieval
+          const allPlans = LocalStorageManager.getAllBusinessPlans()
+          console.log(`[getBusinessPlan] All plans in localStorage:`, allPlans.map(p => ({ id: p.id, name: p.planName })))
+          
+          const plan = LocalStorageManager.getBusinessPlan(planId)
+          if (plan) {
+            console.log(`[getBusinessPlan] Found plan in localStorage:`, plan)
+          } else {
+            console.log(`[getBusinessPlan] Plan not found in localStorage: ${planId}`)
+            console.log(`[getBusinessPlan] Available plan IDs:`, allPlans.map(p => p.id))
+          }
+          return plan
         } catch (error) {
           console.warn("Local storage getBusinessPlan failed:", error)
           return null
@@ -169,9 +188,9 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
       }
     )
 
+    console.log(`[getBusinessPlan] Final result for ${planId}:`, result.data)
     return result.data
   } catch (error) {
-    // Added top-level try-catch to ensure function never throws
     console.warn("getBusinessPlan failed completely:", error)
     return null
   }

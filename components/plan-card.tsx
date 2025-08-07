@@ -143,10 +143,41 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
   }
 
   const handleOpenPlan = async () => {
-    setIsOpening(true)
-    // Small delay to ensure plan data is available
-    await new Promise(resolve => setTimeout(resolve, 100))
-    router.push(`/plan/${plan.id}`)
+    try {
+      setIsOpening(true)
+      
+      // Verify the plan exists before navigation
+      console.log(`[PlanCard] Attempting to open plan: ${plan.id}`)
+      const verifyResponse = await fetch(`/api/business-plans/${plan.id}`)
+      
+      if (!verifyResponse.ok) {
+        console.error(`[PlanCard] Plan verification failed: ${verifyResponse.status}`)
+        toast({
+          title: "Plan not found",
+          description: "This plan could not be found. It may have been deleted or moved.",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      const planData = await verifyResponse.json()
+      console.log(`[PlanCard] Plan verified successfully:`, planData)
+      
+      // Add a small delay to ensure data consistency
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Navigate to the plan
+      router.push(`/plan/${plan.id}`)
+    } catch (error) {
+      console.error(`[PlanCard] Error opening plan:`, error)
+      toast({
+        title: "Error opening plan",
+        description: "There was an error opening the plan. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsOpening(false)
+    }
   }
 
   if (viewMode === "list") {
@@ -192,7 +223,7 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleOpenPlan} disabled={isOpening}>
                     <Edit className="mr-2 h-4 w-4" />
-                    Edit
+                    {isOpening ? "Opening..." : "Edit"}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleDuplicate}>
                     <Copy className="mr-2 h-4 w-4" />
@@ -246,7 +277,7 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleOpenPlan} disabled={isOpening}>
                 <Edit className="mr-2 h-4 w-4" />
-                Edit
+                {isOpening ? "Opening..." : "Edit"}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDuplicate}>
                 <Copy className="mr-2 h-4 w-4" />
