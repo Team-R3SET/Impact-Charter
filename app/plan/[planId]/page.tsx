@@ -3,6 +3,7 @@ import { BusinessPlanEditor } from "@/components/business-plan-editor"
 import { PlanRoom } from "@/components/plan-room"
 import { AppHeader } from "@/components/app-header"
 import { notFound } from "next/navigation"
+import { userSettingsStore } from "@/lib/shared-store"
 
 interface PlanPageProps {
   params: { planId: string }
@@ -12,7 +13,20 @@ interface PlanPageProps {
 async function getPlanWithRetry(planId: string, maxRetries = 3, delay = 300): Promise<any> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const plan = await getBusinessPlan(planId)
+      // Try to get user credentials for better Airtable access
+      // For now, we'll use a demo email since we don't have user context in server components
+      const demoEmail = "user@example.com"
+      const userSettings = userSettingsStore.get(demoEmail)
+      let credentials: { baseId: string; token: string } | undefined
+
+      if (userSettings?.airtablePersonalAccessToken && userSettings?.airtableBaseId) {
+        credentials = {
+          baseId: userSettings.airtableBaseId,
+          token: userSettings.airtablePersonalAccessToken
+        }
+      }
+
+      const plan = await getBusinessPlan(planId, credentials)
       if (plan) {
         return plan
       }

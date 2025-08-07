@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getBusinessPlans, createBusinessPlan } from "@/lib/airtable"
+import { userSettingsStore } from "@/lib/shared-store"
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,14 +49,27 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API] Creating business plan: ${planName} for ${ownerEmail}`)
 
-    // Updated to handle Airtable error reporting
+    const userSettings = userSettingsStore.get(ownerEmail)
+    let credentials: { baseId: string; token: string } | undefined
+
+    if (userSettings?.airtablePersonalAccessToken && userSettings?.airtableBaseId) {
+      credentials = {
+        baseId: userSettings.airtableBaseId,
+        token: userSettings.airtablePersonalAccessToken
+      }
+      console.log(`[API] Using user's Airtable credentials for plan creation`)
+    } else {
+      console.log(`[API] No user credentials found, will use environment variables or local storage`)
+    }
+
+    // Updated to handle Airtable error reporting and pass credentials
     const result = await createBusinessPlan({
       planName,
       ownerEmail,
       status,
       createdDate: new Date().toISOString(),
       lastModified: new Date().toISOString(),
-    })
+    }, credentials)
 
     console.log(`[API] Created plan with ID: ${result.plan.id}`)
     

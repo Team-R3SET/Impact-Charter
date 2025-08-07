@@ -68,7 +68,7 @@ async function withLocalFallback<T>(
 }
 
 // Business Plans functions
-export async function getBusinessPlans(ownerEmail: string): Promise<{ 
+export async function getBusinessPlans(ownerEmail: string, credentials?: { baseId: string; token: string }): Promise<{ 
   plans: BusinessPlan[]; 
   airtableWorked: boolean; 
   error?: string;
@@ -76,14 +76,14 @@ export async function getBusinessPlans(ownerEmail: string): Promise<{
 }> {
   const result = await withLocalFallback(
     async () => {
-      const baseId = process.env.AIRTABLE_BASE_ID
-      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+      const baseId = credentials?.baseId || process.env.AIRTABLE_BASE_ID
+      const token = credentials?.token || process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
       if (!baseId || !token) {
         throw new Error("Airtable credentials missing")
       }
 
-      const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans?filterByFormula={CreatedBy}='${ownerEmail}'`
+      const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans?filterByFormula={Owner}='${ownerEmail}'`
       const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -102,10 +102,10 @@ export async function getBusinessPlans(ownerEmail: string): Promise<{
       const data = await res.json()
       return data.records.map((record: any) => ({
         id: record.id,
-        planName: record.fields.Name || "",
-        createdDate: record.fields.CreatedAt || new Date().toISOString(),
-        lastModified: record.fields.UpdatedAt || new Date().toISOString(),
-        ownerEmail: record.fields.CreatedBy || ownerEmail,
+        planName: record.fields["Plan Name"] || "",
+        createdDate: record.fields["Created Date"] || new Date().toISOString(),
+        lastModified: record.fields["Last Modified"] || new Date().toISOString(),
+        ownerEmail: record.fields.Owner || ownerEmail,
         status: record.fields.Status || "Draft",
         description: record.fields.Description || "",
       }))
@@ -121,15 +121,15 @@ export async function getBusinessPlans(ownerEmail: string): Promise<{
   }
 }
 
-export async function getBusinessPlan(planId: string): Promise<BusinessPlan | null> {
+export async function getBusinessPlan(planId: string, credentials?: { baseId: string; token: string }): Promise<BusinessPlan | null> {
   console.log(`[getBusinessPlan] Attempting to fetch plan: ${planId}`)
   
   try {
     const result = await withLocalFallback(
       async () => {
         console.log(`[getBusinessPlan] Trying Airtable for plan: ${planId}`)
-        const baseId = process.env.AIRTABLE_BASE_ID
-        const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+        const baseId = credentials?.baseId || process.env.AIRTABLE_BASE_ID
+        const token = credentials?.token || process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
         if (!baseId || !token) {
           console.log(`[getBusinessPlan] Airtable credentials missing`)
@@ -156,10 +156,10 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
         const data = await res.json()
         const plan = {
           id: data.id,
-          planName: data.fields.Name || "",
-          createdDate: data.fields.CreatedAt || new Date().toISOString(),
-          lastModified: data.fields.UpdatedAt || new Date().toISOString(),
-          ownerEmail: data.fields.CreatedBy || "",
+          planName: data.fields["Plan Name"] || "",
+          createdDate: data.fields["Created Date"] || new Date().toISOString(),
+          lastModified: data.fields["Last Modified"] || new Date().toISOString(),
+          ownerEmail: data.fields.Owner || "",
           status: data.fields.Status || "Draft",
           description: data.fields.Description || "",
         }
@@ -196,28 +196,23 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
   }
 }
 
-export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promise<{ 
-  plan: BusinessPlan; 
-  airtableWorked: boolean; 
-  error?: string;
-  troubleshooting?: string;
-}> {
+export async function createBusinessPlan(
+  planData: Omit<BusinessPlan, "id">,
+  credentials?: { baseId: string; token: string }
+): Promise<{ plan: BusinessPlan; airtableWorked: boolean; error?: string; troubleshooting?: string }> {
+  console.log(`[createBusinessPlan] Creating plan: ${planData.planName}`)
+  
   const result = await withLocalFallback(
     async () => {
-      const baseId = process.env.AIRTABLE_BASE_ID
-      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+      console.log(`[createBusinessPlan] Trying Airtable for plan: ${planData.planName}`)
+      
+      // Use provided credentials or fall back to environment variables
+      const baseId = credentials?.baseId || process.env.AIRTABLE_BASE_ID
+      const token = credentials?.token || process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
       if (!baseId || !token) {
+        console.log(`[createBusinessPlan] Airtable credentials missing`)
         throw new Error("Airtable credentials missing")
-      }
-
-      const fields = {
-        "Plan ID": plan.id,
-        "Plan Name": plan.planName,
-        "Owner": plan.ownerEmail,
-        "Status": "Active", // Default status
-        "Created Date": plan.createdDate,
-        "Last Modified": plan.lastModified,
       }
 
       const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans`
@@ -227,28 +222,54 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ fields }),
+        body: JSON.stringify({
+          fields: {
+            "Plan ID": `plan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            "Plan Name": planData.planName,
+            "Owner": planData.ownerEmail,
+            "Status": planData.status || "Draft",
+            "Created Date": formatDateForAirtable(planData.createdDate),
+            "Last Modified": formatDateForAirtable(planData.lastModified),
+          },
+        }),
       })
 
       if (!res.ok) {
         const errorText = await res.text()
+        console.log(`[createBusinessPlan] Airtable error: ${res.status} - ${errorText}`)
+        
         if (res.status === 404) {
-          throw new Error(`Table "Business Plans" not found in your Airtable base. Please create this table with the following fields: Plan ID (Single line text), Plan Name (Single line text), Owner (Single line text), Status (Single select), Created Date (Date), Last Modified (Date)`)
+          throw new Error(`Table "Business Plans" not found. Please create this table in your Airtable base with fields: Plan ID (Single line text), Plan Name (Single line text), Owner (Single line text), Status (Single select), Created Date (Date), Last Modified (Date)`)
         } else if (res.status === 403) {
-          throw new Error(`Access forbidden. Ensure your Personal Access Token has 'data.records:write' scope and access to the "Business Plans" table.`)
+          throw new Error(`Permission denied. Your personal access token needs "data.records:read" and "data.records:write" scopes for this base.`)
         } else if (res.status === 401) {
-          throw new Error(`Invalid Personal Access Token. Please check your Airtable credentials in Settings.`)
-        } else {
-          throw new Error(`HTTP ${res.status}: ${errorText}`)
+          throw new Error(`Invalid personal access token. Please check your token in Settings.`)
         }
+        
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
       }
 
       const data = await res.json()
-      return { id: data.id, ...plan }
+      const plan = {
+        id: data.id,
+        planName: data.fields["Plan Name"] || planData.planName,
+        createdDate: data.fields["Created Date"] || planData.createdDate,
+        lastModified: data.fields["Last Modified"] || planData.lastModified,
+        ownerEmail: data.fields["Owner"] || planData.ownerEmail,
+        status: data.fields["Status"] || planData.status || "Draft",
+      }
+      console.log(`[createBusinessPlan] Created plan in Airtable:`, plan)
+      return plan
     },
-    () => LocalStorageManager.createBusinessPlan(plan)
+    () => {
+      console.log(`[createBusinessPlan] Falling back to local storage for plan: ${planData.planName}`)
+      const plan = LocalStorageManager.createBusinessPlan(planData)
+      console.log(`[createBusinessPlan] Created plan in localStorage:`, plan)
+      return plan
+    }
   )
 
+  console.log(`[createBusinessPlan] Final result:`, result)
   return {
     plan: result.data,
     airtableWorked: result.airtableWorked,
@@ -257,7 +278,7 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
   }
 }
 
-export async function deleteBusinessPlan(planId: string): Promise<{ 
+export async function deleteBusinessPlan(planId: string, credentials?: { baseId: string; token: string }): Promise<{ 
   success: boolean; 
   airtableWorked: boolean; 
   error?: string;
@@ -268,8 +289,8 @@ export async function deleteBusinessPlan(planId: string): Promise<{
     let troubleshooting = "";
     
     try {
-      const baseId = process.env.AIRTABLE_BASE_ID;
-      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
+      const baseId = credentials?.baseId || process.env.AIRTABLE_BASE_ID;
+      const token = credentials?.token || process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
       
       if (!baseId || !token) {
         troubleshooting = "Airtable credentials are missing. Please check your environment variables.";
@@ -323,11 +344,11 @@ export async function deleteBusinessPlan(planId: string): Promise<{
 }
 
 // User Profile functions
-export async function getUserProfile(email: string): Promise<UserProfile | null> {
+export async function getUserProfile(email: string, credentials?: { baseId: string; token: string }): Promise<UserProfile | null> {
   const result = await withLocalFallback(
     async () => {
-      const baseId = process.env.AIRTABLE_BASE_ID
-      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+      const baseId = credentials?.baseId || process.env.AIRTABLE_BASE_ID
+      const token = credentials?.token || process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
       if (!baseId || !token) {
         throw new Error("Airtable credentials missing")
@@ -365,18 +386,18 @@ export async function getUserProfile(email: string): Promise<UserProfile | null>
   return result.data
 }
 
-export async function createOrUpdateUserProfile(profile: Omit<UserProfile, "id">): Promise<UserProfile> {
+export async function createOrUpdateUserProfile(profile: Omit<UserProfile, "id">, credentials?: { baseId: string; token: string }): Promise<UserProfile> {
   const result = await withLocalFallback(
     async () => {
-      const baseId = process.env.AIRTABLE_BASE_ID
-      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+      const baseId = credentials?.baseId || process.env.AIRTABLE_BASE_ID
+      const token = credentials?.token || process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
       if (!baseId || !token) {
         throw new Error("Airtable credentials missing")
       }
 
       // First check if user exists
-      const existingProfile = await getUserProfile(profile.email)
+      const existingProfile = await getUserProfile(profile.email, { baseId, token })
       
       const fields = {
         Email: profile.email,
@@ -432,7 +453,7 @@ export async function createOrUpdateUserProfile(profile: Omit<UserProfile, "id">
 }
 
 // Business Plan Sections functions
-export async function updateBusinessPlanSection(section: BusinessPlanSection): Promise<{ airtableWorked: boolean; error?: string }> {
+export async function updateBusinessPlanSection(section: BusinessPlanSection, credentials?: { baseId: string; token: string }): Promise<{ airtableWorked: boolean; error?: string }> {
   const result = await withLocalFallback(
     async () => {
       const fields = {
@@ -446,8 +467,8 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
         completedDate: section.completedDate,
       }
 
-      const baseId = process.env.AIRTABLE_BASE_ID
-      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+      const baseId = credentials?.baseId || process.env.AIRTABLE_BASE_ID
+      const token = credentials?.token || process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
       if (!baseId || !token) {
         throw new Error("Airtable credentials missing")
@@ -663,4 +684,25 @@ export async function syncLocalPlansToAirtable(
   }
 
   return results;
+}
+
+// Helper function to format dates for Airtable
+function formatDateForAirtable(dateValue: any): string {
+  if (!dateValue) return new Date().toISOString().split('T')[0];
+  
+  // If it's already a Date object
+  if (dateValue instanceof Date) {
+    return dateValue.toISOString().split('T')[0];
+  }
+  
+  // If it's a string, try to parse it
+  if (typeof dateValue === 'string') {
+    const parsed = new Date(dateValue);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+  }
+  
+  // Fallback to current date
+  return new Date().toISOString().split('T')[0];
 }
