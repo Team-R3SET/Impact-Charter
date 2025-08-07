@@ -9,23 +9,47 @@ export async function GET(
 ) {
   try {
     const { planId } = params
+    console.log(`[API] GET /api/business-plans/${planId} called`)
 
     if (!planId) {
+      console.log(`[API] Missing planId parameter`)
       return NextResponse.json(
         { error: "Plan ID is required" },
         { status: 400 }
       )
     }
 
+    // Always create a fallback plan for local IDs
+    if (planId.startsWith('local-')) {
+      console.log(`[API] Creating fallback plan for local ID: ${planId}`)
+      const plan = {
+        id: planId,
+        planName: "Local Business Plan",
+        ownerEmail: "user@example.com",
+        status: "Draft",
+        createdDate: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        description: "This is a locally created business plan"
+      }
+      
+      return NextResponse.json({
+        success: true,
+        plan: plan,
+        source: "local-fallback"
+      })
+    }
+
     // Try to get user credentials from the shared store
     const demoEmail = "user@example.com"
     const userSettings = userSettingsStore.get(demoEmail)
+    console.log(`[API] User settings found: ${!!userSettings}`)
     
     let plan = null
 
     // First try Airtable if credentials are available
     if (userSettings?.airtablePersonalAccessToken && userSettings?.airtableBaseId) {
       try {
+        console.log(`[API] Attempting to fetch from Airtable`)
         const credentials = {
           baseId: userSettings.airtableBaseId,
           token: userSettings.airtablePersonalAccessToken
@@ -38,6 +62,8 @@ export async function GET(
           }
         })
 
+        console.log(`[API] Airtable response status: ${response.status}`)
+        
         if (response.ok) {
           const data = await response.json()
           if (data.records && data.records.length > 0) {
@@ -51,47 +77,38 @@ export async function GET(
               lastModified: record.fields['Last Modified'],
               description: `Business plan for ${record.fields['Plan Name']}`
             }
+            console.log(`[API] Plan found in Airtable`)
+          } else {
+            console.log(`[API] No matching records found in Airtable`)
           }
+        } else {
+          const errorText = await response.text()
+          console.error(`[API] Airtable error: ${response.status} - ${errorText}`)
         }
       } catch (airtableError) {
-        console.warn("Airtable fetch failed, trying local storage:", airtableError)
-      }
-    }
-
-    // If not found in Airtable, try local storage simulation
-    if (!plan) {
-      // Since we can't access localStorage on server, we'll check if this looks like a local plan
-      if (planId.startsWith('local-')) {
-        // Create a mock plan for local IDs to prevent 404s
-        // In a real app, you'd want to store this data in a database
-        plan = {
-          id: planId,
-          planName: "Local Business Plan",
-          ownerEmail: demoEmail,
-          status: "Draft",
-          createdDate: new Date().toISOString(),
-          lastModified: new Date().toISOString(),
-          description: "This is a locally created business plan"
-        }
+        console.warn("[API] Airtable fetch failed:", airtableError)
       }
     }
 
     if (!plan) {
+      console.log(`[API] Plan not found: ${planId}`)
       return NextResponse.json(
         { error: "Plan not found" },
         { status: 404 }
       )
     }
 
+    console.log(`[API] Returning plan successfully`)
     return NextResponse.json({
       success: true,
-      plan: plan
+      plan: plan,
+      source: "airtable"
     })
 
   } catch (error) {
-    console.error("Error in GET /api/business-plans/[planId]:", error)
+    console.error("[API] Error in GET /api/business-plans/[planId]:", error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }

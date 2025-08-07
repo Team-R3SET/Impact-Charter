@@ -11,38 +11,80 @@ interface PlanPageProps {
 }
 
 async function getPlanWithRetry(planId: string, maxRetries = 3, delay = 300): Promise<any> {
+  console.log(`[getPlanWithRetry] Attempting to fetch plan: ${planId}`)
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const apiUrl = `${baseUrl}/api/business-plans/${planId}`
+  console.log(`[getPlanWithRetry] API URL: ${apiUrl}`)
+  
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/business-plans/${planId}`, {
-        cache: 'no-store' // Ensure we get fresh data
+      console.log(`[getPlanWithRetry] Attempt ${attempt}/${maxRetries}`)
+      
+      const response = await fetch(apiUrl, {
+        cache: 'no-store', // Ensure we get fresh data
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
       })
 
+      console.log(`[getPlanWithRetry] Response status: ${response.status}`)
+      
       if (response.ok) {
         const data = await response.json()
+        console.log(`[getPlanWithRetry] Plan found:`, data.plan)
         return data.plan
       }
 
       if (response.status === 404) {
+        console.log(`[getPlanWithRetry] Plan not found (404)`)
         return null // Plan not found
       }
 
-      // If we get other errors and have retries left, wait and try again
+      const errorText = await response.text()
+      console.error(`[getPlanWithRetry] Error response: ${errorText}`)
+
       if (attempt < maxRetries) {
+        console.log(`[getPlanWithRetry] Waiting ${delay}ms before retry`)
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }
       
+      if (planId.startsWith('local-')) {
+        console.log(`[getPlanWithRetry] Creating fallback plan for local ID: ${planId}`)
+        return {
+          id: planId,
+          planName: "Local Business Plan",
+          ownerEmail: "user@example.com",
+          status: "Draft",
+          createdDate: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          description: "This is a locally created business plan"
+        }
+      }
+      
       return null
     } catch (error) {
-      console.warn(`Plan fetch attempt ${attempt} failed:`, error)
+      console.warn(`[getPlanWithRetry] Attempt ${attempt} failed:`, error)
       
-      // Don't throw on last attempt, just return null
+      if (attempt === maxRetries && planId.startsWith('local-')) {
+        console.log(`[getPlanWithRetry] Creating fallback plan for local ID after all retries failed: ${planId}`)
+        return {
+          id: planId,
+          planName: "Local Business Plan",
+          ownerEmail: "user@example.com",
+          status: "Draft",
+          createdDate: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          description: "This is a locally created business plan"
+        }
+      }
+      
       if (attempt === maxRetries) {
-        console.error(`All ${maxRetries} attempts to fetch plan failed`)
+        console.error(`[getPlanWithRetry] All ${maxRetries} attempts to fetch plan failed`)
         return null
       }
       
-      // Wait before retrying
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
@@ -73,17 +115,14 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
           : "Untitled Plan"
         : plan.planName
 
-    // Replace with real auth in production
     const user = {
       name: "Demo User",
       email: "user@example.com",
       avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
     }
 
-    // Check if collaboration is requested
     const isCollabMode = searchParamsResolved.collab === "true"
 
-    // If collaboration is requested, wrap with PlanRoom
     if (isCollabMode) {
       return (
         <>
@@ -95,7 +134,6 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
       )
     }
 
-    // Default mode without collaboration
     return <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={true} />
   } catch (error) {
     console.error("Error loading plan:", error)
@@ -107,7 +145,6 @@ export async function generateMetadata({ params }: { params: { planId: string } 
   const { planId } = params
 
   try {
-    // Added safe error handling for metadata generation
     const plan = await getPlanWithRetry(planId).catch(() => null)
     return {
       title: plan?.planName ? `${plan.planName} - Business Plan Builder` : "Business Plan Builder",
