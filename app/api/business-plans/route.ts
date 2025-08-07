@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API] Creating business plan: ${planName} for ${ownerEmail}`)
 
-    const newPlan = await createBusinessPlan({
+    // Updated to handle Airtable error reporting
+    const result = await createBusinessPlan({
       planName,
       ownerEmail,
       status,
@@ -50,8 +51,14 @@ export async function POST(request: NextRequest) {
       lastModified: new Date().toISOString(),
     })
 
-    console.log(`[API] Created plan with ID: ${newPlan.id}`)
-    return NextResponse.json(newPlan, { status: 201 })
+    console.log(`[API] Created plan with ID: ${result.plan.id}`)
+    
+    // Return plan data along with Airtable status
+    return NextResponse.json({
+      ...result.plan,
+      _airtableWorked: result.airtableWorked,
+      _airtableError: result.error
+    }, { status: 201 })
   } catch (error) {
     console.error("[API] Error creating business plan:", error)
     return NextResponse.json({ error: "Failed to create business plan" }, { status: 500 })

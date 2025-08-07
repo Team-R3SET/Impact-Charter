@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, FileText, Store, Laptop, Utensils, Heart, Briefcase, Zap, Globe, Building } from "lucide-react"
+import { Plus, FileText, Store, Laptop, Utensils, Heart, Briefcase, Zap, Globe, Building } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -142,10 +142,19 @@ export function CreatePlanDialog({ open, onOpenChange, userEmail }: CreatePlanDi
 
       const newPlan = await response.json()
 
-      toast({
-        title: "Plan created successfully!",
-        description: `"${planName}" has been created and is ready for editing.`,
-      })
+      // Check if Airtable worked and show appropriate message
+      if (newPlan._airtableWorked) {
+        toast({
+          title: "Plan created successfully!",
+          description: `"${planName}" has been created and saved to Airtable.`,
+        })
+      } else {
+        toast({
+          title: "Plan created (Local Only)",
+          description: `"${planName}" was created but couldn't be saved to Airtable. ${newPlan._airtableError || 'Please check your Airtable configuration.'}`,
+          variant: "destructive",
+        })
+      }
 
       // Close dialog and reset state
       onOpenChange(false)

@@ -38,26 +38,39 @@ export interface UserProfile {
   lastModified: string
 }
 
-// Enhanced error handling with local fallback
-async function withLocalFallback<T>(operation: () => Promise<T>, fallback: () => T, operationName: string): Promise<T> {
+// Enhanced error handling with local fallback and error reporting
+async function withLocalFallback<T>(
+  operation: () => Promise<T>, 
+  fallback: () => T, 
+  operationName: string
+): Promise<{ data: T; airtableWorked: boolean; error?: string }> {
   // Updated credential check to use personal access token
   // Skip Airtable entirely if credentials are missing
   if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
     console.log(`[${operationName}] Airtable credentials missing - using local fallback`)
-    return fallback()
+    return {
+      data: fallback(),
+      airtableWorked: false,
+      error: "Airtable credentials not configured. Please add AIRTABLE_PERSONAL_ACCESS_TOKEN and AIRTABLE_BASE_ID to your environment variables."
+    }
   }
 
   try {
     const result = await operation()
-    return result
+    return { data: result, airtableWorked: true }
   } catch (error) {
     console.warn(`[${operationName}] Airtable operation failed, using local fallback:`, error)
-    return fallback()
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return {
+      data: fallback(),
+      airtableWorked: false,
+      error: `Airtable operation failed: ${errorMessage}`
+    }
   }
 }
 
-export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promise<BusinessPlan> {
-  return withLocalFallback(
+export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promise<{ plan: BusinessPlan; airtableWorked: boolean; error?: string }> {
+  const result = await withLocalFallback(
     async () => {
       const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans`, {
         method: "POST",
@@ -69,7 +82,10 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
         body: JSON.stringify({ fields: plan }),
       })
 
-      if (!res.ok) throw new Error(`Airtable insert failed: ${res.status}`)
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
+      }
 
       const data = await res.json()
       const createdPlan = { id: data.id, ...data.fields }
@@ -90,12 +106,18 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
     },
     "createBusinessPlan",
   )
+
+  return {
+    plan: result.data,
+    airtableWorked: result.airtableWorked,
+    error: result.error
+  }
 }
 
 export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan[]> {
   console.log(`[getBusinessPlans] Fetching plans for owner: ${ownerEmail}`)
 
-  return withLocalFallback(
+  const result = await withLocalFallback(
     async () => {
       const filterFormula = `{ownerEmail} = "${ownerEmail}"`
       const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans?filterByFormula=${encodeURIComponent(
@@ -110,12 +132,12 @@ export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan
 
       if (res.status === 404) {
         console.warn("[getBusinessPlans] Table not found")
-        throw new Error("Table not found")
+        throw new Error("Business Plans table not found in Airtable base")
       }
 
       if (!res.ok) {
         const errorText = await res.text()
-        throw new Error(`Airtable request failed: ${res.status} - ${errorText}`)
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
       }
 
       const data = await res.json()
@@ -158,10 +180,12 @@ export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan
     },
     "getBusinessPlans",
   )
+
+  return result.data
 }
 
-export async function updateBusinessPlanSection(section: BusinessPlanSection): Promise<void> {
-  await withLocalFallback(
+export async function updateBusinessPlanSection(section: BusinessPlanSection): Promise<{ airtableWorked: boolean; error?: string }> {
+  const result = await withLocalFallback(
     async () => {
       const fields = {
         planId: section.planId,
@@ -186,7 +210,7 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
         })
         if (!createRes.ok) {
           const txt = await createRes.text()
-          throw new Error(`Airtable create failed: ${createRes.status} – ${txt}`)
+          throw new Error(`HTTP ${createRes.status}: ${txt}`)
         }
       }
 
@@ -212,7 +236,7 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
 
         if (!patchRes.ok) {
           const txt = await patchRes.text()
-          throw new Error(`Airtable update failed: ${patchRes.status} – ${txt}`)
+          throw new Error(`HTTP ${patchRes.status}: ${txt}`)
         }
       } else {
         await createRecord()
@@ -232,12 +256,17 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
     },
     "updateBusinessPlanSection",
   )
+
+  return {
+    airtableWorked: result.airtableWorked,
+    error: result.error
+  }
 }
 
-export async function markSectionAsComplete(planId: string, sectionName: string, userEmail: string): Promise<void> {
+export async function markSectionAsComplete(planId: string, sectionName: string, userEmail: string): Promise<{ airtableWorked: boolean; error?: string }> {
   console.log(`[markSectionAsComplete] Marking section ${sectionName} as complete for plan ${planId}`)
 
-  await withLocalFallback(
+  const result = await withLocalFallback(
     async () => {
       const filterFormula = `AND({planId} = "${planId}", {sectionName} = "${sectionName}")`
       const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections?filterByFormula=${encodeURIComponent(filterFormula)}&maxRecords=1`
@@ -289,7 +318,7 @@ export async function markSectionAsComplete(planId: string, sectionName: string,
 
       if (!res.ok) {
         const errorText = await res.text()
-        throw new Error(`Airtable operation failed: ${res.status} - ${errorText}`)
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
       }
 
       // Save to local storage as backup
@@ -320,12 +349,17 @@ export async function markSectionAsComplete(planId: string, sectionName: string,
     },
     "markSectionAsComplete",
   )
+
+  return {
+    airtableWorked: result.airtableWorked,
+    error: result.error
+  }
 }
 
-export async function getBusinessPlan(planId: string): Promise<BusinessPlan | null> {
+export async function getBusinessPlan(planId: string): Promise<{ plan: BusinessPlan | null; airtableWorked: boolean; error?: string }> {
   console.log(`[getBusinessPlan] Attempting to fetch planId: ${planId}`)
 
-  return withLocalFallback(
+  const result = await withLocalFallback(
     async () => {
       const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
         // Updated authorization header to use personal access token
@@ -339,7 +373,7 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
 
       if (!res.ok) {
         const errorText = await res.text()
-        throw new Error(`Airtable request failed: ${res.status} - ${errorText}`)
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
       }
 
       const data = await res.json()
@@ -371,12 +405,18 @@ export async function getBusinessPlan(planId: string): Promise<BusinessPlan | nu
     },
     "getBusinessPlan",
   )
+
+  return {
+    plan: result.data,
+    airtableWorked: result.airtableWorked,
+    error: result.error
+  }
 }
 
-export async function getUserProfile(email: string): Promise<UserProfile | null> {
+export async function getUserProfile(email: string): Promise<{ profile: UserProfile | null; airtableWorked: boolean; error?: string }> {
   console.log(`[getUserProfile] Fetching profile for: ${email}`)
 
-  return withLocalFallback(
+  const result = await withLocalFallback(
     async () => {
       const filterFormula = `{email} = "${email}"`
       const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/User%20Profiles?filterByFormula=${encodeURIComponent(
@@ -395,7 +435,7 @@ export async function getUserProfile(email: string): Promise<UserProfile | null>
 
       if (!res.ok) {
         const text = await res.text()
-        throw new Error(`Airtable request failed: ${res.status} – ${text}`)
+        throw new Error(`HTTP ${res.status} – ${text}`)
       }
 
       const data = await res.json()
@@ -434,12 +474,18 @@ export async function getUserProfile(email: string): Promise<UserProfile | null>
     },
     "getUserProfile",
   )
+
+  return {
+    profile: result.data,
+    airtableWorked: result.airtableWorked,
+    error: result.error
+  }
 }
 
 export async function createOrUpdateUserProfile(
   profile: Omit<UserProfile, "id" | "createdDate"> & { id?: string },
-): Promise<UserProfile> {
-  return withLocalFallback(
+): Promise<{ userProfile: UserProfile; airtableWorked: boolean; error?: string }> {
+  const result = await withLocalFallback(
     async () => {
       const url = profile.id
         ? `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/User%20Profiles/${profile.id}`
@@ -487,4 +533,10 @@ export async function createOrUpdateUserProfile(
     },
     "createOrUpdateUserProfile",
   )
+
+  return {
+    userProfile: result.data,
+    airtableWorked: result.airtableWorked,
+    error: result.error
+  }
 }
