@@ -56,12 +56,35 @@ export async function POST(request: NextRequest) {
       const data = await response.json()
       const tables = data.tables?.map((table: any) => table.name) || []
 
+      const requiredTables = ["Business Plans", "Business Plan Sections", "User Profiles"]
+      const missingTables = requiredTables.filter(table => !tables.includes(table))
+
+      if (missingTables.length > 0) {
+        return NextResponse.json({
+          success: false,
+          message: `Connection successful, but required tables are missing: ${missingTables.join(", ")}`,
+          errorCode: "MISSING_TABLES",
+          missingTables,
+          existingTables: tables,
+          troubleshooting: [
+            "Create the missing tables in your Airtable base:",
+            ...missingTables.map(table => `• ${table}`),
+            "",
+            "Required table structures:",
+            "• Business Plans: Name (Single line text), Description (Long text), CreatedBy (Single line text), CreatedAt (Date), UpdatedAt (Date)",
+            "• Business Plan Sections: PlanId (Single line text), SectionName (Single line text), Content (Long text), IsComplete (Checkbox), CompletedBy (Single line text), CompletedAt (Date)",
+            "• User Profiles: Email (Single line text), Name (Single line text), Role (Single select), CreatedAt (Date)"
+          ]
+        })
+      }
+
       return NextResponse.json({
         success: true,
-        message: "Connection successful!",
+        message: "Connection successful! All required tables found.",
         baseInfo: {
           name: data.tables?.[0]?.name || "Unknown",
           tables,
+          requiredTables,
         },
       })
     } catch (fetchError) {

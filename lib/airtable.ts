@@ -84,7 +84,16 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
 
       if (!res.ok) {
         const errorText = await res.text()
-        throw new Error(`HTTP ${res.status}: ${errorText}`)
+        // Enhanced error handling for specific HTTP status codes
+        if (res.status === 404) {
+          throw new Error(`Table "Business Plans" not found in your Airtable base. Please create this table with the following fields: Name (Single line text), Description (Long text), CreatedBy (Single line text), CreatedAt (Date), UpdatedAt (Date)`)
+        } else if (res.status === 403) {
+          throw new Error(`Access forbidden. Ensure your Personal Access Token has 'data.records:write' scope and access to the "Business Plans" table.`)
+        } else if (res.status === 401) {
+          throw new Error(`Invalid Personal Access Token. Please check your Airtable credentials in Settings.`)
+        } else {
+          throw new Error(`HTTP ${res.status}: ${errorText}`)
+        }
       }
 
       const data = await res.json()
