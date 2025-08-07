@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight, Maximize, Minimize, Bold, Italic, Underline } from 'lucide-react'
+import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight, Maximize, Minimize, Bold, Italic, Underline, X } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { businessPlanSections, getNextSection, getPreviousSection, getSectionIndex } from "@/lib/business-plan-sections"
 import { logAccess, logError } from "@/lib/logging"
@@ -119,6 +119,28 @@ export function CollaborativeTextEditor({
             sectionsMap.set(sectionId, {
               ...section,
               isCompleted: true,
+              lastModified: new Date().toISOString(),
+              modifiedBy: currentUser.email,
+            })
+          }
+        },
+        [sectionId, currentUser.email],
+      )
+    : null
+  const markSectionIncomplete = useMutation
+    ? useMutation(
+        ({ storage }) => {
+          const completedMap = storage.get("completedSections")
+          if (completedMap) {
+            completedMap.delete(sectionId)
+          }
+
+          const sectionsMap = storage.get("sections")
+          if (sectionsMap && sectionsMap.get(sectionId)) {
+            const section = sectionsMap.get(sectionId)
+            sectionsMap.set(sectionId, {
+              ...section,
+              isCompleted: false,
               lastModified: new Date().toISOString(),
               modifiedBy: currentUser.email,
             })
@@ -473,6 +495,79 @@ export function CollaborativeTextEditor({
     }
   }
 
+  // Handle mark as incomplete
+  const handleMarkIncomplete = async () => {
+    try {
+      setIsCompleting(true)
+      setSaveError(null)
+
+      // Log the incomplete action
+      await logAccess(
+        currentUser as User,
+        "MARK_INCOMPLETE",
+        `plan/${planId}/section/${sectionId}`,
+        true,
+        "Section marked as incomplete",
+      )
+
+      // Update local state
+      setIsCompleted(false)
+      localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(false))
+
+      // Notify parent component
+      onSectionComplete?.(sectionId, false)
+
+      // Update collaborative storage
+      if (markSectionIncomplete) {
+        markSectionIncomplete()
+      }
+
+      // Save to Airtable
+      const response = await fetch(`/api/business-plans/${planId}/sections/${sectionId}/incomplete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          completedBy: currentUser.email,
+        }),
+      })
+
+      if (response.ok) {
+        // Broadcast incomplete status
+        if (broadcast) {
+          broadcast({
+            type: "SECTION_MARKED_INCOMPLETE",
+            sectionId,
+            userId: currentUser.email,
+          })
+        }
+
+        toast({
+          title: "Section marked incomplete",
+          description: `${sectionTitle} has been marked as incomplete.`,
+        })
+      } else {
+        // Handle API error
+        const errorData = await response.json().catch(() => ({ error: "Unknown error", errorDetails: null }))
+        console.warn("Failed to save incomplete status to Airtable:", errorData)
+
+        toast({
+          title: "Failed to mark incomplete",
+          description: errorData.error || "Failed to update status on server",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Failed to mark as incomplete:", error)
+      toast({
+        title: "Error",
+        description: "Failed to mark section as incomplete. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCompleting(false)
+    }
+  }
+
   // Load initial content and completion state
   useEffect(() => {
     // Load from collaborative storage first
@@ -738,10 +833,31 @@ export function CollaborativeTextEditor({
 
           {finalIsCompleted && currentSection && (
             <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
-              <p className="text-sm text-green-800 dark:text-green-200">
-                ✅ This section was completed on {new Date(currentSection.lastModified).toLocaleDateString()}
-                by {currentSection.modifiedBy}
-              </p>
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-green-800 dark:text-green-200">
+                  ✅ This section was completed on {new Date(currentSection.lastModified).toLocaleDateString()}
+                  by {currentSection.modifiedBy}
+                </p>
+                <Button
+                  onClick={handleMarkIncomplete}
+                  disabled={isCompleting}
+                  variant="outline"
+                  size="sm"
+                  className="border-green-600 text-green-700 hover:bg-green-100 dark:border-green-400 dark:text-green-300 dark:hover:bg-green-900"
+                >
+                  {isCompleting ? (
+                    <>
+                      <X className="w-3 h-3 mr-1 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-3 h-3 mr-1" />
+                      Mark Incomplete
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
 
