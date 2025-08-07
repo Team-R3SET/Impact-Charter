@@ -28,6 +28,18 @@ export async function POST(request: NextRequest) {
             success: false,
             message: "Invalid Personal Access Token. Please check your Airtable personal access token.",
           })
+        } else if (response.status === 403) {
+          return NextResponse.json({
+            success: false,
+            message: "Access forbidden. Please ensure your Personal Access Token has 'data.records:read' and 'data.records:write' scopes, and that you have access to this base.",
+            errorCode: "INSUFFICIENT_PERMISSIONS",
+            troubleshooting: [
+              "Verify your token has the required scopes: data.records:read and data.records:write",
+              "Ensure you have access to the specified base",
+              "Check that the Base ID is correct (starts with 'app')",
+              "Try creating a new personal access token with proper permissions"
+            ]
+          })
         } else if (response.status === 404) {
           return NextResponse.json({
             success: false,
