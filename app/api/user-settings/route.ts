@@ -18,17 +18,17 @@ export async function GET(request: NextRequest) {
     const settings = userSettingsStore.get(userEmail) || {
       id: randomUUID(),
       userEmail,
-      airtableApiKey: "",
+      airtablePersonalAccessToken: "",
       airtableBaseId: "",
       isAirtableConnected: false,
       createdDate: new Date().toISOString(),
       lastModified: new Date().toISOString(),
     }
 
-    // Don't return the actual API key for security
+    // Don't return the actual personal access token for security
     const safeSettings = {
       ...settings,
-      airtableApiKey: settings.airtableApiKey ? "••••••••••••••••" : "",
+      airtablePersonalAccessToken: settings.airtablePersonalAccessToken ? "••••••••••••••••" : "",
     }
 
     return NextResponse.json({ settings: safeSettings })
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userEmail, airtableApiKey, airtableBaseId } = body
+    const { userEmail, airtablePersonalAccessToken, airtableBaseId } = body
 
     if (!userEmail) {
       return NextResponse.json({ error: "User email is required" }, { status: 400 })
@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
     const settings = {
       id: randomUUID(),
       userEmail,
-      airtableApiKey: airtableApiKey || "",
+      airtablePersonalAccessToken: airtablePersonalAccessToken || "",
       airtableBaseId: airtableBaseId || "",
-      isAirtableConnected: !!(airtableApiKey && airtableBaseId),
+      isAirtableConnected: !!(airtablePersonalAccessToken && airtableBaseId),
       createdDate: new Date().toISOString(),
       lastModified: new Date().toISOString(),
     }
@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
     // Store settings
     userSettingsStore.set(userEmail, settings)
 
-    // Return safe settings (without actual API key)
+    // Return safe settings (without actual personal access token)
     const safeSettings = {
       ...settings,
-      airtableApiKey: settings.airtableApiKey ? "••••••••••••••••" : "",
+      airtablePersonalAccessToken: settings.airtablePersonalAccessToken ? "••••••••••••••••" : "",
     }
 
     return NextResponse.json({ settings: safeSettings })

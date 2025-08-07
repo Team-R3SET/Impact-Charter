@@ -2,13 +2,13 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { airtableApiKey, airtableBaseId } = await request.json()
+    const { airtablePersonalAccessToken, airtableBaseId } = await request.json()
 
-    if (!airtableApiKey || !airtableBaseId) {
+    if (!airtablePersonalAccessToken || !airtableBaseId) {
       return NextResponse.json(
         {
           success: false,
-          message: "Both API key and Base ID are required",
+          message: "Both Personal Access Token and Base ID are required",
         },
         { status: 400 },
       )
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     try {
       const response = await fetch(`https://api.airtable.com/v0/meta/bases/${airtableBaseId}/tables`, {
         headers: {
-          Authorization: `Bearer ${airtableApiKey}`,
+          Authorization: `Bearer ${airtablePersonalAccessToken}`,
         },
       })
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         if (response.status === 401) {
           return NextResponse.json({
             success: false,
-            message: "Invalid API key. Please check your Airtable API key.",
+            message: "Invalid Personal Access Token. Please check your Airtable personal access token.",
           })
         } else if (response.status === 404) {
           return NextResponse.json({
