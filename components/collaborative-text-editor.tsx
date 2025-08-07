@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight, Maximize, Minimize, Bold, Italic, Underline, X } from 'lucide-react'
+import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight, Maximize, Minimize, Bold, Italic, Underline, XCircle } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { businessPlanSections, getNextSection, getPreviousSection, getSectionIndex } from "@/lib/business-plan-sections"
 import { logAccess, logError } from "@/lib/logging"
@@ -595,7 +595,7 @@ export function CollaborativeTextEditor({
   // Determine final completion state
   const currentSection = sections?.[sectionId]
   const completedFromStorage = completedSections?.[sectionId] || currentSection?.isCompleted || false
-  const finalIsCompleted = isCollaborative ? completedFromStorage : isCompleted
+  const finalIsCompleted = isCompleted || (isCollaborative ? completedFromStorage : false)
 
   // Get navigation sections
   const prevSection = getPreviousSection(sectionId)
@@ -831,7 +831,7 @@ export function CollaborativeTextEditor({
             </>
           )}
 
-          {finalIsCompleted && currentSection && (
+          {finalIsCompleted && (
             <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-green-800 dark:text-green-200">
@@ -843,16 +843,16 @@ export function CollaborativeTextEditor({
                   disabled={isCompleting}
                   variant="outline"
                   size="sm"
-                  className="border-green-600 text-green-700 hover:bg-green-100 dark:border-green-400 dark:text-green-300 dark:hover:bg-green-900"
+                  className="text-orange-600 border-orange-600 hover:bg-orange-50"
                 >
                   {isCompleting ? (
                     <>
-                      <X className="w-3 h-3 mr-1 animate-spin" />
+                      <XCircle className="w-4 h-4 mr-2 animate-spin" />
                       Updating...
                     </>
                   ) : (
                     <>
-                      <X className="w-3 h-3 mr-1" />
+                      <XCircle className="w-4 h-4 mr-2" />
                       Mark Incomplete
                     </>
                   )}
