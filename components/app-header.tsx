@@ -46,12 +46,20 @@ export function AppHeader() {
     }
   }, [currentUser?.email])
 
+  // Add effect to refetch plans when pathname changes to ensure sync
+  useEffect(() => {
+    if (currentUser?.email && pathname === '/plans') {
+      fetchPlans()
+    }
+  }, [pathname, currentUser?.email])
+
   const fetchPlans = async () => {
     if (!currentUser?.email) return
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/business-plans?limit=5&owner=${encodeURIComponent(currentUser.email)}`)
+      // Remove owner filter to get all user's plans, not just limited by owner
+      const response = await fetch(`/api/business-plans?limit=10`)
       if (response.ok) {
         const data = await response.json()
         const plansArray = Array.isArray(data) ? data : data.plans || []
@@ -153,7 +161,8 @@ export function AppHeader() {
               <div className="hidden lg:block">
                 <Select value={selectedPlan} onValueChange={handlePlanChange}>
                   <SelectTrigger className="w-52 h-9 bg-background border-border/60 hover:border-border transition-colors">
-                    <SelectValue placeholder="Select a plan..." />
+                    {/* Updated placeholder text from "Select a plan..." to "Select a Charter..." */}
+                    <SelectValue placeholder="Select a Charter..." />
                   </SelectTrigger>
                   <SelectContent className="w-52">
                     {plans.map((plan) => (
