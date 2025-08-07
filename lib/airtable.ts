@@ -542,7 +542,7 @@ export async function syncLocalPlansToAirtable(ownerEmail: string): Promise<{
     }
 
     // Get existing Airtable plans to check for duplicates
-    const existingPlansUrl = `https://api.airtable.com/v0/${baseId}/Business%20Plans?filterByFormula={CreatedBy}='${ownerEmail}'`;
+    const existingPlansUrl = `https://api.airtable.com/v0/${baseId}/Business%20Plans?filterByFormula={Owner}='${ownerEmail}'`;
     const existingRes = await fetch(existingPlansUrl, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -556,7 +556,7 @@ export async function syncLocalPlansToAirtable(ownerEmail: string): Promise<{
 
     // Create a set of existing plan names for duplicate detection
     const existingPlanNames = new Set(
-      existingPlans.map(record => record.fields.Name?.toLowerCase().trim())
+      existingPlans.map(record => record.fields["Plan Name"]?.toLowerCase().trim())
     );
 
     // Sync each local plan
@@ -573,11 +573,12 @@ export async function syncLocalPlansToAirtable(ownerEmail: string): Promise<{
       try {
         // Create plan in Airtable
         const fields = {
-          Name: localPlan.planName,
-          Description: localPlan.description || "",
-          CreatedBy: localPlan.ownerEmail,
-          CreatedAt: localPlan.createdDate,
-          UpdatedAt: localPlan.lastModified,
+          "Plan ID": localPlan.id,
+          "Plan Name": localPlan.planName,
+          "Owner": localPlan.ownerEmail,
+          "Status": "Draft", // Default status for synced plans
+          "Created Date": localPlan.createdDate,
+          "Last Modified": localPlan.lastModified,
         };
 
         const createUrl = `https://api.airtable.com/v0/${baseId}/Business%20Plans`;
@@ -606,7 +607,7 @@ export async function syncLocalPlansToAirtable(ownerEmail: string): Promise<{
           let errorMessage = `Failed to sync "${localPlan.planName}"`;
           
           if (createRes.status === 404) {
-            errorMessage += ': Table "Business Plans" not found. Please create this table in your Airtable base with fields: Name (Single line text), Description (Long text), CreatedBy (Single line text), CreatedAt (Date), UpdatedAt (Date)';
+            errorMessage += ': Table "Business Plans" not found. Please create this table in your Airtable base with fields: Plan ID (Single line text), Plan Name (Single line text), Owner (Single line text), Status (Single select), Created Date (Date), Last Modified (Date)';
           } else if (createRes.status === 403) {
             errorMessage += ': Permission denied. Please ensure your personal access token has "data.records:write" scope and access to this base';
           } else if (createRes.status === 401) {
