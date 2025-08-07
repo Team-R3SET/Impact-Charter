@@ -227,7 +227,7 @@ export default function AirtableSetupPage() {
               {currentStep === 1 && (
                 <div className="space-y-6">
                   <div className="space-y-4">
-                    <h4 className="font-semibold">Generate Your Personal API Key</h4>
+                    <h4 className="font-semibold">Generate Your Personal Access Token</h4>
                     <ol className="space-y-4 text-sm">
                       <li className="flex items-start gap-3">
                         <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
@@ -262,7 +262,7 @@ export default function AirtableSetupPage() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label htmlFor="api-key">Enter Your Personal API Key</Label>
+                    <Label htmlFor="api-key">Enter Your Personal Access Token</Label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
                         <Input
