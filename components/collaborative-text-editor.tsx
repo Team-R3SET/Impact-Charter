@@ -835,8 +835,8 @@ export function CollaborativeTextEditor({
             <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-green-800 dark:text-green-200">
-                  ✅ This section was completed on {new Date(currentSection.lastModified).toLocaleDateString()}
-                  by {currentSection.modifiedBy}
+                  ✅ This section was completed{currentSection?.lastModified ? ` on ${new Date(currentSection.lastModified).toLocaleDateString()}` : ''}
+                  {currentSection?.modifiedBy ? ` by ${currentSection.modifiedBy}` : ''}
                 </p>
                 <Button
                   onClick={handleMarkIncomplete}
