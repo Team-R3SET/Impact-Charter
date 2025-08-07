@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { userSettingsStore } from "@/lib/shared-store"
+import { LocalStorageManager } from "@/lib/local-storage"
 
 export async function PATCH(request: NextRequest, { params }: { params: { planId: string } }) {
   try {
@@ -15,6 +16,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { planId
     
     const AIRTABLE_PERSONAL_ACCESS_TOKEN = userSettings?.airtablePersonalAccessToken
     const AIRTABLE_BASE_ID = userSettings?.airtableBaseId
+
+    try {
+      LocalStorageManager.updateBusinessPlan(planId, { 
+        planName: planName.trim(),
+        lastModified: new Date().toISOString()
+      })
+    } catch (localError) {
+      console.warn("Failed to update local storage:", localError)
+    }
 
     // If Airtable is not configured, return success with the new name
     if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {

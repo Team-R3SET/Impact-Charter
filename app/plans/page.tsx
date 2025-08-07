@@ -63,6 +63,29 @@ export default function PlansPage() {
     fetchPlans()
   }, [])
 
+  // Add effect to refresh plans when returning from plan page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Refresh plans when user returns to the page
+        fetchPlans()
+      }
+    }
+
+    const handleFocus = () => {
+      // Refresh plans when window gains focus
+      fetchPlans()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
   // Filter and sort plans
   const filteredAndSortedPlans = useMemo(() => {
     // ✅ Always work with an array
