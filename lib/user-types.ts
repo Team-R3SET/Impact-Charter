@@ -1,5 +1,30 @@
 export type UserRole = "administrator" | "regular"
 
+export interface UserPreferences {
+  theme: "light" | "dark" | "system"
+  language: string
+  timezone: string
+  notifications: {
+    email: boolean
+    push: boolean
+    inApp: boolean
+  }
+  privacy: {
+    profileVisible: boolean
+    activityVisible: boolean
+  }
+  collaboration: {
+    realTimeEditing: boolean
+    showPresence: boolean
+    allowComments: boolean
+  }
+  dashboard: {
+    defaultView: "grid" | "list" | "kanban"
+    itemsPerPage: number
+    showCompletedTasks: boolean
+  }
+}
+
 export interface User {
   id: string
   name: string
@@ -11,6 +36,7 @@ export interface User {
   lastLoginDate?: string
   isActive: boolean
   avatar?: string
+  preferences?: UserPreferences
 }
 
 export interface AccessLog {

@@ -49,6 +49,36 @@ const demoUsers: User[] = [
 // In-memory storage for demo mode
 const users: User[] = [...demoUsers]
 
+// Added missing function exports
+export const getUserStats = async () => {
+  const totalUsers = users.length
+  const activeUsers = users.filter(user => user.status === "ACTIVE").length
+  const adminUsers = users.filter(user => user.role === "ADMIN").length
+  const recentLogins = users.filter(user => {
+    if (!user.lastLoginDate) return false
+    const lastLogin = new Date(user.lastLoginDate)
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    return lastLogin > dayAgo
+  }).length
+
+  return {
+    totalUsers,
+    activeUsers,
+    adminUsers,
+    recentLogins,
+    inactiveUsers: totalUsers - activeUsers
+  }
+}
+
+export const getCurrentUser = async (email?: string): Promise<User | null> => {
+  if (!email) return null
+  return users.find(user => user.email === email) || null
+}
+
+export const canViewLogs = (user: User | null): boolean => {
+  return user?.role === "ADMIN" || false
+}
+
 export const getDemoUsers = (): User[] => {
   return [...demoUsers]
 }

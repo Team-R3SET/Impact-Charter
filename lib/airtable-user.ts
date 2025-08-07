@@ -52,8 +52,12 @@ export async function getAirtableUser(email: string): Promise<AirtableUser | nul
 }
 
 export async function markBusinessPlanSectionComplete(
-  planId: string,
-  sectionName: string,
+  sectionData: {
+    planId: string
+    sectionName: string
+    completedBy: string
+    completedAt: string
+  },
   userEmail: string,
 ): Promise<void> {
   if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
@@ -62,6 +66,9 @@ export async function markBusinessPlanSectionComplete(
   }
 
   try {
+    // Use sectionData object properties instead of individual parameters
+    const { planId, sectionName } = sectionData
+    
     // First, try to find existing section record
     const filterFormula = `AND({planId} = "${planId}", {sectionName} = "${sectionName}")`
     const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections?filterByFormula=${encodeURIComponent(filterFormula)}&maxRecords=1`
@@ -78,14 +85,15 @@ export async function markBusinessPlanSectionComplete(
     const searchData = await searchRes.json()
     const existingRecord = searchData.records?.[0]
 
+    // Use completedBy and completedAt from sectionData
     const updateData = {
       planId,
       sectionName,
       isComplete: true,
       submittedForReview: true,
-      completedDate: new Date().toISOString(),
+      completedDate: sectionData.completedAt,
       lastModified: new Date().toISOString(),
-      modifiedBy: userEmail,
+      modifiedBy: sectionData.completedBy,
     }
 
     let url: string
@@ -123,6 +131,78 @@ export async function markBusinessPlanSectionComplete(
     console.log(`Successfully marked section ${sectionName} as complete`)
   } catch (error) {
     console.error("Error marking section as complete:", error)
+    throw error
+  }
+}
+
+export async function updateBusinessPlanSectionWithUserCreds(
+  planId: string,
+  sectionName: string,
+  content: string,
+  userEmail: string
+): Promise<void> {
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    console.log("Airtable API keys missing - operation completed locally")
+    return
+  }
+
+  try {
+    // First, try to find existing section record
+    const filterFormula = `AND({planId} = "${planId}", {sectionName} = "${sectionName}")`
+    const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections?filterByFormula=${encodeURIComponent(filterFormula)}&maxRecords=1`
+
+    const searchRes = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+      cache: "no-store",
+    })
+
+    if (!searchRes.ok) {
+      throw new Error(`Failed to search for section: ${searchRes.status}`)
+    }
+
+    const searchData = await searchRes.json()
+    const existingRecord = searchData.records?.[0]
+
+    const updateData = {
+      planId,
+      sectionName,
+      sectionContent: content,
+      lastModified: new Date().toISOString(),
+      modifiedBy: userEmail,
+    }
+
+    let url: string
+    let method: string
+
+    if (existingRecord) {
+      // Update existing record
+      url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${existingRecord.id}`
+      method = "PATCH"
+    } else {
+      // Create new record
+      url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`
+      method = "POST"
+      updateData.isComplete = false
+      updateData.submittedForReview = false
+    }
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields: updateData }),
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      throw new Error(`Airtable operation failed: ${res.status} - ${errorText}`)
+    }
+
+    console.log(`Successfully updated section ${sectionName}`)
+  } catch (error) {
+    console.error("Error updating section:", error)
     throw error
   }
 }

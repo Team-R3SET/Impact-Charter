@@ -3,6 +3,18 @@ import { randomUUID } from "crypto"
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
 
+export interface AirtableConnectionTest {
+  isConnected: boolean
+  message: string
+  timestamp: string
+  details?: {
+    hasApiKey: boolean
+    hasBaseId: boolean
+    status?: number
+    error?: string
+  }
+}
+
 export interface UserSettings {
   id?: string
   userId: string

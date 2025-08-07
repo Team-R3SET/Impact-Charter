@@ -1,6 +1,21 @@
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
 
+export interface AirtableConnection {
+  isConnected: boolean
+  baseId?: string
+  hasApiKey: boolean
+  lastTested?: string
+  error?: string
+}
+
+export interface AirtableTestResult {
+  success: boolean
+  message: string
+  details?: any
+  timestamp: string
+}
+
 export interface AirtableTable {
   id: string
   name: string
@@ -19,6 +34,95 @@ export interface AirtableRecord {
   id: string
   fields: Record<string, any>
   createdTime: string
+}
+
+export async function getAirtableConnection(): Promise<AirtableConnection> {
+  const hasApiKey = !!AIRTABLE_API_KEY
+  const baseId = AIRTABLE_BASE_ID
+
+  if (!hasApiKey || !baseId) {
+    return {
+      isConnected: false,
+      hasApiKey,
+      baseId,
+      error: "Missing API key or Base ID"
+    }
+  }
+
+  try {
+    const testResult = await testAirtableConnection()
+    return {
+      isConnected: testResult.success,
+      hasApiKey,
+      baseId,
+      lastTested: new Date().toISOString(),
+      error: testResult.success ? undefined : testResult.message
+    }
+  } catch (error) {
+    return {
+      isConnected: false,
+      hasApiKey,
+      baseId,
+      error: error instanceof Error ? error.message : "Unknown error"
+    }
+  }
+}
+
+export async function testAirtableQuery(tableName: string = "Users"): Promise<AirtableTestResult> {
+  const timestamp = new Date().toISOString()
+  
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    return {
+      success: false,
+      message: "Missing Airtable credentials",
+      timestamp,
+      details: {
+        hasApiKey: !!AIRTABLE_API_KEY,
+        hasBaseId: !!AIRTABLE_BASE_ID
+      }
+    }
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}?maxRecords=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `Query failed: ${response.status} ${response.statusText}`,
+        timestamp,
+        details: {
+          status: response.status,
+          tableName
+        }
+      }
+    }
+
+    const data = await response.json()
+    return {
+      success: true,
+      message: "Query successful",
+      timestamp,
+      details: {
+        recordCount: data.records?.length || 0,
+        tableName
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: `Query error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      timestamp,
+      details: { error: String(error) }
+    }
+  }
 }
 
 export async function testAirtableConnection(): Promise<{
