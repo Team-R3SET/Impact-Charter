@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu } from 'lucide-react'
+import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu, HelpCircle } from 'lucide-react'
 import { useUser } from "@/contexts/user-context"
 import { RoleSwitcher } from "./role-switcher"
 import { NotificationsDropdown } from "./notifications-dropdown"
@@ -105,6 +105,7 @@ export function AppHeader() {
     { href: "/", label: "Home" },
     { href: "/plans", label: "My Plans" },
     { href: "/pricing", label: "Pricing" },
+    { href: "/setup/airtable", label: "Setup Guide" },
     { href: "/settings", label: "Settings" },
   ]
 
@@ -299,6 +300,13 @@ export function AppHeader() {
                       <Link href="/settings" className="cursor-pointer">
                         <Settings className="mr-2 h-4 w-4" />
                         Settings
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link href="/setup/airtable" className="cursor-pointer">
+                        <HelpCircle className="mr-2 h-4 w-4" />
+                        Setup Guide
                       </Link>
                     </DropdownMenuItem>
 
