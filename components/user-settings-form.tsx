@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { Save, TestTube, CheckCircle, XCircle, ExternalLink, Key, Database, AlertTriangle, Info } from 'lucide-react'
+import { Save, TestTube, CheckCircle, XCircle, ExternalLink, Key, Database, AlertTriangle, Info, FolderSyncIcon as Sync, Loader2, Beaker } from 'lucide-react'
 import type { UserSettings, AirtableConnectionTest } from "@/lib/user-settings"
 
 interface UserSettingsFormProps {
@@ -21,14 +21,17 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [isTestingSyncFlow, setIsTestingSyncFlow] = useState(false)
+  const [syncResult, setSyncResult] = useState<any>(null)
   const [testResult, setTestResult] = useState<AirtableConnectionTest | null>(null)
   const [formData, setFormData] = useState({
     airtablePersonalAccessToken: "",
     airtableBaseId: "",
   })
   const { toast } = useToast()
+  const isDevelopment = process.env.NODE_ENV === 'development';
 
-  // Load user settings
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -112,6 +115,115 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
     }
   }
 
+  const handleSyncPlans = async () => {
+    if (!settings?.isAirtableConnected) {
+      toast({
+        title: "Error",
+        description: "Please save your Airtable credentials first",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSyncing(true)
+    setSyncResult(null)
+
+    try {
+      const response = await fetch("/api/sync-plans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userEmail }),
+      })
+
+      const result = await response.json()
+      setSyncResult(result)
+
+      if (result.success) {
+        toast({
+          title: "Sync Complete",
+          description: `${result.syncedCount} plans synced, ${result.skippedCount} skipped`,
+        })
+      } else {
+        toast({
+          title: "Sync Issues",
+          description: `${result.syncedCount} synced, but ${result.errors.length} errors occurred`,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Sync failed:", error)
+      toast({
+        title: "Error",
+        description: "Failed to sync plans",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  const handleTestSyncFlow = async () => {
+    if (!settings?.isAirtableConnected) {
+      toast({
+        title: "Error",
+        description: "Please save your Airtable credentials first",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsTestingSyncFlow(true)
+
+    try {
+      const response = await fetch("/api/test-sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userEmail }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Sync Test Complete",
+          description: `Created ${result.testPlansCreated} test plans and verified sync functionality`,
+        })
+        
+        // Show detailed results
+        setSyncResult({
+          success: true,
+          details: [
+            `Created ${result.testPlansCreated} test plans`,
+            `Initial sync: ${result.initialSync.syncedCount} synced, ${result.initialSync.skippedCount} skipped`,
+            `Found ${result.verificationResult.plansFound} plans in Airtable`,
+            `Duplicate detection: ${result.duplicateDetectionTest.skippedCount} duplicates detected`
+          ],
+          syncedCount: result.initialSync.syncedCount,
+          skippedCount: result.initialSync.skippedCount + result.duplicateDetectionTest.skippedCount
+        })
+      } else {
+        toast({
+          title: "Test Failed",
+          description: result.error || "Unknown error occurred",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Test failed:", error)
+      toast({
+        title: "Error",
+        description: "Failed to run sync test",
+        variant: "destructive",
+      })
+    } finally {
+      setIsTestingSyncFlow(false)
+    }
+  }
+
   const handleSave = async () => {
     setIsSaving(true)
     try {
@@ -139,11 +251,16 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
         description: "Settings saved successfully!",
       })
 
-      // Clear the form token field since it will be masked
       setFormData((prev) => ({
         ...prev,
         airtablePersonalAccessToken: "",
       }))
+
+      if (updatedSettings.isAirtableConnected) {
+        setTimeout(() => {
+          handleSyncPlans()
+        }, 1000)
+      }
     } catch (error) {
       console.error("Failed to save settings:", error)
       toast({
@@ -169,7 +286,6 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
 
   return (
     <div className="space-y-6">
-      {/* Connection Status */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -201,7 +317,6 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
         </CardContent>
       </Card>
 
-      {/* Airtable Configuration */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -211,7 +326,6 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
           <CardDescription>Connect your personal Airtable base to save and sync your business plans</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Instructions */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
@@ -270,7 +384,6 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
             </div>
           </div>
 
-          {/* Test Connection */}
           <div className="space-y-4">
             <Separator />
             <div className="flex items-center gap-3">
@@ -318,7 +431,6 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
             )}
           </div>
 
-          {/* Save Button */}
           <div className="flex justify-end gap-2">
             <Button onClick={handleSave} disabled={isSaving} className="gap-2">
               <Save className="w-4 h-4" />
@@ -328,7 +440,88 @@ export function UserSettingsForm({ userEmail }: UserSettingsFormProps) {
         </CardContent>
       </Card>
 
-      {/* Security Notice */}
+      {settings?.isAirtableConnected && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sync className="w-5 h-5" />
+              Sync Local Plans
+            </CardTitle>
+            <CardDescription>
+              Sync your existing local plans to Airtable. Duplicates will be automatically skipped.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleSyncPlans}
+                disabled={isSyncing}
+                variant="outline"
+                className="gap-2"
+              >
+                {isSyncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sync className="w-4 h-4" />
+                )}
+                {isSyncing ? "Syncing..." : "Sync Plans to Airtable"}
+              </Button>
+              
+              {isDevelopment && (
+                <Button
+                  onClick={handleTestSyncFlow}
+                  disabled={isTestingSyncFlow}
+                  variant="outline"
+                  className="gap-2 ml-2"
+                >
+                  {isTestingSyncFlow ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Beaker className="w-4 h-4" />
+                  )}
+                  {isTestingSyncFlow ? "Testing..." : "Test Sync Flow"}
+                </Button>
+              )}
+            </div>
+
+            {syncResult && (
+              <Alert className={syncResult.success ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {syncResult.success ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-600" />
+                    )}
+                    <span className="font-medium">
+                      Sync Results: {syncResult.syncedCount} synced, {syncResult.skippedCount} skipped
+                    </span>
+                  </div>
+                  {syncResult.details && syncResult.details.length > 0 && (
+                    <div className="text-sm space-y-1">
+                      {syncResult.details.slice(0, 5).map((detail: string, index: number) => (
+                        <div key={index} className="text-muted-foreground">
+                          {detail}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {syncResult.errors && syncResult.errors.length > 0 && (
+                    <div className="text-sm space-y-1">
+                      {syncResult.errors.slice(0, 3).map((error: string, index: number) => (
+                        <div key={index} className="text-red-600">
+                          ⚠ {error}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -507,3 +507,119 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
     error: result.error
   }
 }
+
+// Adding sync function to push local plans to Airtable with duplicate detection
+export async function syncLocalPlansToAirtable(ownerEmail: string): Promise<{
+  success: boolean;
+  syncedCount: number;
+  skippedCount: number;
+  errors: string[];
+  details: string[];
+}> {
+  const results = {
+    success: true,
+    syncedCount: 0,
+    skippedCount: 0,
+    errors: [] as string[],
+    details: [] as string[]
+  };
+
+  try {
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
+
+    if (!baseId || !token) {
+      throw new Error("Airtable credentials missing");
+    }
+
+    // Get local plans
+    const localPlans = LocalStorageManager.getBusinessPlans(ownerEmail);
+    results.details.push(`Found ${localPlans.length} local plans to sync`);
+
+    if (localPlans.length === 0) {
+      results.details.push("No local plans found to sync");
+      return results;
+    }
+
+    // Get existing Airtable plans to check for duplicates
+    const existingPlansUrl = `https://api.airtable.com/v0/${baseId}/Business%20Plans?filterByFormula={CreatedBy}='${ownerEmail}'`;
+    const existingRes = await fetch(existingPlansUrl, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    let existingPlans: any[] = [];
+    if (existingRes.ok) {
+      const existingData = await existingRes.json();
+      existingPlans = existingData.records || [];
+      results.details.push(`Found ${existingPlans.length} existing plans in Airtable`);
+    }
+
+    // Create a set of existing plan names for duplicate detection
+    const existingPlanNames = new Set(
+      existingPlans.map(record => record.fields.Name?.toLowerCase().trim())
+    );
+
+    // Sync each local plan
+    for (const localPlan of localPlans) {
+      const planNameLower = localPlan.planName.toLowerCase().trim();
+      
+      // Check for duplicates
+      if (existingPlanNames.has(planNameLower)) {
+        results.skippedCount++;
+        results.details.push(`Skipped "${localPlan.planName}" - already exists in Airtable`);
+        continue;
+      }
+
+      try {
+        // Create plan in Airtable
+        const fields = {
+          Name: localPlan.planName,
+          Description: localPlan.description || "",
+          CreatedBy: localPlan.ownerEmail,
+          CreatedAt: localPlan.createdDate,
+          UpdatedAt: localPlan.lastModified,
+        };
+
+        const createUrl = `https://api.airtable.com/v0/${baseId}/Business%20Plans`;
+        const createRes = await fetch(createUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ fields }),
+        });
+
+        if (createRes.ok) {
+          const createdData = await createRes.json();
+          results.syncedCount++;
+          results.details.push(`✓ Synced "${localPlan.planName}" to Airtable`);
+          
+          // Add to existing names set to prevent duplicates in this batch
+          existingPlanNames.add(planNameLower);
+          
+          // Update local plan with Airtable ID
+          const updatedPlan = { ...localPlan, id: createdData.id };
+          LocalStorageManager.updateBusinessPlan(updatedPlan);
+        } else {
+          const errorText = await createRes.text();
+          results.errors.push(`Failed to sync "${localPlan.planName}": ${errorText}`);
+          results.success = false;
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        results.errors.push(`Error syncing "${localPlan.planName}": ${errorMsg}`);
+        results.success = false;
+      }
+    }
+
+    results.details.push(`Sync complete: ${results.syncedCount} synced, ${results.skippedCount} skipped, ${results.errors.length} errors`);
+    
+  } catch (error) {
+    results.success = false;
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    results.errors.push(`Sync failed: ${errorMsg}`);
+  }
+
+  return results;
+}
