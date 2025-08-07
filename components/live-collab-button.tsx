@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Wifi, Play, Square } from "lucide-react"
+import { Wifi, Play, Square } from 'lucide-react'
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
@@ -32,6 +32,9 @@ export function LiveCollabButton({ planId }: LiveCollabButtonProps) {
         const url = new URL(window.location.href)
         url.searchParams.delete("collab")
         router.replace(url.pathname + url.search)
+        
+        // Update state immediately after URL change
+        setIsCollaborative(false)
 
         toast({
           title: "Collaboration stopped",
@@ -42,6 +45,9 @@ export function LiveCollabButton({ planId }: LiveCollabButtonProps) {
         const url = new URL(window.location.href)
         url.searchParams.set("collab", "true")
         router.replace(url.pathname + url.search)
+        
+        // Update state immediately after URL change
+        setIsCollaborative(true)
 
         toast({
           title: "Live collaboration started!",
