@@ -262,7 +262,7 @@ export default function AirtableSetupPage() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label htmlFor="api-key">Enter Your API Key</Label>
+                    <Label htmlFor="api-key">Enter Your Personal API Key</Label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
                         <Input
