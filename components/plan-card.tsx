@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Edit, Copy, Share, Trash2, Calendar, Clock, FileText } from "lucide-react"
+import { MoreHorizontal, Edit, Copy, Share, Trash2, Calendar, Clock, FileText } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -103,17 +103,28 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
 
     try {
       setIsDeleting(true)
-      // TODO: Implement delete API endpoint
-      toast({
-        title: "Plan deleted",
-        description: "The business plan has been deleted.",
+      const response = await fetch(`/api/business-plans/${plan.id}`, {
+        method: "DELETE",
       })
-      // Refresh the page
-      window.location.reload()
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Plan deleted",
+          description: data.airtableWorked 
+            ? "The business plan has been deleted from Airtable." 
+            : "The business plan has been deleted locally.",
+        })
+        // Refresh the page
+        window.location.reload()
+      } else {
+        throw new Error(data.error || "Failed to delete plan")
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete the plan. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete the plan. Please try again.",
         variant: "destructive",
       })
     } finally {

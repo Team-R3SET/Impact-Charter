@@ -53,12 +53,11 @@ export default function AirtableSetupPage() {
       name: "Business Plans",
       description: "Main table for storing business plan information",
       fields: [
-        { name: "Plan ID", type: "Single line text", description: "Unique identifier" },
-        { name: "Plan Name", type: "Single line text", description: "Business plan title" },
-        { name: "Owner", type: "Single line text", description: "Plan owner email" },
-        { name: "Status", type: "Single select", description: "Draft, In Progress, Complete" },
-        { name: "Created Date", type: "Date", description: "When plan was created" },
-        { name: "Last Modified", type: "Date", description: "Last update timestamp" }
+        { name: "Name", type: "Single line text", description: "Business plan title" },
+        { name: "Description", type: "Long text", description: "Plan description or summary" },
+        { name: "CreatedBy", type: "Single line text", description: "Plan owner email" },
+        { name: "CreatedAt", type: "Date", description: "When plan was created" },
+        { name: "UpdatedAt", type: "Date", description: "Last update timestamp" }
       ]
     },
     {
@@ -75,8 +74,8 @@ export default function AirtableSetupPage() {
       ]
     },
     {
-      name: "Users",
-      description: "User management and permissions",
+      name: "User Profiles",
+      description: "User profiles and permissions",
       fields: [
         { name: "User ID", type: "Single line text", description: "Unique user identifier" },
         { name: "Email", type: "Email", description: "User email address" },

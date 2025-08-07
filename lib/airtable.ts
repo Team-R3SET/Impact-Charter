@@ -1,17 +1,14 @@
-import { randomUUID } from "crypto"
 import { LocalStorageManager } from "./local-storage"
 
-// Updated to use personal access token instead of deprecated API key
-const AIRTABLE_PERSONAL_ACCESS_TOKEN = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
-const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
-
+// Type definitions
 export interface BusinessPlan {
-  id?: string
+  id: string
   planName: string
   createdDate: string
   lastModified: string
   ownerEmail: string
-  status: "Draft" | "In Progress" | "Complete" | "Submitted for Review"
+  status: string
+  description?: string
 }
 
 export interface BusinessPlanSection {
@@ -24,67 +21,183 @@ export interface BusinessPlanSection {
   isComplete?: boolean
   submittedForReview?: boolean
   completedDate?: string
+  completedBy?: string
+  completedAt?: string
 }
 
 export interface UserProfile {
   id?: string
-  name: string
   email: string
-  avatar?: string
-  company?: string
-  role?: string
-  bio?: string
-  createdDate: string
-  lastModified: string
+  name: string
+  role: string
+  lastActive: string
 }
 
-// Enhanced error handling with local fallback and error reporting
+// Helper function for Airtable operations with local fallback
 async function withLocalFallback<T>(
-  operation: () => Promise<T>, 
-  fallback: () => T, 
-  operationName: string
-): Promise<{ data: T; airtableWorked: boolean; error?: string }> {
-  // Updated credential check to use personal access token
-  // Skip Airtable entirely if credentials are missing
-  if (!AIRTABLE_PERSONAL_ACCESS_TOKEN || !AIRTABLE_BASE_ID) {
-    console.log(`[${operationName}] Airtable credentials missing - using local fallback`)
-    return {
-      data: fallback(),
-      airtableWorked: false,
-      error: "Airtable credentials not configured. Please add AIRTABLE_PERSONAL_ACCESS_TOKEN and AIRTABLE_BASE_ID to your environment variables."
-    }
-  }
-
+  airtableOperation: () => Promise<T>,
+  localFallback: () => T
+): Promise<{ data: T; airtableWorked: boolean; error?: string; troubleshooting?: string }> {
   try {
-    const result = await operation()
-    return { data: result, airtableWorked: true }
+    const data = await airtableOperation()
+    return { data, airtableWorked: true }
   } catch (error) {
-    console.warn(`[${operationName}] Airtable operation failed, using local fallback:`, error)
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    return {
-      data: fallback(),
-      airtableWorked: false,
-      error: `Airtable operation failed: ${errorMessage}`
+    console.warn("Airtable operation failed, using local fallback:", error)
+    const data = localFallback()
+    
+    let troubleshooting = ""
+    if (error instanceof Error) {
+      if (error.message.includes("404")) {
+        troubleshooting = "Table not found in Airtable. Please check your base setup and table names."
+      } else if (error.message.includes("403")) {
+        troubleshooting = "Permission denied. Check your Personal Access Token scopes and base permissions."
+      } else if (error.message.includes("401")) {
+        troubleshooting = "Invalid credentials. Please verify your Personal Access Token in Settings."
+      } else {
+        troubleshooting = "Connection failed. Check your Airtable configuration and internet connection."
+      }
+    }
+    
+    return { 
+      data, 
+      airtableWorked: false, 
+      error: error instanceof Error ? error.message : "Unknown error",
+      troubleshooting
     }
   }
 }
 
-export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promise<{ plan: BusinessPlan; airtableWorked: boolean; error?: string }> {
+// Business Plans functions
+export async function getBusinessPlans(ownerEmail: string): Promise<{ 
+  plans: BusinessPlan[]; 
+  airtableWorked: boolean; 
+  error?: string;
+  troubleshooting?: string;
+}> {
   const result = await withLocalFallback(
     async () => {
-      const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans`, {
+      const baseId = process.env.AIRTABLE_BASE_ID
+      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+
+      if (!baseId || !token) {
+        throw new Error("Airtable credentials missing")
+      }
+
+      const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans?filterByFormula={CreatedBy}='${ownerEmail}'`
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (res.status === 404) {
+        throw new Error("Business Plans table not found in Airtable base")
+      }
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
+      }
+
+      const data = await res.json()
+      return data.records.map((record: any) => ({
+        id: record.id,
+        planName: record.fields.Name || "",
+        createdDate: record.fields.CreatedAt || new Date().toISOString(),
+        lastModified: record.fields.UpdatedAt || new Date().toISOString(),
+        ownerEmail: record.fields.CreatedBy || ownerEmail,
+        status: record.fields.Status || "Draft",
+        description: record.fields.Description || "",
+      }))
+    },
+    () => LocalStorageManager.getBusinessPlans(ownerEmail)
+  )
+
+  return {
+    plans: result.data,
+    airtableWorked: result.airtableWorked,
+    error: result.error,
+    troubleshooting: result.troubleshooting
+  }
+}
+
+export async function getBusinessPlan(planId: string): Promise<BusinessPlan | null> {
+  const result = await withLocalFallback(
+    async () => {
+      const baseId = process.env.AIRTABLE_BASE_ID
+      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+
+      if (!baseId || !token) {
+        throw new Error("Airtable credentials missing")
+      }
+
+      const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans/${planId}`
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          return null
+        }
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
+      }
+
+      const data = await res.json()
+      return {
+        id: data.id,
+        planName: data.fields.Name || "",
+        createdDate: data.fields.CreatedAt || new Date().toISOString(),
+        lastModified: data.fields.UpdatedAt || new Date().toISOString(),
+        ownerEmail: data.fields.CreatedBy || "",
+        status: data.fields.Status || "Draft",
+        description: data.fields.Description || "",
+      }
+    },
+    () => LocalStorageManager.getBusinessPlan(planId)
+  )
+
+  return result.data
+}
+
+export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promise<{ 
+  plan: BusinessPlan; 
+  airtableWorked: boolean; 
+  error?: string;
+  troubleshooting?: string;
+}> {
+  const result = await withLocalFallback(
+    async () => {
+      const baseId = process.env.AIRTABLE_BASE_ID
+      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+
+      if (!baseId || !token) {
+        throw new Error("Airtable credentials missing")
+      }
+
+      const fields = {
+        Name: plan.planName,
+        Description: plan.description || "",
+        CreatedBy: plan.ownerEmail,
+        CreatedAt: plan.createdDate,
+        UpdatedAt: plan.lastModified,
+      }
+
+      const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans`
+      const res = await fetch(url, {
         method: "POST",
         headers: {
-          // Updated authorization header to use personal access token
-          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ fields: plan }),
+        body: JSON.stringify({ fields }),
       })
 
       if (!res.ok) {
         const errorText = await res.text()
-        // Enhanced error handling for specific HTTP status codes
         if (res.status === 404) {
           throw new Error(`Table "Business Plans" not found in your Airtable base. Please create this table with the following fields: Name (Single line text), Description (Long text), CreatedBy (Single line text), CreatedAt (Date), UpdatedAt (Date)`)
         } else if (res.status === 403) {
@@ -97,52 +210,101 @@ export async function createBusinessPlan(plan: Omit<BusinessPlan, "id">): Promis
       }
 
       const data = await res.json()
-      const createdPlan = { id: data.id, ...data.fields }
-
-      // Also save to local storage as backup
-      if (typeof window !== "undefined") {
-        LocalStorageManager.saveBusinessPlans([createdPlan])
-      }
-
-      return createdPlan
+      return { id: data.id, ...plan }
     },
-    () => {
-      const localPlan = { id: randomUUID(), ...plan }
-      if (typeof window !== "undefined") {
-        LocalStorageManager.saveBusinessPlans([localPlan])
-      }
-      return localPlan
-    },
-    "createBusinessPlan",
+    () => LocalStorageManager.createBusinessPlan(plan)
   )
 
   return {
     plan: result.data,
     airtableWorked: result.airtableWorked,
-    error: result.error
+    error: result.error,
+    troubleshooting: result.troubleshooting
   }
 }
 
-export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan[]> {
-  console.log(`[getBusinessPlans] Fetching plans for owner: ${ownerEmail}`)
+export async function deleteBusinessPlan(planId: string): Promise<{ 
+  success: boolean; 
+  airtableWorked: boolean; 
+  error?: string;
+  troubleshooting?: string;
+}> {
+  try {
+    let airtableWorked = false;
+    let troubleshooting = "";
+    
+    try {
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
+      
+      if (!baseId || !token) {
+        troubleshooting = "Airtable credentials are missing. Please check your environment variables.";
+        throw new Error("Airtable credentials missing");
+      }
+      
+      const url = `https://api.airtable.com/v0/${baseId}/Business%20Plans/${planId}`;
+      const res = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!res.ok) {
+        if (res.status === 404) {
+          troubleshooting = "The plan was not found in Airtable. It may have been deleted already or the table structure is incorrect.";
+          throw new Error("Plan not found in Airtable");
+        } else if (res.status === 403) {
+          troubleshooting = "Your Personal Access Token doesn't have permission to delete records. Ensure it has 'data.records:write' scope.";
+          throw new Error("Permission denied");
+        } else {
+          const errorText = await res.text();
+          troubleshooting = `Airtable API error: ${errorText}. Check your Airtable base configuration.`;
+          throw new Error(`HTTP ${res.status}: ${errorText}`);
+        }
+      }
+      
+      airtableWorked = true;
+    } catch (airtableError) {
+      console.warn("[deleteBusinessPlan] Airtable operation failed:", airtableError);
+    }
+    
+    const localResult = LocalStorageManager.deleteBusinessPlan(planId);
+    
+    return {
+      success: true,
+      airtableWorked,
+      troubleshooting: !airtableWorked ? troubleshooting : undefined
+    };
+  } catch (error) {
+    console.error("[deleteBusinessPlan] Error:", error);
+    return {
+      success: false,
+      airtableWorked: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      troubleshooting: "There was an error deleting the plan. Check the console for more details."
+    };
+  }
+}
 
+// User Profile functions
+export async function getUserProfile(email: string): Promise<UserProfile | null> {
   const result = await withLocalFallback(
     async () => {
-      const filterFormula = `{ownerEmail} = "${ownerEmail}"`
-      const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans?filterByFormula=${encodeURIComponent(
-        filterFormula,
-      )}&sort[0][field]=lastModified&sort[0][direction]=desc`
+      const baseId = process.env.AIRTABLE_BASE_ID
+      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
 
-      const res = await fetch(url, {
-        // Updated authorization header to use personal access token
-        headers: { Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}` },
-        cache: "no-store",
-      })
-
-      if (res.status === 404) {
-        console.warn("[getBusinessPlans] Table not found")
-        throw new Error("Business Plans table not found in Airtable base")
+      if (!baseId || !token) {
+        throw new Error("Airtable credentials missing")
       }
+
+      const url = `https://api.airtable.com/v0/${baseId}/User%20Profiles?filterByFormula={Email}='${email}'`
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
       if (!res.ok) {
         const errorText = await res.text()
@@ -150,49 +312,92 @@ export async function getBusinessPlans(ownerEmail: string): Promise<BusinessPlan
       }
 
       const data = await res.json()
-      const records = Array.isArray(data.records) ? data.records : []
-      const plans = records.map((record: any) => ({
+      if (data.records.length === 0) {
+        return null
+      }
+
+      const record = data.records[0]
+      return {
         id: record.id,
-        ...record.fields,
-      })) as BusinessPlan[]
-
-      // Sync to local storage
-      if (typeof window !== "undefined" && plans.length > 0) {
-        LocalStorageManager.saveBusinessPlans(plans)
+        email: record.fields.Email || email,
+        name: record.fields.Name || "",
+        role: record.fields.Role || "Viewer",
+        lastActive: record.fields["Last Active"] || new Date().toISOString(),
       }
-
-      return plans
     },
-    () => {
-      if (typeof window !== "undefined") {
-        return LocalStorageManager.getBusinessPlans(ownerEmail)
-      }
-      // Server-side fallback
-      return [
-        {
-          id: "sample-1",
-          planName: "Sample Tech Startup",
-          createdDate: new Date(Date.now() - 86400000).toISOString(),
-          lastModified: new Date().toISOString(),
-          ownerEmail,
-          status: "In Progress",
-        },
-        {
-          id: "sample-2",
-          planName: "E-commerce Business",
-          createdDate: new Date(Date.now() - 172800000).toISOString(),
-          lastModified: new Date(Date.now() - 3600000).toISOString(),
-          ownerEmail,
-          status: "Draft",
-        },
-      ]
-    },
-    "getBusinessPlans",
+    () => LocalStorageManager.getUserProfile(email)
   )
 
   return result.data
 }
 
+export async function createOrUpdateUserProfile(profile: Omit<UserProfile, "id">): Promise<UserProfile> {
+  const result = await withLocalFallback(
+    async () => {
+      const baseId = process.env.AIRTABLE_BASE_ID
+      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+
+      if (!baseId || !token) {
+        throw new Error("Airtable credentials missing")
+      }
+
+      // First check if user exists
+      const existingProfile = await getUserProfile(profile.email)
+      
+      const fields = {
+        Email: profile.email,
+        Name: profile.name,
+        Role: profile.role,
+        "Last Active": profile.lastActive,
+      }
+
+      let url: string
+      let method: string
+      
+      if (existingProfile?.id) {
+        // Update existing
+        url = `https://api.airtable.com/v0/${baseId}/User%20Profiles/${existingProfile.id}`
+        method = "PATCH"
+      } else {
+        // Create new
+        url = `https://api.airtable.com/v0/${baseId}/User%20Profiles`
+        method = "POST"
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ fields }),
+      })
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
+      }
+
+      const data = await res.json()
+      return {
+        id: data.id,
+        email: data.fields.Email,
+        name: data.fields.Name,
+        role: data.fields.Role,
+        lastActive: data.fields["Last Active"],
+      }
+    },
+    () => {
+      const userProfile: UserProfile = { ...profile, id: `local-${Date.now()}` }
+      LocalStorageManager.saveUserProfile(userProfile)
+      return userProfile
+    }
+  )
+
+  return result.data
+}
+
+// Business Plan Sections functions
 export async function updateBusinessPlanSection(section: BusinessPlanSection): Promise<{ airtableWorked: boolean; error?: string }> {
   const result = await withLocalFallback(
     async () => {
@@ -207,344 +412,64 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
         completedDate: section.completedDate,
       }
 
-      const createRecord = async () => {
-        const createRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`, {
-          method: "POST",
-          headers: {
-            // Updated authorization header to use personal access token
-            Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ fields }),
-        })
-        if (!createRes.ok) {
-          const txt = await createRes.text()
-          throw new Error(`HTTP ${createRes.status}: ${txt}`)
-        }
+      const baseId = process.env.AIRTABLE_BASE_ID
+      const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN
+
+      if (!baseId || !token) {
+        throw new Error("Airtable credentials missing")
       }
 
-      if (section.id) {
-        const patchRes = await fetch(
-          `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${section.id}`,
-          {
-            method: "PATCH",
-            headers: {
-              // Updated authorization header to use personal access token
-              Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ fields }),
-          },
-        )
-
-        if (patchRes.status === 404) {
-          console.warn(`[updateBusinessPlanSection] Record ${section.id} not found – creating a new one`)
-          await createRecord()
-          return
-        }
-
-        if (!patchRes.ok) {
-          const txt = await patchRes.text()
-          throw new Error(`HTTP ${patchRes.status}: ${txt}`)
-        }
-      } else {
-        await createRecord()
-      }
-
-      // Save to local storage as backup
-      if (typeof window !== "undefined") {
-        LocalStorageManager.savePlanSection(section)
-      }
-    },
-    () => {
-      // Local fallback
-      if (typeof window !== "undefined") {
-        LocalStorageManager.savePlanSection(section)
-      }
-      console.log("[updateBusinessPlanSection] Saved to local storage")
-    },
-    "updateBusinessPlanSection",
-  )
-
-  return {
-    airtableWorked: result.airtableWorked,
-    error: result.error
-  }
-}
-
-export async function markSectionAsComplete(planId: string, sectionName: string, userEmail: string): Promise<{ airtableWorked: boolean; error?: string }> {
-  console.log(`[markSectionAsComplete] Marking section ${sectionName} as complete for plan ${planId}`)
-
-  const result = await withLocalFallback(
-    async () => {
-      const filterFormula = `AND({planId} = "${planId}", {sectionName} = "${sectionName}")`
-      const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections?filterByFormula=${encodeURIComponent(filterFormula)}&maxRecords=1`
-
+      // Try to find existing record first
+      const searchUrl = `https://api.airtable.com/v0/${baseId}/Business%20Plan%20Sections?filterByFormula=AND({Plan ID}='${section.planId}',{Section Name}='${section.sectionName}')`
       const searchRes = await fetch(searchUrl, {
-        // Updated authorization header to use personal access token
-        headers: { Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}` },
-        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
 
       if (!searchRes.ok) {
-        throw new Error(`Failed to search for section: ${searchRes.status}`)
+        const errorText = await searchRes.text()
+        throw new Error(`HTTP ${searchRes.status}: ${errorText}`)
       }
 
       const searchData = await searchRes.json()
-      const existingRecord = searchData.records?.[0]
-
-      const updateData = {
-        planId,
-        sectionName,
-        isComplete: true,
-        submittedForReview: true,
-        completedDate: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        modifiedBy: userEmail,
-        sectionContent: existingRecord?.fields?.sectionContent || "",
-      }
-
+      
       let url: string
       let method: string
-
-      if (existingRecord) {
-        url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${existingRecord.id}`
+      
+      if (searchData.records.length > 0) {
+        // Update existing
+        url = `https://api.airtable.com/v0/${baseId}/Business%20Plan%20Sections/${searchData.records[0].id}`
         method = "PATCH"
       } else {
-        url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`
+        // Create new
+        url = `https://api.airtable.com/v0/${baseId}/Business%20Plan%20Sections`
         method = "POST"
       }
 
       const res = await fetch(url, {
         method,
         headers: {
-          // Updated authorization header to use personal access token
-          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ fields: updateData }),
-      })
-
-      if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(`HTTP ${res.status}: ${errorText}`)
-      }
-
-      // Save to local storage as backup
-      if (typeof window !== "undefined") {
-        LocalStorageManager.savePlanSection({
-          id: existingRecord?.id,
-          ...updateData,
-        })
-      }
-
-      console.log(`[markSectionAsComplete] Successfully marked section ${sectionName} as complete`)
-    },
-    () => {
-      // Local fallback
-      if (typeof window !== "undefined") {
-        LocalStorageManager.savePlanSection({
-          planId,
-          sectionName,
-          sectionContent: "",
-          isComplete: true,
-          submittedForReview: true,
-          completedDate: new Date().toISOString(),
-          lastModified: new Date().toISOString(),
-          modifiedBy: userEmail,
-        })
-      }
-      console.log(`[markSectionAsComplete] Marked section ${sectionName} as complete locally`)
-    },
-    "markSectionAsComplete",
-  )
-
-  return {
-    airtableWorked: result.airtableWorked,
-    error: result.error
-  }
-}
-
-export async function getBusinessPlan(planId: string): Promise<{ plan: BusinessPlan | null; airtableWorked: boolean; error?: string }> {
-  console.log(`[getBusinessPlan] Attempting to fetch planId: ${planId}`)
-
-  const result = await withLocalFallback(
-    async () => {
-      const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plans/${planId}`, {
-        // Updated authorization header to use personal access token
-        headers: { Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}` },
-        cache: "no-store",
-      })
-
-      if (res.status === 404) {
-        throw new Error(`Plan not found: ${planId}`)
-      }
-
-      if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(`HTTP ${res.status}: ${errorText}`)
-      }
-
-      const data = await res.json()
-      const plan = { id: data.id, ...data.fields }
-
-      // Save to local storage
-      if (typeof window !== "undefined") {
-        LocalStorageManager.saveBusinessPlans([plan])
-      }
-
-      console.log(`[getBusinessPlan] Successfully fetched planId: ${planId}`)
-      return plan
-    },
-    () => {
-      if (typeof window !== "undefined") {
-        const localPlan = LocalStorageManager.getBusinessPlan(planId)
-        if (localPlan) return localPlan
-      }
-
-      // Final fallback
-      return {
-        id: planId,
-        planName: "Untitled Plan",
-        createdDate: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        ownerEmail: "local@example.com",
-        status: "Draft",
-      }
-    },
-    "getBusinessPlan",
-  )
-
-  return {
-    plan: result.data,
-    airtableWorked: result.airtableWorked,
-    error: result.error
-  }
-}
-
-export async function getUserProfile(email: string): Promise<{ profile: UserProfile | null; airtableWorked: boolean; error?: string }> {
-  console.log(`[getUserProfile] Fetching profile for: ${email}`)
-
-  const result = await withLocalFallback(
-    async () => {
-      const filterFormula = `{email} = "${email}"`
-      const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/User%20Profiles?filterByFormula=${encodeURIComponent(
-        filterFormula,
-      )}&maxRecords=1`
-
-      const res = await fetch(url, {
-        // Updated authorization header to use personal access token
-        headers: { Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}` },
-        cache: "no-store",
-      })
-
-      if (res.status === 404) {
-        throw new Error("User Profiles table not found")
-      }
-
-      if (!res.ok) {
-        const text = await res.text()
-        throw new Error(`HTTP ${res.status} – ${text}`)
-      }
-
-      const data = await res.json()
-      if (!Array.isArray(data.records) || data.records.length === 0) {
-        return null
-      }
-
-      const record = data.records[0]
-      const profile = { id: record.id, ...record.fields }
-
-      // Save to local storage
-      if (typeof window !== "undefined") {
-        LocalStorageManager.saveUserProfile(profile)
-      }
-
-      return profile
-    },
-    () => {
-      if (typeof window !== "undefined") {
-        const localProfile = LocalStorageManager.getUserProfile(email)
-        if (localProfile) return localProfile
-      }
-
-      // Default profile fallback
-      return {
-        id: "local-user",
-        name: "Demo User",
-        email,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-        company: "Demo Company",
-        role: "Entrepreneur",
-        bio: "Building amazing products with collaborative business planning.",
-        createdDate: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-      }
-    },
-    "getUserProfile",
-  )
-
-  return {
-    profile: result.data,
-    airtableWorked: result.airtableWorked,
-    error: result.error
-  }
-}
-
-export async function createOrUpdateUserProfile(
-  profile: Omit<UserProfile, "id" | "createdDate"> & { id?: string },
-): Promise<{ userProfile: UserProfile; airtableWorked: boolean; error?: string }> {
-  const result = await withLocalFallback(
-    async () => {
-      const url = profile.id
-        ? `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/User%20Profiles/${profile.id}`
-        : `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/User%20Profiles`
-
-      const method = profile.id ? "PATCH" : "POST"
-      const fields = profile.id
-        ? { ...profile, lastModified: new Date().toISOString() }
-        : { ...profile, createdDate: new Date().toISOString(), lastModified: new Date().toISOString() }
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          // Updated authorization header to use personal access token
-          Authorization: `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ fields }),
       })
 
-      if (!res.ok) throw new Error("Airtable operation failed")
-
-      const data = await res.json()
-      const savedProfile = { id: data.id, ...data.fields }
-
-      // Save to local storage
-      if (typeof window !== "undefined") {
-        LocalStorageManager.saveUserProfile(savedProfile)
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
       }
 
-      return savedProfile
+      return true
     },
     () => {
-      const localProfile = {
-        id: profile.id || randomUUID(),
-        createdDate: new Date().toISOString(),
-        ...profile,
-      }
-
-      if (typeof window !== "undefined") {
-        LocalStorageManager.saveUserProfile(localProfile)
-      }
-
-      return localProfile
-    },
-    "createOrUpdateUserProfile",
+      LocalStorageManager.savePlanSection(section)
+      return true
+    }
   )
 
   return {
-    userProfile: result.data,
     airtableWorked: result.airtableWorked,
     error: result.error
   }

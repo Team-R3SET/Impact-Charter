@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
 
     console.log(`[API] Fetching business plans for: ${ownerEmail}`)
 
-    let plans = await getBusinessPlans(ownerEmail)
+    const result = await getBusinessPlans(ownerEmail)
+    let plans = result.plans || []
 
     // Apply limit if specified
     if (limit) {
@@ -24,7 +25,12 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(`[API] Returning ${plans.length} plans`)
-    return NextResponse.json(plans)
+    return NextResponse.json({
+      plans,
+      airtableWorked: result.airtableWorked,
+      error: result.error,
+      troubleshooting: result.troubleshooting
+    })
   } catch (error) {
     console.error("[API] Error fetching business plans:", error)
     return NextResponse.json({ error: "Failed to fetch business plans" }, { status: 500 })
