@@ -42,7 +42,7 @@ export function SectionNavigator({
     <Card className="sticky top-24">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Business Plan Sections</CardTitle>
+          <CardTitle className="text-lg">Impact Charter Sections</CardTitle>
           <Button
             variant="ghost"
             size="sm"
