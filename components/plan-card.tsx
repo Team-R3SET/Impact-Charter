@@ -26,6 +26,7 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isOpening, setIsOpening] = useState(false)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -141,6 +142,13 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
     })
   }
 
+  const handleOpenPlan = async () => {
+    setIsOpening(true)
+    // Small delay to ensure plan data is available
+    await new Promise(resolve => setTimeout(resolve, 100))
+    router.push(`/plan/${plan.id}`)
+  }
+
   if (viewMode === "list") {
     return (
       <Card className="hover:shadow-md transition-shadow">
@@ -152,11 +160,11 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
               </div>
 
               <div className="flex-1 min-w-0">
-                <Link href={`/plan/${plan.id}`}>
+                <button onClick={handleOpenPlan} disabled={isOpening} className="text-left">
                   <h3 className="font-semibold text-lg hover:text-primary transition-colors truncate">
                     {plan.planName}
                   </h3>
-                </Link>
+                </button>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
@@ -182,7 +190,7 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push(`/plan/${plan.id}`)}>
+                  <DropdownMenuItem onClick={handleOpenPlan} disabled={isOpening}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
@@ -217,11 +225,11 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
               <FileText className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <Link href={`/plan/${plan.id}`}>
+              <button onClick={handleOpenPlan} disabled={isOpening} className="text-left">
                 <h3 className="font-semibold text-lg hover:text-primary transition-colors line-clamp-2">
                   {plan.planName}
                 </h3>
-              </Link>
+              </button>
             </div>
           </div>
 
@@ -236,7 +244,7 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => router.push(`/plan/${plan.id}`)}>
+              <DropdownMenuItem onClick={handleOpenPlan} disabled={isOpening}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
               </DropdownMenuItem>
@@ -278,9 +286,13 @@ export function PlanCard({ plan, viewMode = "grid" }: PlanCardProps) {
       </CardContent>
 
       <CardFooter className="pt-0">
-        <Link href={`/plan/${plan.id}`} className="w-full">
-          <Button className="w-full">Open Plan</Button>
-        </Link>
+        <Button 
+          className="w-full" 
+          onClick={handleOpenPlan}
+          disabled={isOpening}
+        >
+          {isOpening ? "Opening..." : "Open Plan"}
+        </Button>
       </CardFooter>
     </Card>
   )
