@@ -510,7 +510,11 @@ export async function updateBusinessPlanSection(section: BusinessPlanSection): P
 }
 
 // Adding sync function to push local plans to Airtable with duplicate detection
-export async function syncLocalPlansToAirtable(ownerEmail: string): Promise<{
+export async function syncLocalPlansToAirtable(
+  ownerEmail: string, 
+  baseId: string, 
+  token: string
+): Promise<{
   success: boolean;
   syncedCount: number;
   skippedCount: number;
@@ -526,9 +530,6 @@ export async function syncLocalPlansToAirtable(ownerEmail: string): Promise<{
   };
 
   try {
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
-
     if (!baseId || !token) {
       throw new Error("Airtable credentials missing");
     }
