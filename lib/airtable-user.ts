@@ -156,6 +156,186 @@ export async function markBusinessPlanSectionComplete(
   }
 }
 
+export async function markBusinessPlanSectionIncomplete(
+  sectionData: {
+    planId: string
+    sectionName: string
+    completedBy: string
+    completedAt: string
+  },
+  userEmail: string,
+): Promise<{
+  success: boolean
+  error?: string
+  errorType?: string
+  troubleshooting?: string[]
+  errorId?: string
+  section?: any
+}> {
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    console.log("Airtable API keys missing - operation completed locally")
+    return {
+      success: true,
+      section: {
+        planId: sectionData.planId,
+        sectionName: sectionData.sectionName,
+        isComplete: false,
+        completedBy: null,
+        completedDate: null,
+      }
+    }
+  }
+
+  try {
+    const { planId, sectionName } = sectionData
+    
+    // First, check if the table exists by trying a simple query
+    const testUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections?maxRecords=1`
+    
+    const testRes = await fetch(testUrl, {
+      headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+      cache: "no-store",
+    })
+
+    if (!testRes.ok) {
+      if (testRes.status === 404) {
+        console.warn("Business Plan Sections table not found in Airtable - completing locally")
+        return {
+          success: true,
+          section: {
+            planId,
+            sectionName,
+            isComplete: false,
+            completedBy: null,
+            completedDate: null,
+          }
+        }
+      }
+      
+      const errorId = `airtable-table-access-${Date.now()}`
+      return {
+        success: false,
+        error: `Failed to access Airtable table: ${testRes.status} - ${testRes.statusText}`,
+        errorType: 'airtable_table_access',
+        troubleshooting: [
+          'Verify that the "Business Plan Sections" table exists in your Airtable base',
+          'Check that your Airtable API key has read/write permissions',
+          'Ensure the AIRTABLE_BASE_ID environment variable is correct',
+          'Try refreshing the page and attempting the operation again'
+        ],
+        errorId
+      }
+    }
+    
+    // Now try to find existing section record
+    const filterFormula = `AND({planId} = "${planId}", {sectionName} = "${sectionName}")`
+    const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections?filterByFormula=${encodeURIComponent(filterFormula)}&maxRecords=1`
+
+    const searchRes = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+      cache: "no-store",
+    })
+
+    if (!searchRes.ok) {
+      const errorId = `airtable-search-${Date.now()}`
+      console.warn(`Failed to search for section (${searchRes.status}): ${searchRes.statusText} - completing locally`)
+      return {
+        success: true,
+        section: {
+          planId,
+          sectionName,
+          isComplete: false,
+          completedBy: null,
+          completedDate: null,
+        }
+      }
+    }
+
+    const searchData = await searchRes.json()
+    const existingRecord = searchData.records?.[0]
+
+    // Mark section as incomplete instead of complete
+    const updateData = {
+      planId,
+      sectionName,
+      isComplete: false,
+      submittedForReview: false,
+      completedDate: null,
+      completedBy: null,
+      lastModified: new Date().toISOString(),
+      modifiedBy: sectionData.completedBy,
+    }
+
+    let url: string
+    let method: string
+
+    if (existingRecord) {
+      // Update existing record
+      url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections/${existingRecord.id}`
+      method = "PATCH"
+      // Preserve existing content if available
+      if (existingRecord.fields.sectionContent) {
+        updateData.sectionContent = existingRecord.fields.sectionContent
+      }
+    } else {
+      // Create new record (already incomplete by default)
+      url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Business%20Plan%20Sections`
+      method = "POST"
+      updateData.sectionContent = "" // Default empty content for new records
+    }
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields: updateData }),
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      const errorId = `airtable-update-${Date.now()}`
+      console.warn(`Airtable operation failed (${res.status}): ${errorText} - completing locally`)
+      return {
+        success: true,
+        section: {
+          planId,
+          sectionName,
+          isComplete: false,
+          completedBy: null,
+          completedDate: null,
+        }
+      }
+    }
+
+    const responseData = await res.json()
+    console.log(`Successfully marked section ${sectionName} as incomplete in Airtable`)
+    
+    return {
+      success: true,
+      section: {
+        id: responseData.id,
+        ...responseData.fields
+      }
+    }
+  } catch (error) {
+    const errorId = `airtable-error-${Date.now()}`
+    console.warn("Error marking section as incomplete in Airtable, completing locally:", error)
+    
+    return {
+      success: true,
+      section: {
+        planId: sectionData.planId,
+        sectionName: sectionData.sectionName,
+        isComplete: false,
+        completedBy: null,
+        completedDate: null,
+      }
+    }
+  }
+}
+
 export async function updateBusinessPlanSectionWithUserCreds(
   planId: string,
   sectionName: string,

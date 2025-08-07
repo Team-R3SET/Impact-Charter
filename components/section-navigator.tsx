@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, Clock } from "lucide-react"
+import { CheckCircle, Clock, MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import type { BusinessPlanSection } from "@/lib/business-plan-sections"
 
 interface SectionNavigatorProps {
@@ -12,6 +18,7 @@ interface SectionNavigatorProps {
   selectedSection: string
   completedSections: Set<string>
   onSectionSelect: (sectionId: string) => void
+  onToggleComplete?: (sectionId: string, isComplete: boolean) => void
 }
 
 export function SectionNavigator({
@@ -19,8 +26,15 @@ export function SectionNavigator({
   selectedSection,
   completedSections,
   onSectionSelect,
+  onToggleComplete,
 }: SectionNavigatorProps) {
   const completionPercentage = Math.round((completedSections.size / sections.length) * 100)
+
+  const handleToggleComplete = (sectionId: string, currentlyCompleted: boolean) => {
+    if (onToggleComplete) {
+      onToggleComplete(sectionId, !currentlyCompleted)
+    }
+  }
 
   return (
     <Card className="sticky top-24">
@@ -36,51 +50,68 @@ export function SectionNavigator({
           <Progress value={completionPercentage} className="h-2" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-1">
         {sections.map((section, index) => {
           const isCompleted = completedSections.has(section.id)
           const isCurrent = selectedSection === section.id
 
           return (
-            <Button
-              key={section.id}
-              variant={isCurrent ? "default" : "ghost"}
-              className={`w-full justify-start text-left h-auto p-3 transition-all duration-200 ${
-                isCurrent
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : isCompleted
-                    ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`}
-              onClick={() => onSectionSelect(section.id)}
-            >
-              <div className="flex items-start gap-3 w-full">
-                <div className="flex-shrink-0 mt-0.5">
-                  {isCompleted ? (
-                    <CheckCircle className={`w-4 h-4 ${isCurrent ? "text-white" : "text-green-600"}`} />
-                  ) : isCurrent ? (
-                    <Clock className="w-4 h-4 text-white" />
-                  ) : (
-                    <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium opacity-75">{index + 1}.</span>
-                    <div className="font-medium text-sm leading-tight flex-1">{section.title}</div>
-                    {isCompleted && !isCurrent && (
-                      <Badge
-                        variant="secondary"
-                        className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      >
-                        ✓
-                      </Badge>
+            <div key={section.id} className="group relative">
+              <Button
+                variant={isCurrent ? "default" : "ghost"}
+                className={`w-full justify-start text-left h-auto p-3 pr-10 transition-all duration-200 ${
+                  isCurrent
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : isCompleted
+                      ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                }`}
+                onClick={() => onSectionSelect(section.id)}
+              >
+                <div className="flex items-start gap-3 w-full">
+                  <div className="flex-shrink-0 mt-1">
+                    {isCompleted ? (
+                      <CheckCircle className={`w-5 h-5 ${isCurrent ? "text-white" : "text-green-600"}`} />
+                    ) : isCurrent ? (
+                      <Clock className="w-5 h-5 text-white" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600" />
                     )}
                   </div>
-                  <div className="text-xs opacity-75 mt-1 line-clamp-2 ml-6">{section.description}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium opacity-75">{index + 1}.</span>
+                      <div className="font-medium text-sm leading-tight flex-1">{section.title}</div>
+                    </div>
+                    <div className="text-xs opacity-75 line-clamp-2 ml-6">{section.description}</div>
+                  </div>
                 </div>
-              </div>
-            </Button>
+              </Button>
+              
+              {onToggleComplete && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleToggleComplete(section.id, isCompleted)
+                      }}
+                    >
+                      {isCompleted ? "Mark as Incomplete" : "Mark as Complete"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           )
         })}
       </CardContent>

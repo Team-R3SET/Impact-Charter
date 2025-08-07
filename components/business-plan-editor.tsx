@@ -9,7 +9,7 @@ import { SectionNavigator } from "./section-navigator"
 import { LiveCollabButton } from "./live-collab-button"
 import { AppHeader } from "./app-header"
 import { businessPlanSections } from "@/lib/business-plan-sections"
-import { CheckCircle, Clock, FileText } from "lucide-react"
+import { CheckCircle, Clock, FileText } from 'lucide-react'
 
 interface BusinessPlanEditorProps {
   planId: string
@@ -77,6 +77,51 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
     })
   }, [])
 
+  // Added toggle completion handler for section navigator
+  const handleToggleComplete = useCallback((sectionId: string, isComplete: boolean) => {
+    // Update localStorage
+    localStorage.setItem(`section-${planId}-${sectionId}-completed`, isComplete.toString())
+    
+    // Update state
+    setCompletedSections((prev) => {
+      const newSet = new Set(prev)
+      if (isComplete) {
+        newSet.add(sectionId)
+      } else {
+        newSet.delete(sectionId)
+      }
+      return newSet
+    })
+
+    // Call API to update completion status
+    const updateCompletion = async () => {
+      try {
+        const endpoint = isComplete 
+          ? `/api/business-plans/${planId}/sections/${sectionId}/complete`
+          : `/api/business-plans/${planId}/sections/${sectionId}/incomplete`
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            completedBy: currentUser.email,
+            completedAt: new Date().toISOString(),
+          }),
+        })
+
+        if (!response.ok) {
+          console.warn(`Failed to update section completion status: ${response.status}`)
+        }
+      } catch (error) {
+        console.warn('Error updating section completion:', error)
+      }
+    }
+
+    updateCompletion()
+  }, [planId, currentUser.email])
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {showHeader && <AppHeader currentUser={currentUser} currentPlanId={planId} />}
@@ -139,6 +184,7 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
               selectedSection={selectedSection}
               onSectionSelect={setSelectedSection}
               completedSections={completedSections}
+              onToggleComplete={handleToggleComplete}
             />
           </div>
 
