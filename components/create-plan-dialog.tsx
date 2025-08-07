@@ -104,7 +104,6 @@ export function CreatePlanDialog({ open, onOpenChange, userEmail }: CreatePlanDi
     // Auto-generate a plan name based on template
     const template = businessTemplates.find((t) => t.id === templateId)
     if (template && template.id !== "blank") {
-      setPlanName(`My ${template.name} Plan`)
     } else {
       setPlanName("")
     }
@@ -238,17 +237,15 @@ export function CreatePlanDialog({ open, onOpenChange, userEmail }: CreatePlanDi
                     {selectedTemplateData.icon}
                   </div>
                 )}
-                {selectedTemplateData?.name} Plan Details
               </DialogTitle>
               <DialogDescription>Customize your business plan with a name and initial settings.</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6 py-4">
               <div className="space-y-2">
-                <Label htmlFor="planName">Plan Name</Label>
                 <Input
                   id="planName"
-                  placeholder="Enter your business plan name..."
+                  placeholder="Enter your business charter name..."
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
                   className="text-lg"
@@ -278,7 +275,6 @@ export function CreatePlanDialog({ open, onOpenChange, userEmail }: CreatePlanDi
                 ) : (
                   <>
                     <Plus className="h-4 w-4" />
-                    Create Plan
                   </>
                 )}
               </Button>

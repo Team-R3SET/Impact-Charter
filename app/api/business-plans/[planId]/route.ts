@@ -23,12 +23,17 @@ export async function GET(
     // Always create a fallback plan for local IDs
     if (planId.startsWith('local-')) {
       console.log(`[API] Creating fallback plan for local ID: ${planId}`)
+      
+      const localParts = planId.split('-');
+      const timestamp = localParts.length > 1 ? parseInt(localParts[1]) : 0;
+      const dateCreated = timestamp ? new Date(timestamp) : new Date();
+      
       const plan = {
         id: planId,
-        planName: "Local Business Plan",
+        planName: "Impact Charter", // Changed from "Local Business Plan" to "Impact Charter"
         ownerEmail: "user@example.com",
         status: "Draft",
-        createdDate: new Date().toISOString(),
+        createdDate: dateCreated.toISOString(),
         lastModified: new Date().toISOString(),
         description: "This is a locally created business plan"
       }
@@ -96,7 +101,6 @@ export async function GET(
       console.log(`[API] Plan not found in Airtable, creating fallback plan for UUID: ${planId}`)
       plan = {
         id: planId,
-        planName: "Business Plan",
         ownerEmail: "user@example.com",
         status: "Draft",
         createdDate: new Date().toISOString(),

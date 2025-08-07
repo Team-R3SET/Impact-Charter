@@ -111,7 +111,6 @@ export function AppHeader() {
 
   const navigationItems = [
     { href: "/", label: "Home" },
-    { href: "/plans", label: "My Plans" },
     { href: "/pricing", label: "Pricing" },
     { href: "/setup/airtable", label: "Setup Guide" },
     { href: "/settings", label: "Settings" },
@@ -161,7 +160,6 @@ export function AppHeader() {
               <div className="hidden lg:block">
                 <Select value={selectedPlan} onValueChange={handlePlanChange}>
                   <SelectTrigger className="w-52 h-9 bg-background border-border/60 hover:border-border transition-colors">
-                    {/* Updated placeholder text from "Select a plan..." to "Select a Charter..." */}
                     <SelectValue placeholder="Select a Charter..." />
                   </SelectTrigger>
                   <SelectContent className="w-52">
@@ -315,7 +313,6 @@ export function AppHeader() {
                     <DropdownMenuItem asChild>
                       <Link href="/plans" className="cursor-pointer">
                         <FileText className="mr-3 h-4 w-4" />
-                        My Plans
                       </Link>
                     </DropdownMenuItem>
 

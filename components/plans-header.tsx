@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Filter, SortAsc, Grid, List, Plus, Download, Upload } from "lucide-react"
+import { Search, Filter, SortAsc, Grid, List, Plus, Download, Upload } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -61,8 +61,8 @@ export function PlansHeader({
     <div className="space-y-6">
       {/* Page Title */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">My Business Plans</h1>
-        <p className="text-muted-foreground">Create, manage, and collaborate on your business plans</p>
+        <h1 className="text-3xl font-bold tracking-tight">My Impact Charters</h1>
+        <p className="text-muted-foreground">Create, manage, and collaborate on your impact charters</p>
       </div>
 
       {/* Controls */}
