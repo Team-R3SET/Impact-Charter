@@ -10,6 +10,7 @@ interface UserContextType extends UserState {
   updatePreferences: (preferences: Partial<UserPreferences>) => void
   login: (user: User) => void
   logout: () => void
+  setUser: (user: User) => void
   isLoading: boolean
 }
 
@@ -49,12 +50,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     userStateManager.logout()
   }, [])
 
+  const setUser = useCallback((user: User) => {
+    userStateManager.updateUser(user)
+  }, [])
+
   const contextValue: UserContextType = {
     ...state,
     updateUser,
     updatePreferences,
     login,
     logout,
+    setUser,
     isLoading,
   }
 

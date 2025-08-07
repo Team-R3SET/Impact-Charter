@@ -15,12 +15,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu } from "lucide-react"
+import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu } from 'lucide-react'
 import { useUser } from "@/contexts/user-context"
 import { RoleSwitcher } from "./role-switcher"
 import { NotificationsDropdown } from "./notifications-dropdown"
 import { ThemeSwitcher } from "./theme-switcher"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { getDemoUsers } from "@/lib/user-management"
+import type { User as UserType } from "@/lib/user-types"
 
 interface BusinessPlan {
   id: string
@@ -30,7 +32,7 @@ interface BusinessPlan {
 }
 
 export function AppHeader() {
-  const { user: currentUser, logout, isAdmin } = useUser()
+  const { user: currentUser, logout, isAdmin, setUser } = useUser()
   const pathname = usePathname()
   const [plans, setPlans] = useState<BusinessPlan[]>([])
   const [selectedPlan, setSelectedPlan] = useState<string>("")
@@ -80,6 +82,12 @@ export function AppHeader() {
   const handleLogout = () => {
     logout()
     window.location.href = "/"
+  }
+
+  const handleUserChange = (user: UserType) => {
+    setUser(user)
+    // Refresh the page to update all components with new user context
+    window.location.reload()
   }
 
   const getStatusColor = (status: string) => {
@@ -235,7 +243,11 @@ export function AppHeader() {
             {currentUser ? (
               <div className="flex items-center space-x-2">
                 {/* Role Switcher */}
-                <RoleSwitcher />
+                <RoleSwitcher 
+                  currentUser={currentUser}
+                  onUserChange={handleUserChange}
+                  availableUsers={getDemoUsers()}
+                />
 
                 {/* Notifications */}
                 <NotificationsDropdown />
