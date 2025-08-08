@@ -57,6 +57,8 @@ export function CollaborativeTextEditor({
   const [isOnline, setIsOnline] = useState(true)
   const [showCommentsPanel, setShowCommentsPanel] = useState(false)
   const [selectedText, setSelectedText] = useState("")
+  const [selectionStart, setSelectionStart] = useState(0)
+  const [selectionEnd, setSelectionEnd] = useState(0)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -92,6 +94,7 @@ export function CollaborativeTextEditor({
   let storage: any = null
   let broadcast: any = null
   let comments: any = {}
+  let addComment: any = null
 
   try {
     if (typeof useRoom !== 'undefined') {
@@ -108,6 +111,25 @@ export function CollaborativeTextEditor({
         storage = useStorage((root) => root) || {}
         broadcast = room.broadcastEvent
         comments = storage?.comments || {}
+        addComment = useMutation
+          ? useMutation(
+              ({ storage }, commentContent: string, position: any) => {
+                if (!storage.get("comments")) {
+                  storage.set("comments", new Map())
+                }
+
+                const commentsMap = storage.get("comments")
+                commentsMap.set(`${sectionId}-${Date.now()}`, {
+                  content: commentContent,
+                  position,
+                  sectionId,
+                  user: currentUser.email,
+                  resolved: false,
+                })
+              },
+              [sectionId, currentUser.email],
+            )
+          : null
       }
     }
   } catch (error) {
@@ -130,14 +152,41 @@ export function CollaborativeTextEditor({
     if (start !== end) {
       const selectedText = localContent.substring(start, end)
       setSelectedText(selectedText)
+      setSelectionStart(start)
+      setSelectionEnd(end)
     } else {
       setSelectedText("")
+      setSelectionStart(0)
+      setSelectionEnd(0)
     }
   }, [localContent])
 
   const handleAddComment = useCallback(() => {
+    if (!selectedText || !isCollaborative) {
+      setShowCommentsPanel(true)
+      return
+    }
+
+    // Create comment with selected text
+    if (addComment) {
+      const position = {
+        start: selectionStart,
+        end: selectionEnd,
+        selectedText: selectedText
+      }
+      
+      // Create a comment with the selected text as context
+      const commentContent = `Comment on: "${selectedText}"`
+      addComment(commentContent, position)
+      
+      // Clear selection after creating comment
+      setSelectedText("")
+      setSelectionStart(0)
+      setSelectionEnd(0)
+    }
+    
     setShowCommentsPanel(true)
-  }, [])
+  }, [selectedText, isCollaborative, addComment, selectionStart, selectionEnd])
 
   const saveToAirtable = useCallback(
     async (content: string) => {
