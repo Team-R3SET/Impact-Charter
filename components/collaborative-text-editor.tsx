@@ -58,16 +58,39 @@ export function CollaborativeTextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [currentSectionData, setCurrentSectionData] = useState<{ title: string, description: string }>({ title: "", description: "" })
 
-  const [myPresence, updateMyPresence] = useSelf ? useSelf() : [null, () => {}]
-  const others = useOthers ? useOthers() : []
-  const sections = useStorage ? useStorage((root) => root?.sections) : null
-  const completedSections = useStorage ? useStorage((root) => root?.completedSections) : null
-  const comments = useStorage ? useStorage((root) => root?.comments || {}) : {}
-  const broadcast = useRoom ? useRoom().broadcast : () => {}
+  let myPresence = null
+  let updateMyPresence = () => {}
+  let others: any[] = []
+  let sections = null
+  let completedSections = null
+  let comments: any = {}
+  let broadcast = () => {}
+
+  try {
+    if (useSelf) {
+      const selfResult = useSelf()
+      myPresence = selfResult?.[0] || null
+      updateMyPresence = selfResult?.[1] || (() => {})
+    }
+    if (useOthers) {
+      others = useOthers() || []
+    }
+    if (useStorage) {
+      sections = useStorage((root) => root?.sections) || null
+      completedSections = useStorage((root) => root?.completedSections) || null
+      comments = useStorage((root) => root?.comments || {}) || {}
+    }
+    if (useRoom) {
+      broadcast = useRoom().broadcast || (() => {})
+    }
+  } catch (error) {
+    console.warn('LiveBlocks hooks not available:', error)
+  }
 
   const sectionComments = comments && typeof comments === 'object' 
     ? Object.values(comments).filter((comment: any) => comment?.sectionId === sectionId)
     : []
+
   const unresolvedCommentsCount = sectionComments.filter((comment: any) => !comment?.resolved).length
 
   const handleTextSelection = useCallback(() => {
@@ -841,7 +864,7 @@ export function CollaborativeTextEditor({
             </div>
           </div>
 
-          {usersTyping.length > 0 && Array.isArray(usersTyping) && (
+          {Array.isArray(usersTyping) && usersTyping.length > 0 && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <div className="flex -space-x-1">
                 {usersTyping.map((user: any) => (
