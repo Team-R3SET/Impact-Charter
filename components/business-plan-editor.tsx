@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CollaborativeTextEditor } from "./collaborative-text-editor"
+import { TextEditor } from "./text-editor"
 import { SectionNavigator } from "./section-navigator"
 import { LiveCollabButton } from "./live-collab-button"
 import { AppHeader } from "./app-header"
@@ -294,17 +295,31 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
 
           <div className={`space-y-6 ${isFullScreen ? "col-span-1" : "lg:col-span-3"}`}>
             {currentSectionData && (
-              <CollaborativeTextEditor
-                key={selectedSection}
-                sectionId={selectedSection}
-                sectionTitle={currentSectionData.title}
-                planId={planId}
-                currentUser={currentUser}
-                onSectionComplete={handleSectionComplete}
-                onSectionSelect={setSelectedSection}
-                isFullScreen={isFullScreen}
-                onToggleFullScreen={handleToggleFullScreen}
-              />
+              isCollaborative ? (
+                <CollaborativeTextEditor
+                  key={selectedSection}
+                  sectionId={selectedSection}
+                  sectionTitle={currentSectionData.title}
+                  planId={planId}
+                  currentUser={currentUser}
+                  onSectionComplete={handleSectionComplete}
+                  onSectionSelect={setSelectedSection}
+                  isFullScreen={isFullScreen}
+                  onToggleFullScreen={handleToggleFullScreen}
+                />
+              ) : (
+                <TextEditor
+                  key={selectedSection}
+                  sectionId={selectedSection}
+                  sectionTitle={currentSectionData.title}
+                  planId={planId}
+                  currentUser={currentUser}
+                  onSectionComplete={handleSectionComplete}
+                  onSectionSelect={setSelectedSection}
+                  isFullScreen={isFullScreen}
+                  onToggleFullScreen={handleToggleFullScreen}
+                />
+              )
             )}
 
             {/* Hide progress overview in full-screen mode */}
