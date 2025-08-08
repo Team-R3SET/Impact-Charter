@@ -319,7 +319,7 @@ export function CollaborativeTextEditor({
   }, [isLiveblocksAvailable, room])
 
   const handleComplete = async () => {
-    if (!localContent.trim()) {
+    if (!localContent || !localContent.trim()) {
       toast({
         title: "Section incomplete",
         description: "Please add content before marking as complete.",
@@ -520,7 +520,7 @@ export function CollaborativeTextEditor({
                     <Button
                       variant={isCompleted ? "secondary" : "default"}
                       onClick={handleComplete}
-                      disabled={isCompleting || !localContent.trim()}
+                      disabled={isCompleting || !localContent || !localContent.trim()}
                       className={cn(
                         "transition-all",
                         isCompleted && "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-100"
