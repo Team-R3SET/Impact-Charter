@@ -399,6 +399,18 @@ export function CollaborativeTextEditor({
     commentsMap.set(commentData.id, commentData)
   }, [])
 
+  // Adding resolveComment mutation function
+  const resolveCommentMutation = useMutation(({ storage }, commentId: string) => {
+    const commentsMap = storage.get("comments")
+    if (commentsMap && typeof commentsMap.get === 'function') {
+      const comment = commentsMap.get(commentId)
+      if (comment) {
+        comment.resolved = true
+        commentsMap.set(commentId, comment)
+      }
+    }
+  }, [])
+
   const updateSection = roomContext && useMutation
     ? useMutation(
         ({ storage }, content: string) => {
@@ -494,7 +506,7 @@ export function CollaborativeTextEditor({
     }
   }, [updateMyPresence, sectionId])
 
-  const addComment = useCallback((position?: { start: number; end: number; text: string }) => {
+  const addComment = useCallback(async (content: string, position?: any) => {
     if (!isLiveblocksAvailable || !room) {
       toast({
         title: "Comments not available",
@@ -509,7 +521,7 @@ export function CollaborativeTextEditor({
       const newComment = {
         id: commentId,
         sectionId,
-        content: "",
+        content,
         author: myPresence?.user || { name: "Anonymous", avatar: "" },
         createdAt: new Date().toISOString(),
         resolved: false,
@@ -536,17 +548,30 @@ export function CollaborativeTextEditor({
     }
   }, [isLiveblocksAvailable, room, sectionId, myPresence, selectionStart, selectionEnd, selectedText, toast, addCommentMutation])
 
-  const handleAddComment = () => {
-    if (selectedText) {
-      addComment({
-        start: selectionStart,
-        end: selectionEnd,
-        text: selectedText
+  // Adding resolveComment function
+  const resolveComment = useCallback(async (commentId: string) => {
+    try {
+      if (resolveCommentMutation) {
+        resolveCommentMutation(commentId)
+      }
+      
+      toast({
+        title: "Comment resolved",
+        description: "The comment has been marked as resolved."
       })
-    } else {
-      setShowCommentsPanel(true)
+    } catch (error) {
+      console.error("Failed to resolve comment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to resolve the comment. Please try again.",
+        variant: "destructive"
+      })
     }
-  }
+  }, [resolveCommentMutation, toast])
+
+  const replyToComment = useCallback(async (commentId: string, content: string) => {
+    // Existing replyToComment logic here
+  }, [])
 
   useEffect(() => {
     if (updateMyPresence) {
@@ -767,7 +792,7 @@ export function CollaborativeTextEditor({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleAddComment}
+                  onClick={() => addComment(selectedText)}
                   className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500 hover:border-blue-600"
                 >
                   <MessageSquare className="h-4 w-4 mr-1" />
