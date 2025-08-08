@@ -111,25 +111,30 @@ export function CollaborativeTextEditor({
         storage = useStorage((root) => root) || {}
         broadcast = room.broadcastEvent
         comments = storage?.comments || {}
-        addComment = useMutation
-          ? useMutation(
-              ({ storage }, commentContent: string, position: any) => {
-                if (!storage.get("comments")) {
-                  storage.set("comments", new Map())
-                }
+        
+        // Properly create the addComment mutation function
+        addComment = useMutation(
+          ({ storage }, commentContent: string, position: any) => {
+            if (!storage.get("comments")) {
+              storage.set("comments", new Map())
+            }
 
-                const commentsMap = storage.get("comments")
-                commentsMap.set(`${sectionId}-${Date.now()}`, {
-                  content: commentContent,
-                  position,
-                  sectionId,
-                  user: currentUser.email,
-                  resolved: false,
-                })
-              },
-              [sectionId, currentUser.email],
-            )
-          : null
+            const commentsMap = storage.get("comments")
+            const commentId = `${sectionId}-${Date.now()}`
+            commentsMap.set(commentId, {
+              id: commentId,
+              content: commentContent,
+              position,
+              sectionId,
+              author: selfData?.info?.name || 'Anonymous',
+              authorId: selfData?.connectionId || 'unknown',
+              timestamp: Date.now(),
+              resolved: false,
+              replies: []
+            })
+          },
+          [sectionId, useSelf]
+        )
       }
     }
   } catch (error) {
@@ -167,22 +172,30 @@ export function CollaborativeTextEditor({
       return
     }
 
-    // Create comment with selected text
+    // Create comment with selected text and proper error handling
     if (addComment) {
-      const position = {
-        start: selectionStart,
-        end: selectionEnd,
-        selectedText: selectedText
+      try {
+        const position = {
+          start: selectionStart,
+          end: selectionEnd,
+          selectedText: selectedText
+        }
+        
+        // Create a comment with the selected text as context
+        const commentContent = `Comment on: "${selectedText}"`
+        addComment(commentContent, position)
+        
+        // Clear selection after creating comment
+        setSelectedText("")
+        setSelectionStart(0)
+        setSelectionEnd(0)
+        
+        console.log('Comment created successfully')
+      } catch (error) {
+        console.error('Failed to create comment:', error)
       }
-      
-      // Create a comment with the selected text as context
-      const commentContent = `Comment on: "${selectedText}"`
-      addComment(commentContent, position)
-      
-      // Clear selection after creating comment
-      setSelectedText("")
-      setSelectionStart(0)
-      setSelectionEnd(0)
+    } else {
+      console.warn('addComment function not available')
     }
     
     setShowCommentsPanel(true)
