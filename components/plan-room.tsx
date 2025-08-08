@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react"
 import { RoomProvider } from "@/lib/liveblocks"
+import { LiveblocksProvider } from "@liveblocks/react"
 
 interface PlanRoomProps {
   roomId: string
@@ -12,26 +13,31 @@ interface PlanRoomProps {
 
 export function PlanRoom({ roomId, userName, userEmail, children }: PlanRoomProps) {
   return (
-    <RoomProvider
-      id={roomId}
-      initialPresence={{
-        cursor: null,
-        selectedSection: null,
-        textCursor: null,
-        textSelection: null,
-        isTyping: null,
-        user: {
-          name: userName,
-          email: userEmail,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userEmail}`,
-        },
-      }}
-      initialStorage={{
-        sections: {},
-        completedSections: {},
-      }}
+    <LiveblocksProvider
+      authEndpoint="/api/liveblocks-auth"
+      throttle={16}
     >
-      {children}
-    </RoomProvider>
+      <RoomProvider
+        id={roomId}
+        initialPresence={{
+          cursor: null,
+          selectedSection: null,
+          textCursor: null,
+          textSelection: null,
+          isTyping: null,
+          user: {
+            name: userName,
+            email: userEmail,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userEmail}`,
+          },
+        }}
+        initialStorage={{
+          sections: {},
+          completedSections: {},
+        }}
+      >
+        {children}
+      </RoomProvider>
+    </LiveblocksProvider>
   )
 }
