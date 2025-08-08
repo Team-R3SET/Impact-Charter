@@ -86,23 +86,38 @@ function SelectionPlugin({ onSelectionChange }: { onSelectionChange: (selection:
   const [editor] = useLexicalComposerContext()
 
   useEffect(() => {
+    // Added editor validation before registering listener
+    if (!editor) {
+      console.warn('Editor is not available for SelectionPlugin')
+      return
+    }
+
     return editor.registerUpdateListener(({ editorState }) => {
+      if (!editorState) {
+        return
+      }
+
       try {
         editorState.read(() => {
-          const selection = $getSelection()
-          if (selection) {
-            const textContent = selection.getTextContent()
-            if (textContent) {
-              onSelectionChange({
-                start: 0, // Lexical handles selection differently
-                end: textContent.length,
-                text: textContent
-              })
+          try {
+            const selection = $getSelection()
+            if (selection) {
+              const textContent = selection.getTextContent()
+              if (textContent) {
+                // Added fallback values for selection range
+                onSelectionChange({
+                  start: 0,
+                  end: textContent.length,
+                  text: textContent
+                })
+              }
             }
+          } catch (innerError) {
+            console.error('Error in selection read:', innerError)
           }
         })
       } catch (error) {
-        console.error('Selection error:', error)
+        console.error('Selection change error:', error)
       }
     })
   }, [editor, onSelectionChange])
@@ -202,33 +217,52 @@ export function CollaborativeTextEditor({
   }
 
   const handleContentChange = useCallback((editorState: EditorState) => {
+    // Added editor state validation and better error handling
+    if (!editorState) {
+      console.warn('Editor state is null or undefined')
+      return
+    }
+
     try {
       editorState.read(() => {
-        const root = $getRoot()
-        const textContent = root.getTextContent()
-        
-        setLocalContent(textContent)
-        
-        if (updateSection) {
-          updateSection(textContent)
+        try {
+          const root = $getRoot()
+          if (!root) {
+            console.warn('Root node is null')
+            return
+          }
+          
+          const textContent = root.getTextContent()
+          
+          setLocalContent(textContent)
+          
+          if (updateSection) {
+            updateSection(textContent)
+          }
+          
+          if (onContentChange) {
+            onContentChange(textContent)
+          }
+          
+          // Auto-save functionality
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+          }
+          
+          saveTimeoutRef.current = setTimeout(() => {
+            setLastSaved(new Date())
+            setSaveError(null)
+          }, 1000)
+        } catch (innerError) {
+          console.error('Error reading editor state:', innerError)
         }
-        
-        if (onContentChange) {
-          onContentChange(textContent)
-        }
-        
-        // Auto-save functionality
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
-        }
-        
-        saveTimeoutRef.current = setTimeout(() => {
-          setLastSaved(new Date())
-          setSaveError(null)
-        }, 1000)
       })
     } catch (error) {
       console.error('Content change error:', error)
+      // Fallback to prevent complete failure
+      if (typeof editorState === 'string') {
+        setLocalContent(editorState)
+      }
     }
   }, [updateSection, onContentChange])
 
