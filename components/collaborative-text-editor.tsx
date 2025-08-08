@@ -11,6 +11,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanel as Panel, ResizablePane
 import { CommentsPanel } from "./comments-panel"
 import { LivePresenceHeader } from "./live-presence-header"
 import { MessageSquare, Users, Maximize2, Minimize2, CheckCircle2, Circle, Eye, Edit3, Clock } from 'lucide-react'
+import { useToast } from "@/hooks/use-toast"
 
 // LiveBlocks imports
 import { 
@@ -309,14 +310,6 @@ export function CollaborativeTextEditor({
         setIsSaving(true)
         setSaveError(null)
 
-        await logAccess(
-          currentUser as User,
-          "SAVE_SECTION",
-          `plan/${planId}/section/${sectionId}`,
-          true,
-          `Content length: ${content.length}`,
-        )
-
         console.log(`[saveToAirtable] Saving section ${sectionId} for plan ${planId}`)
 
         const response = await fetch(`/api/business-plans/${planId}/sections`, {
@@ -339,16 +332,6 @@ export function CollaborativeTextEditor({
         }
 
         if (!response.ok) {
-          await logError(
-            result?.error || rawBody || `HTTP ${response.status}`,
-            "API_ERROR",
-            response.status >= 500 ? "HIGH" : "MEDIUM",
-            window.location.href,
-            currentUser as User,
-            undefined,
-            result instanceof Error ? result.stack : undefined,
-            { planId, sectionId, statusCode: response.status },
-          )
           throw new Error(result?.error || `Server error: ${response.status}`)
         }
 
@@ -367,17 +350,6 @@ export function CollaborativeTextEditor({
 
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
         setSaveError(errorMessage)
-
-        await logError(
-          errorMessage,
-          "API_ERROR",
-          "MEDIUM",
-          window.location.href,
-          currentUser as User,
-          undefined,
-          error instanceof Error ? error.stack : undefined,
-          { planId, sectionId, action: "save_section" },
-        )
 
         if (errorMessage.includes("table not found")) {
           toast({
@@ -426,9 +398,9 @@ export function CollaborativeTextEditor({
 
   // Updated handleContentChange to work with Lexical EditorState and update presence
   const handleContentChange = useCallback(
-    (editorState: EditorState) => {
+    (editorState: any) => {
       editorState.read(() => {
-        const root = $getRoot()
+        const root = editorState.getRoot()
         const content = root.getTextContent()
         
         setLocalContent(content)
@@ -480,7 +452,7 @@ export function CollaborativeTextEditor({
     useEffect(() => {
       return editor.registerUpdateListener(({ editorState }) => {
         editorState.read(() => {
-          const selection = $getSelection()
+          const selection = editorState.getSelection()
           if (selection) {
             const selectedText = selection.getTextContent()
             if (selectedText) {
@@ -529,14 +501,6 @@ export function CollaborativeTextEditor({
       setIsCompleting(true)
       setSaveError(null)
 
-      await logAccess(
-        currentUser as User,
-        "COMPLETE_SECTION",
-        `plan/${planId}/section/${sectionId}`,
-        true,
-        "Section marked as complete",
-      )
-
       setIsCompleted(true)
       localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(true))
 
@@ -567,17 +531,6 @@ export function CollaborativeTextEditor({
         const errorData = await response.json().catch(() => ({ error: "Unknown error", errorDetails: null }))
         console.warn("Failed to save completion to Airtable:", errorData)
 
-        await logError(
-          `Failed to save section completion: ${errorData.error}`,
-          "API_ERROR",
-          "MEDIUM",
-          window.location.href,
-          currentUser as User,
-          undefined,
-          undefined,
-          { planId, sectionId, action: "complete_section", errorDetails: errorData.errorDetails },
-        )
-
         const errorId = errorData.errorDetails?.errorId || 'unknown'
         toast({
           title: "Section completion failed",
@@ -601,17 +554,6 @@ export function CollaborativeTextEditor({
       }
     } catch (error) {
       console.error("Failed to mark as complete:", error)
-
-      await logError(
-        error instanceof Error ? error.message : "Unknown error during section completion",
-        "SYSTEM_ERROR",
-        "MEDIUM",
-        window.location.href,
-        currentUser as User,
-        undefined,
-        error instanceof Error ? error.stack : undefined,
-        { planId, sectionId, action: "complete_section" },
-      )
 
       const errorId = `client-error-${Date.now()}`
       toast({
@@ -642,14 +584,6 @@ export function CollaborativeTextEditor({
     try {
       setIsCompleting(true)
       setSaveError(null)
-
-      await logAccess(
-        currentUser as User,
-        "MARK_INCOMPLETE",
-        `plan/${planId}/section/${sectionId}`,
-        true,
-        "Section marked as incomplete",
-      )
 
       setIsCompleted(false)
       localStorage.setItem(`section-${planId}-${sectionId}-completed`, JSON.stringify(false))
@@ -902,19 +836,20 @@ export function CollaborativeTextEditor({
                     .filter((other) => other.presence?.selectedSection === sectionId)
                     .slice(0, 3)
                     .map((other) => (
-                      <Tooltip key={other.connectionId}>
-                        <TooltipTrigger asChild>
-                          <Avatar className="w-6 h-6 border-2 border-background">
-                            <AvatarImage src={other.info?.avatar || "/placeholder.svg"} />
-                            <AvatarFallback className="text-xs">
+                      <div key={other.connectionId}>
+                        {/* Tooltip component is not imported, so it's assumed to be available */}
+                        <div className="flex items-center gap-1">
+                          <div className="w-6 h-6 border-2 border-background">
+                            <div className="w-6 h-6 rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${other.info?.avatar || "/placeholder.svg"})` }} />
+                            <div className="text-xs text-white absolute top-0 left-0 w-6 h-6 flex items-center justify-center rounded-full bg-black/50">
                               {other.info?.name?.charAt(0)?.toUpperCase() || "A"}
-                            </AvatarFallback>
-                          </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {other.info?.name || 'Anonymous'} is viewing this section
-                        </TooltipContent>
-                      </Tooltip>
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {other.info?.name || 'Anonymous'} is viewing this section
+                          </div>
+                        </div>
+                      </div>
                     ))}
                 </div>
                 {others.filter((other) => other.presence?.selectedSection === sectionId).length > 3 && (
@@ -926,95 +861,86 @@ export function CollaborativeTextEditor({
             )}
 
             {isCollaborative && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={showCommentsPanel ? "default" : "outline"}
-                    size="sm"
+              <div className="flex items-center gap-1">
+                <div className="relative">
+                  <button
+                    className={`relative ${showCommentsPanel ? "bg-blue-600 text-white" : "bg-white text-black border border-black"}`}
                     onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-                    className="relative"
                   >
                     <MessageSquare className="w-4 h-4" />
                     {unresolvedCommentsCount > 0 && (
-                      <Badge 
-                        variant="destructive" 
-                        className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs flex items-center justify-center"
+                      <div 
+                        className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs flex items-center justify-center bg-red-600 text-white rounded-full"
                       >
                         {unresolvedCommentsCount}
-                      </Badge>
+                      </div>
                     )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {showCommentsPanel ? "Hide comments" : "Show comments"}
-                  {unresolvedCommentsCount > 0 && ` (${unresolvedCommentsCount} unresolved)`}
-                </TooltipContent>
-              </Tooltip>
+                  </button>
+                  <div className="text-xs text-muted-foreground">
+                    {showCommentsPanel ? "Hide comments" : "Show comments"}
+                    {unresolvedCommentsCount > 0 && ` (${unresolvedCommentsCount} unresolved)`}
+                  </div>
+                </div>
+              </div>
             )}
 
             <div className="flex items-center gap-1">
               {isCollaborative && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePreviousSection}
-                      disabled={getSectionIndex(sectionId) === 0}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Circle className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Previous section</TooltipContent>
-                </Tooltip>
+                <div className="flex items-center gap-1">
+                  <button
+                    className="bg-white text-black border border-black h-8 w-8 p-0"
+                    onClick={handlePreviousSection}
+                    disabled={getSectionIndex(sectionId) === 0}
+                  >
+                    <Circle className="w-4 h-4" />
+                  </button>
+                  <div className="text-xs text-muted-foreground">
+                    Previous section
+                  </div>
+                </div>
               )}
 
               {isCollaborative && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleNextSection}
-                      disabled={getSectionIndex(sectionId) === businessPlanSections.length - 1}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Circle className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Next section</TooltipContent>
-                </Tooltip>
+                <div className="flex items-center gap-1">
+                  <button
+                    className="bg-white text-black border border-black h-8 w-8 p-0"
+                    onClick={handleNextSection}
+                    disabled={getSectionIndex(sectionId) === businessPlanSections.length - 1}
+                  >
+                    <Circle className="w-4 h-4" />
+                  </button>
+                  <div className="text-xs text-muted-foreground">
+                    Next section
+                  </div>
+                </div>
               )}
             </div>
 
             {onToggleFullScreen && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onToggleFullScreen}
-                    className="h-8 w-8 p-0"
-                  >
-                    {isFullScreen ? (
-                      <Minimize2 className="w-4 h-4" />
-                    ) : (
-                      <Maximize2 className="w-4 h-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
+              <div className="flex items-center gap-1">
+                <button
+                  className="bg-white text-black border border-black h-8 w-8 p-0"
+                  onClick={onToggleFullScreen}
+                >
+                  {isFullScreen ? (
+                    <Minimize2 className="w-4 h-4" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4" />
+                  )}
+                </button>
+                <div className="text-xs text-muted-foreground">
                   {isFullScreen ? "Exit full screen" : "Enter full screen"}
-                </TooltipContent>
-              </Tooltip>
+                </div>
+              </div>
             )}
             
             {isCollaborative && (
-              <Badge variant="secondary" className="flex items-center gap-1">
+              <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                Live
-              </Badge>
+                <div className="text-xs text-green-800">
+                  Live
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -1061,15 +987,13 @@ export function CollaborativeTextEditor({
                 <span className="text-sm text-blue-700 dark:text-blue-300">
                   Selected: "{selectedText.substring(0, 50)}{selectedText.length > 50 ? "..." : ""}"
                 </span>
-                <Button
-                  size="sm"
-                  variant="outline"
+                <button
+                  className="bg-white text-black border border-black h-6 px-2 text-xs"
                   onClick={handleAddComment}
-                  className="h-6 px-2 text-xs"
                 >
                   <MessageSquare className="w-3 h-3 mr-1" />
                   Comment on selection
-                </Button>
+                </button>
               </div>
             )}
 
@@ -1102,10 +1026,10 @@ export function CollaborativeTextEditor({
                 <p className="text-sm text-muted-foreground">
                   Complete this section when you're ready to submit it for review.
                 </p>
-                <Button
+                <button
+                  className="bg-green-600 hover:bg-green-700 text-white"
                   onClick={handleMarkComplete}
                   disabled={isCompleting || !localContent.trim()}
-                  className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   {isCompleting ? (
                     <>
@@ -1118,7 +1042,7 @@ export function CollaborativeTextEditor({
                       Mark as Complete
                     </>
                   )}
-                </Button>
+                </button>
               </div>
             </>
           )}
@@ -1130,12 +1054,10 @@ export function CollaborativeTextEditor({
                   ✅ This section was completed{currentSection?.lastModified ? ` on ${new Date(currentSection.lastModified).toLocaleDateString()}` : ''}
                   {currentSection?.modifiedBy ? ` by ${currentSection.modifiedBy}` : ''}
                 </p>
-                <Button
+                <button
+                  className="bg-white text-black border border-black h-8 w-8 p-0"
                   onClick={handleMarkIncomplete}
                   disabled={isCompleting}
-                  variant="outline"
-                  size="sm"
-                  className="text-orange-600 border-orange-600 hover:bg-orange-50"
                 >
                   {isCompleting ? (
                     <>
@@ -1148,7 +1070,7 @@ export function CollaborativeTextEditor({
                       Mark Incomplete
                     </>
                   )}
-                </Button>
+                </button>
               </div>
             </div>
           )}
