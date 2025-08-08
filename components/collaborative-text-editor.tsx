@@ -73,7 +73,7 @@ export function CollaborativeTextEditor({
   const [isOnline, setIsOnline] = useState(true)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const textareaRef = useRef<HTMLDivElement>(null)
   const [currentSectionData, setCurrentSectionData] = useState<{ title: string, description: string }>({ title: "", description: "" })
 
   const [myPresence, updateMyPresence] = useMyPresence ? useMyPresence() : [null, () => {}]
@@ -603,37 +603,32 @@ export function CollaborativeTextEditor({
   const currentIndex = getSectionIndex(sectionId)
 
   const applyFormatting = useCallback((format: 'bold' | 'italic' | 'underline') => {
-    if (!textareaRef.current) return;
-    
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = textarea.value.substring(start, end);
-    
-    if (!selectedText) return;
-    
-    let formattedText = '';
-    
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) return; // No text selected
+
+    let command = '';
     switch (format) {
       case 'bold':
-        formattedText = `**${selectedText}**`;
+        command = 'bold';
         break;
       case 'italic':
-        formattedText = `*${selectedText}*`;
+        command = 'italic';
         break;
       case 'underline':
-        formattedText = `<u>${selectedText}</u>`;
+        command = 'underline';
         break;
     }
+
+    document.execCommand(command, false);
     
-    const newContent = textarea.value.substring(0, start) + formattedText + textarea.value.substring(end);
-    setLocalContent(newContent);
-    
-    // Restore cursor position
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + formattedText.length, start + formattedText.length);
-    }, 0);
+    // Update content after formatting
+    if (textareaRef.current) {
+      const newContent = htmlToMarkdown(textareaRef.current.innerHTML);
+      setLocalContent(newContent);
+    }
   }, [])
 
   // Adding markdown parsing utility function
@@ -646,8 +641,8 @@ export function CollaborativeTextEditor({
     // Parse italic text (*text*)
     parsedText = parsedText.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     
-    // Parse underline text (_text_)
-    parsedText = parsedText.replace(/_(.*?)_/g, '<u>$1</u>');
+    // Parse underline text (<u>text</u>)
+    parsedText = parsedText.replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
     
     // Convert newlines to <br>
     parsedText = parsedText.replace(/\n/g, '<br>');
@@ -659,23 +654,35 @@ export function CollaborativeTextEditor({
   const htmlToMarkdown = (html: string) => {
     if (!html) return '';
     
-    // Replace <br> with newlines
+    // Replace <br> and <div> with newlines
     let markdownText = html.replace(/<br\s*\/?>/g, '\n');
+    markdownText = markdownText.replace(/<div>/g, '\n');
+    markdownText = markdownText.replace(/<\/div>/g, '');
     
-    // Replace <strong> with **
-    markdownText = markdownText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
+    // Replace <strong> and <b> with **
+    markdownText = markdownText.replace(/<(strong|b)>(.*?)<\/(strong|b)>/g, '**$2**');
     
-    // Replace <em> with *
-    markdownText = markdownText.replace(/<em>(.*?)<\/em>/g, '*$1*');
+    // Replace <em> and <i> with *
+    markdownText = markdownText.replace(/<(em|i)>(.*?)<\/(em|i)>/g, '*$2*');
     
-    // Replace <u> with _
-    markdownText = markdownText.replace(/<u>(.*?)<\/u>/g, '_$1_');
+    // Replace <u> with <u> tags (keeping as HTML for underline)
+    markdownText = markdownText.replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
     
-    // Remove any other HTML tags
-    markdownText = markdownText.replace(/<[^>]*>/g, '');
+    // Remove any other HTML tags except <u>
+    markdownText = markdownText.replace(/<(?!u\b|\/u\b)[^>]*>/g, '');
+    
+    // Clean up extra newlines
+    markdownText = markdownText.replace(/\n+/g, '\n').trim();
     
     return markdownText;
   };
+
+  // Adding handler for contentEditable input
+  const handleContentEditableInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const newContent = htmlToMarkdown(target.innerHTML);
+    handleContentChange(newContent);
+  }, [handleContentChange]);
 
   if (isLoading) {
     return (
@@ -842,25 +849,17 @@ export function CollaborativeTextEditor({
               />
             ) : (
               <div className="relative">
-                <textarea
+                <div
                   ref={textareaRef}
-                  value={localContent}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  className={`min-h-[400px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed resize-none w-full bg-transparent relative z-10 ${
+                  contentEditable
+                  onInput={handleContentEditableInput}
+                  className={`min-h-[400px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed resize-none w-full prose prose-sm max-w-none ${
                     isFullScreen ? "flex-1" : ""
                   }`}
-                  placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
-                  style={{ 
-                    color: localContent ? 'transparent' : 'inherit',
-                    caretColor: 'black'
-                  }}
+                  dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
+                  style={{ minHeight: '400px' }}
+                  suppressContentEditableWarning={true}
                 />
-                {localContent && (
-                  <div
-                    className="absolute top-0 left-0 min-h-[400px] p-4 text-base leading-relaxed pointer-events-none z-0 w-full prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
-                  />
-                )}
               </div>
             )}
             
