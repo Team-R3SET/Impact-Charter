@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu, HelpCircle, ChevronDown } from 'lucide-react'
+import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu, HelpCircle, ChevronDown, Mail } from 'lucide-react'
 import { useUser } from "@/contexts/user-context"
 import { RoleSwitcher } from "./role-switcher"
 import { NotificationsDropdown } from "./notifications-dropdown"
@@ -115,8 +115,9 @@ export function AppHeader() {
     ...(currentUser ? [{ href: "/plans", label: "My Charters" }] : []),
     ...(currentUser ? [{ href: "/teams", label: "Teams" }] : []),
     { href: "/pricing", label: "Pricing" },
-    { href: "/setup/airtable", label: "Setup Guide" },
-    { href: "/settings", label: "Settings" },
+    ...(currentUser ? [{ href: "/setup/airtable", label: "Setup Guide" }] : []),
+    ...(currentUser ? [{ href: "/settings", label: "Settings" }] : []),
+    ...(!currentUser ? [{ href: "/contact", label: "Contact" }] : []),
   ]
 
   const adminItems = [
