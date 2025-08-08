@@ -14,6 +14,7 @@ import { businessPlanSections, getNextSection, getPreviousSection, getSectionInd
 import { logAccess, logError } from "@/lib/logging"
 import type { User } from "@/lib/user-types"
 import { CommentsPanel } from "./comments-panel"
+import { useRoom, useMutation, useStorage, useSelf, useOthers } from "@liveblocks/react"
 
 interface CollaborativeTextEditorProps {
   sectionId: string
@@ -40,7 +41,7 @@ export function CollaborativeTextEditor({
   isFullScreen = false,
   onToggleFullScreen,
 }: CollaborativeTextEditorProps) {
-  const room = useRoom?.() || null
+  const room = useRoom()
   const [localContent, setLocalContent] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -57,12 +58,12 @@ export function CollaborativeTextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [currentSectionData, setCurrentSectionData] = useState<{ title: string, description: string }>({ title: "", description: "" })
 
-  const [myPresence, updateMyPresence] = useMyPresence ? useMyPresence() : [null, () => {}]
+  const [myPresence, updateMyPresence] = useSelf ? useSelf() : [null, () => {}]
   const others = useOthers ? useOthers() : []
   const sections = useStorage ? useStorage((root) => root?.sections) : null
   const completedSections = useStorage ? useStorage((root) => root?.completedSections) : null
   const comments = useStorage ? useStorage((root) => root?.comments || {}) : {}
-  const broadcast = useBroadcastEvent ? useBroadcastEvent() : () => {}
+  const broadcast = useRoom ? useRoom().broadcast : () => {}
 
   const sectionComments = Object.values(comments || {}).filter(
     (comment: any) => comment.sectionId === sectionId
@@ -136,7 +137,7 @@ export function CollaborativeTextEditor({
             window.location.href,
             currentUser as User,
             undefined,
-            error instanceof Error ? error.stack : undefined,
+            result instanceof Error ? result.stack : undefined,
             { planId, sectionId, statusCode: response.status },
           )
           throw new Error(result?.error || `Server error: ${response.status}`)
