@@ -133,7 +133,7 @@ function SelectionPlugin({ onSelectionChange }: { onSelectionChange: (selection:
 }
 
 // Enhanced toolbar with better styling and visual hierarchy
-function ToolbarPlugin() {
+function ToolbarPlugin({ isCollaborative, othersData }: { isCollaborative: boolean; othersData: any[] }) {
   const [editor] = useLexicalComposerContext()
   const [isBold, setIsBold] = useState(false)
   const [isItalic, setIsItalic] = useState(false)
@@ -710,7 +710,7 @@ export function CollaborativeTextEditor({
               <LexicalComposer initialConfig={editorConfig}>
                 <div className="relative">
                   {/* Toolbar now includes presence indicators */}
-                  <ToolbarPlugin />
+                  <ToolbarPlugin isCollaborative={isCollaborative} othersData={othersData} />
                   <RichTextPlugin
                     contentEditable={
                       <ContentEditable
