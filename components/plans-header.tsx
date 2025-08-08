@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Filter, SortAsc, Grid, List, Plus, Download, Upload } from 'lucide-react'
+import { Search, Filter, SortAsc, Grid, List, Plus, Download, Upload, RefreshCw } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 import type { BusinessPlan } from "@/lib/airtable"
 
 interface PlansHeaderProps {
@@ -26,6 +27,7 @@ interface PlansHeaderProps {
   viewMode: "grid" | "list"
   onViewModeChange: (mode: "grid" | "list") => void
   onCreatePlan: () => void
+  onRefresh?: () => void
 }
 
 export function PlansHeader({
@@ -39,7 +41,90 @@ export function PlansHeader({
   viewMode,
   onViewModeChange,
   onCreatePlan,
+  onRefresh,
 }: PlansHeaderProps) {
+  const { toast } = useToast()
+
+  const handleExportPlans = () => {
+    try {
+      const csvContent = [
+        ["Plan Name", "Status", "Owner", "Created Date", "Last Modified"].join(","),
+        ...plans.map((plan) =>
+          [
+            `"${plan.planName}"`,
+            `"${plan.status}"`,
+            `"${plan.ownerEmail}"`,
+            `"${new Date(plan.createdDate).toLocaleDateString()}"`,
+            `"${new Date(plan.lastModified).toLocaleDateString()}"`,
+          ].join(",")
+        ),
+      ].join("\n")
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute("download", `impact-charters-${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${plans.length} plans to CSV file.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export plans. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleImportPlans = () => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = ".csv,.json"
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      try {
+        const text = await file.text()
+        let importedPlans = []
+
+        if (file.name.endsWith('.csv')) {
+          const lines = text.split('\n')
+          const headers = lines[0].split(',')
+          importedPlans = lines.slice(1).filter(line => line.trim()).map(line => {
+            const values = line.split(',')
+            return {
+              planName: values[0]?.replace(/"/g, '') || 'Imported Plan',
+              status: values[1]?.replace(/"/g, '') || 'Draft',
+              ownerEmail: values[2]?.replace(/"/g, '') || '',
+            }
+          })
+        } else if (file.name.endsWith('.json')) {
+          importedPlans = JSON.parse(text)
+        }
+
+        toast({
+          title: "Import Preview",
+          description: `Found ${importedPlans.length} plans to import. Feature coming soon!`,
+        })
+      } catch (error) {
+        toast({
+          title: "Import Failed",
+          description: "Failed to parse import file. Please check the format.",
+          variant: "destructive",
+        })
+      }
+    }
+    input.click()
+  }
+
   const getStatusCounts = () => {
     const counts = plans.reduce(
       (acc, plan) => {
@@ -165,6 +250,12 @@ export function PlansHeader({
             </Button>
           </div>
 
+          {onRefresh && (
+            <Button variant="outline" size="sm" onClick={onRefresh}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          )}
+
           {/* More Actions */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -174,11 +265,11 @@ export function PlansHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPlans}>
                 <Download className="mr-2 h-4 w-4" />
                 Export Plans
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleImportPlans}>
                 <Upload className="mr-2 h-4 w-4" />
                 Import Plans
               </DropdownMenuItem>
