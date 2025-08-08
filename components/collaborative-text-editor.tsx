@@ -1,31 +1,36 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { Textarea } from "@/components/ui/textarea"
+import React, { useState, useEffect, useCallback, useRef, useContext } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { CheckCircle, Clock, Users, Save, AlertCircle, Wifi, WifiOff, ChevronLeft, ChevronRight, Maximize, Minimize, Bold, Italic, Underline, XCircle, MessageCircle } from 'lucide-react'
-import { useToast } from "@/hooks/use-toast"
-import { businessPlanSections, getNextSection, getPreviousSection, getSectionIndex } from "@/lib/business-plan-sections"
-import { logAccess, logError } from "@/lib/logging"
-import type { User } from "@/lib/user-types"
+import { Separator } from "@/components/ui/separator"
+import { ResizableHandle, ResizablePanel, ResizablePanel as Panel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { CommentsPanel } from "./comments-panel"
-import { useRoom, useMutation, useStorage, useSelf, useOthers, useMyPresence } from "@liveblocks/react"
-// Added LiveBlocks Lexical imports for multiplayer text editing
-import { LiveblocksPlugin } from "@liveblocks/react-lexical"
+import { LivePresenceHeader } from "./live-presence-header"
+import { MessageSquare, Users, Maximize2, Minimize2, CheckCircle2, Circle, Eye, Edit3, Clock } from 'lucide-react'
+
+// LiveBlocks imports
+import { 
+  useRoom, 
+  useMutation, 
+  useStorage, 
+  useSelf, 
+  useOthers, 
+  useMyPresence,
+  RoomContext
+} from "@liveblocks/react"
+
+// Lexical imports
 import { LexicalComposer } from "@lexical/react/LexicalComposer"
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin"
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin"
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary"
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { $getRoot, $getSelection, EditorState } from "lexical"
+import { LiveblocksPlugin } from "@liveblocks/react-lexical"
 
 function LiveCursor({ user, position }: { user: any; position: { x: number; y: number } }) {
   return (
@@ -826,12 +831,17 @@ export function CollaborativeTextEditor({
     }
   }, [sectionId, onSectionSelect])
 
+  const isLiveblocksAvailable = useContext(RoomContext) !== null
+
   const ConditionalLiveblocksPlugin = () => {
+    if (!isLiveblocksAvailable) {
+      return null
+    }
+    
     try {
-      const room = useRoom()
-      return room ? <LiveblocksPlugin /> : null
+      return <LiveblocksPlugin />
     } catch (error) {
-      // LiveBlocks context not available, skip the plugin
+      console.log("LiveblocksPlugin error:", error)
       return null
     }
   }
@@ -866,255 +876,148 @@ export function CollaborativeTextEditor({
   }
 
   return (
-    <TooltipProvider>
-      <Card className={isFullScreen ? "fixed inset-0 z-50 rounded-none flex flex-col" : ""}>
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div>
-                <CardTitle className="text-xl">{sectionTitle}</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Complete this section of your business plan
-                </p>
-              </div>
-              {finalIsCompleted && (
-                <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Complete
-                </Badge>
-              )}
+    <div className={isFullScreen ? "fixed inset-0 z-50 rounded-none flex flex-col" : ""}>
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div>
+              <CardTitle className="text-xl">{sectionTitle}</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Complete this section of your business plan
+              </p>
             </div>
-
-            <div className="flex items-center gap-2">
-              {isCollaborative && others.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <div className="flex -space-x-1">
-                    {others
-                      .filter((other) => other.presence?.selectedSection === sectionId)
-                      .slice(0, 3)
-                      .map((other) => (
-                        <Tooltip key={other.connectionId}>
-                          <TooltipTrigger asChild>
-                            <Avatar className="w-6 h-6 border-2 border-background">
-                              <AvatarImage src={other.info?.avatar || "/placeholder.svg"} />
-                              <AvatarFallback className="text-xs">
-                                {other.info?.name?.charAt(0)?.toUpperCase() || "A"}
-                              </AvatarFallback>
-                            </Avatar>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {other.info?.name || 'Anonymous'} is viewing this section
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                  </div>
-                  {others.filter((other) => other.presence?.selectedSection === sectionId).length > 3 && (
-                    <span className="text-xs text-muted-foreground">
-                      +{others.filter((other) => other.presence?.selectedSection === sectionId).length - 3} more
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {isCollaborative && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={showCommentsPanel ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-                        className="relative"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        {unresolvedCommentsCount > 0 && (
-                          <Badge 
-                            variant="destructive" 
-                            className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs flex items-center justify-center"
-                          >
-                            {unresolvedCommentsCount}
-                          </Badge>
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {showCommentsPanel ? "Hide comments" : "Show comments"}
-                      {unresolvedCommentsCount > 0 && ` (${unresolvedCommentsCount} unresolved)`}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-
-              <div className="flex items-center gap-1">
-                {isCollaborative && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handlePreviousSection}
-                          disabled={getSectionIndex(sectionId) === 0}
-                          className="h-8 w-8 p-0"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Previous section</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-
-                {isCollaborative && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleNextSection}
-                          disabled={getSectionIndex(sectionId) === businessPlanSections.length - 1}
-                          className="h-8 w-8 p-0"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Next section</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-
-              {onToggleFullScreen && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onToggleFullScreen}
-                        className="h-8 w-8 p-0"
-                      >
-                        {isFullScreen ? (
-                          <Minimize className="w-4 h-4" />
-                        ) : (
-                          <Maximize className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isFullScreen ? "Exit full screen" : "Enter full screen"}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              
-              {isCollaborative && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  Live
-                </Badge>
-              )}
-            </div>
+            {finalIsCompleted && (
+              <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Complete
+              </Badge>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 pt-2 border-t">
+          <div className="flex items-center gap-2">
+            {isCollaborative && others.length > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="flex -space-x-1">
+                  {others
+                    .filter((other) => other.presence?.selectedSection === sectionId)
+                    .slice(0, 3)
+                    .map((other) => (
+                      <Tooltip key={other.connectionId}>
+                        <TooltipTrigger asChild>
+                          <Avatar className="w-6 h-6 border-2 border-background">
+                            <AvatarImage src={other.info?.avatar || "/placeholder.svg"} />
+                            <AvatarFallback className="text-xs">
+                              {other.info?.name?.charAt(0)?.toUpperCase() || "A"}
+                            </AvatarFallback>
+                          </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {other.info?.name || 'Anonymous'} is viewing this section
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                </div>
+                {others.filter((other) => other.presence?.selectedSection === sectionId).length > 3 && (
+                  <span className="text-xs text-muted-foreground">
+                    +{others.filter((other) => other.presence?.selectedSection === sectionId).length - 3} more
+                  </span>
+                )}
+              </div>
+            )}
+
+            {isCollaborative && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={showCommentsPanel ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowCommentsPanel(!showCommentsPanel)}
+                    className="relative"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    {unresolvedCommentsCount > 0 && (
+                      <Badge 
+                        variant="destructive" 
+                        className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs flex items-center justify-center"
+                      >
+                        {unresolvedCommentsCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {showCommentsPanel ? "Hide comments" : "Show comments"}
+                  {unresolvedCommentsCount > 0 && ` (${unresolvedCommentsCount} unresolved)`}
+                </TooltipContent>
+              </Tooltip>
+            )}
+
             <div className="flex items-center gap-1">
               {isCollaborative && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => applyFormatting('bold')}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Bold className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Bold</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePreviousSection}
+                      disabled={getSectionIndex(sectionId) === 0}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Circle className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Previous section</TooltipContent>
+                </Tooltip>
               )}
-              
-              {isCollaborative && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => applyFormatting('italic')}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Italic className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Italic</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              
-              {isCollaborative && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => applyFormatting('underline')}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Underline className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Underline</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-            
-            <Separator orientation="vertical" className="h-6" />
-            
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {isSaving && (
-                <div className="flex items-center gap-1">
-                  <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div>
-                  <span>Saving...</span>
-                </div>
-              )}
-              {lastSaved && !isSaving && (
-                <span>Saved {lastSaved.toLocaleTimeString()}</span>
-              )}
-              {!isOnline && (
-                <div className="flex items-center gap-1 text-orange-600">
-                  <WifiOff className="w-3 h-3" />
-                  <span>Offline</span>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {Array.isArray(usersTyping) && usersTyping.length > 0 && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="flex -space-x-1">
-                {usersTyping.map((user: any) => (
-                  <Avatar key={user.id} className="w-4 h-4">
-                    <AvatarImage src={user?.presence?.user?.avatar || "/placeholder.svg"} />
-                    <AvatarFallback className="text-xs">
-                      {user?.presence?.user?.name?.charAt(0)?.toUpperCase() || "A"}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-              </div>
-              <span>
-                {usersTyping.map((u: any) => u?.presence?.user?.name || "Someone").join(", ")}
-                {usersTyping.length === 1 ? " is" : " are"} typing...
-              </span>
+              {isCollaborative && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextSection}
+                      disabled={getSectionIndex(sectionId) === businessPlanSections.length - 1}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Circle className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Next section</TooltipContent>
+                </Tooltip>
+              )}
             </div>
-          )}
-        </CardHeader>
+
+            {onToggleFullScreen && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onToggleFullScreen}
+                    className="h-8 w-8 p-0"
+                  >
+                    {isFullScreen ? (
+                      <Minimize2 className="w-4 h-4" />
+                    ) : (
+                      <Maximize2 className="w-4 h-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isFullScreen ? "Exit full screen" : "Enter full screen"}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            
+            {isCollaborative && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                Live
+              </Badge>
+            )}
+          </div>
+        </div>
 
         <CardContent className={`space-y-4 ${isFullScreen ? "flex-1 flex flex-col" : ""}`}>
           <div className="space-y-2">
@@ -1145,10 +1048,9 @@ export function CollaborativeTextEditor({
                     }
                     ErrorBoundary={LexicalErrorBoundary}
                   />
-                  <OnChangePlugin onChange={handleContentChange} />
+                  <SelectionPlugin />
                   <HistoryPlugin />
                   <AutoFocusPlugin />
-                  <SelectionPlugin />
                   <ConditionalLiveblocksPlugin />
                 </div>
               </LexicalComposer>
@@ -1165,7 +1067,7 @@ export function CollaborativeTextEditor({
                   onClick={handleAddComment}
                   className="h-6 px-2 text-xs"
                 >
-                  <MessageCircle className="w-3 h-3 mr-1" />
+                  <MessageSquare className="w-3 h-3 mr-1" />
                   Comment on selection
                 </Button>
               </div>
@@ -1207,12 +1109,12 @@ export function CollaborativeTextEditor({
                 >
                   {isCompleting ? (
                     <>
-                      <CheckCircle className="w-4 h-4 mr-2 animate-spin" />
+                      <CheckCircle2 className="w-4 h-4 mr-2 animate-spin" />
                       Marking Complete...
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
                       Mark as Complete
                     </>
                   )}
@@ -1237,12 +1139,12 @@ export function CollaborativeTextEditor({
                 >
                   {isCompleting ? (
                     <>
-                      <XCircle className="w-4 h-4 mr-2 animate-spin" />
+                      <Circle className="w-4 h-4 mr-2 animate-spin" />
                       Updating...
                     </>
                   ) : (
                     <>
-                      <XCircle className="w-4 h-4 mr-2" />
+                      <Circle className="w-4 h-4 mr-2" />
                       Mark Incomplete
                     </>
                   )}
@@ -1263,6 +1165,6 @@ export function CollaborativeTextEditor({
           />
         </div>
       )}
-    </TooltipProvider>
+    </div>
   )
 }

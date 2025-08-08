@@ -37,7 +37,7 @@ importers:
         version: 3.2.1(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(react@19.0.0)
       '@liveblocks/react-lexical':
         specifier: latest
-        version: 3.2.1(@lexical/react@0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27))(@lexical/rich-text@0.34.0)(@lexical/selection@0.34.0)(@lexical/utils@0.34.0)(@lexical/yjs@0.34.0(yjs@13.6.27))(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(lexical@0.34.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        version: 3.2.1(@lexical/react@0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27))(@lexical/rich-text@0.34.0)(@lexical/selection@0.34.0)(@lexical/utils@0.34.0)(@lexical/yjs@0.34.0(yjs@13.6.27))(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(lexical@0.17.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@radix-ui/react-accordion':
         specifier: latest
         version: 1.2.11(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -144,8 +144,8 @@ importers:
         specifier: latest
         version: 1.4.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       lexical:
-        specifier: latest
-        version: 0.34.0
+        specifier: ^0.17.1
+        version: 0.17.1
       lucide-react:
         specifier: ^0.454.0
         version: 0.454.0(react@19.0.0)
@@ -1628,6 +1628,9 @@ packages:
   js-base64@3.7.7:
     resolution: {integrity: sha512-7rCnleh0z2CkXhH67J8K1Ytz0b2Y+yxTPL+/KOJoa20hfnVQ/3/T6W/KflYI4bRHRagNeXeU2bkNGI3v1oS/lw==}
 
+  lexical@0.17.1:
+    resolution: {integrity: sha512-72/MhR7jqmyqD10bmJw8gztlCm4KDDT+TPtU4elqXrEvHoO5XENi34YAEUD9gIkPfqSwyLa9mwAX1nKzIr5xEA==}
+
   lexical@0.34.0:
     resolution: {integrity: sha512-oqQ87i49oGRt8u9qIXow+fWeqN6luRMtYAa1GAx1l9AaR3A8Tfrgnmj2+13ej6CMPK6JunKaUXbd+7FDy+s8XQ==}
 
@@ -2493,7 +2496,7 @@ snapshots:
       - '@types/json-schema'
       - encoding
 
-  '@liveblocks/react-lexical@3.2.1(@lexical/react@0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27))(@lexical/rich-text@0.34.0)(@lexical/selection@0.34.0)(@lexical/utils@0.34.0)(@lexical/yjs@0.34.0(yjs@13.6.27))(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(lexical@0.34.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@liveblocks/react-lexical@3.2.1(@lexical/react@0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27))(@lexical/rich-text@0.34.0)(@lexical/selection@0.34.0)(@lexical/utils@0.34.0)(@lexical/yjs@0.34.0(yjs@13.6.27))(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(lexical@0.17.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
       '@floating-ui/react-dom': 2.1.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@lexical/react': 0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27)
@@ -2508,7 +2511,7 @@ snapshots:
       '@liveblocks/yjs': 3.2.1(@types/json-schema@7.0.15)(yjs@13.6.27)
       '@radix-ui/react-select': 2.2.5(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@radix-ui/react-toggle': 1.1.9(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      lexical: 0.34.0
+      lexical: 0.17.1
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
       yjs: 13.6.27
@@ -3656,6 +3659,8 @@ snapshots:
   jiti@1.21.7: {}
 
   js-base64@3.7.7: {}
+
+  lexical@0.17.1: {}
 
   lexical@0.34.0: {}
 
