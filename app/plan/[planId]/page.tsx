@@ -129,20 +129,15 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
       avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com",
     }
 
-    const isCollabMode = searchParamsResolved.collab === "true"
-
-    if (isCollabMode) {
-      return (
-        <>
-          <AppHeader currentUser={user} currentPlanId={planId} />
-          <PlanRoom roomId={`plan-${planId}`} userName={user.name} userEmail={user.email}>
-            <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={false} />
-          </PlanRoom>
-        </>
-      )
-    }
-
-    return <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={true} />
+    // Always use collaborative mode to avoid LiveblocksProvider issues
+    return (
+      <>
+        <AppHeader currentUser={user} currentPlanId={planId} />
+        <PlanRoom roomId={`plan-${planId}`} userName={user.name} userEmail={user.email}>
+          <BusinessPlanEditor planId={planId} planName={derivedName} userEmail={user.email} showHeader={false} />
+        </PlanRoom>
+      </>
+    )
   } catch (error) {
     console.error("Error loading plan:", error)
     notFound()
