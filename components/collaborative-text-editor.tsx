@@ -755,7 +755,7 @@ export function CollaborativeTextEditor({
 
   const ConditionalLiveblocksPlugin = () => {
     // Only render LiveblocksPlugin when room context is available
-    if (!isLiveblocksAvailable || !room) {
+    if (!isLiveblocksAvailable) {
       return null
     }
     
