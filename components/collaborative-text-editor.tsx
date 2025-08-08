@@ -39,6 +39,9 @@ try {
 
 // Simple markdown parser
 function parseMarkdown(text: string): string {
+  // Added null check to prevent error when text is undefined
+  if (!text) return '';
+  
   return text
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
     .replace(/^## (.*$)/gim, '<h2>$1</h2>')
