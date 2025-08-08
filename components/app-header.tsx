@@ -19,6 +19,7 @@ import { FileText, Settings, User, LogOut, Database, UsersIcon, BarChart3, Menu,
 import { useUser } from "@/contexts/user-context"
 import { RoleSwitcher } from "./role-switcher"
 import { NotificationsDropdown } from "./notifications-dropdown"
+import { InvitationNotifications } from "./invitation-notifications"
 import { ThemeSwitcher } from "./theme-switcher"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { getDemoUsers } from "@/lib/user-management"
@@ -112,6 +113,7 @@ export function AppHeader() {
   const navigationItems = [
     { href: "/", label: "Home" },
     ...(currentUser ? [{ href: "/plans", label: "My Charters" }] : []),
+    ...(currentUser ? [{ href: "/teams", label: "Teams" }] : []),
     { href: "/pricing", label: "Pricing" },
     { href: "/setup/airtable", label: "Setup Guide" },
     { href: "/settings", label: "Settings" },
@@ -270,6 +272,13 @@ export function AppHeader() {
                   />
                 </div>
 
+                <div className="hidden sm:block">
+                  <InvitationNotifications 
+                    currentUser={currentUser}
+                    onInvitationUpdate={fetchPlans}
+                  />
+                </div>
+
                 {/* Better notifications positioning */}
                 <div className="hidden sm:block">
                   <NotificationsDropdown />
@@ -315,6 +324,20 @@ export function AppHeader() {
                       <Link href="/plans" className="cursor-pointer">
                         <FileText className="mr-3 h-4 w-4" />
                         My Charters
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link href="/teams" className="cursor-pointer">
+                        <UsersIcon className="mr-3 h-4 w-4" />
+                        Teams
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link href="/invitations" className="cursor-pointer">
+                        <FileText className="mr-3 h-4 w-4" />
+                        Invitations
                       </Link>
                     </DropdownMenuItem>
 
