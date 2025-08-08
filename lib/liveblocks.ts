@@ -31,6 +31,37 @@ type Storage = {
     }
   >
   completedSections: Record<string, boolean>
+  comments: Record<
+    string,
+    {
+      id: string
+      sectionId: string
+      content: string
+      author: {
+        name: string
+        email: string
+        avatar: string
+      }
+      createdAt: string
+      updatedAt?: string
+      resolved: boolean
+      replies: Array<{
+        id: string
+        content: string
+        author: {
+          name: string
+          email: string
+          avatar: string
+        }
+        createdAt: string
+      }>
+      position?: {
+        start: number
+        end: number
+        selectedText?: string
+      }
+    }
+  >
 }
 
 type UserMeta = {
@@ -43,10 +74,12 @@ type UserMeta = {
 }
 
 type RoomEvent = {
-  type: "TEXT_CHANGE"
+  type: "TEXT_CHANGE" | "COMMENT_ADDED" | "COMMENT_RESOLVED" | "COMMENT_REPLY"
   sectionId: string
-  content: string
+  content?: string
   userId: string
+  commentId?: string
+  replyId?: string
 }
 
 export const {

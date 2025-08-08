@@ -21,6 +21,7 @@ import { RoleSwitcher } from "./role-switcher"
 import { NotificationsDropdown } from "./notifications-dropdown"
 import { InvitationNotifications } from "./invitation-notifications"
 import { ThemeSwitcher } from "./theme-switcher"
+import { LivePresenceHeader } from "./live-presence-header"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { getDemoUsers } from "@/lib/user-management"
 import type { User as UserType } from "@/lib/user-types"
@@ -159,6 +160,9 @@ export function AppHeader() {
 
           {/* Enhanced right side with better spacing and visual consistency */}
           <div className="flex items-center space-x-3">
+            {/* Add live presence indicator for collaborative sessions */}
+            <LivePresenceHeader />
+
             {/* Improved plan switcher with better styling */}
             {currentUser && plans.length > 0 && pathname.startsWith("/plan/") && (
               <div className="hidden lg:block">
