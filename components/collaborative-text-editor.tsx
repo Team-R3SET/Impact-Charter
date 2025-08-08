@@ -695,8 +695,19 @@ export function CollaborativeTextEditor({
   }
 
   const CollaborativeLexicalEditor = () => {
-    // Dynamically import LiveblocksPlugin only when needed
-    const { LiveblocksPlugin } = require("@liveblocks/react-lexical")
+    const [LiveblocksPlugin, setLiveblocksPlugin] = useState<any>(null)
+    
+    useEffect(() => {
+      const loadLiveblocksPlugin = async () => {
+        try {
+          const module = await import("@liveblocks/react-lexical")
+          setLiveblocksPlugin(() => module.LiveblocksPlugin)
+        } catch (error) {
+          console.error("Failed to load LiveblocksPlugin:", error)
+        }
+      }
+      loadLiveblocksPlugin()
+    }, [])
     
     const initialConfig = {
       namespace: `section-${sectionId}`,
@@ -735,7 +746,7 @@ export function CollaborativeTextEditor({
           <SelectionPlugin />
           <HistoryPlugin />
           <AutoFocusPlugin />
-          <LiveblocksPlugin />
+          {LiveblocksPlugin && <LiveblocksPlugin />}
         </div>
       </LexicalComposer>
     )
