@@ -14,7 +14,63 @@ import { businessPlanSections, getNextSection, getPreviousSection, getSectionInd
 import { logAccess, logError } from "@/lib/logging"
 import type { User } from "@/lib/user-types"
 import { CommentsPanel } from "./comments-panel"
-import { useRoom, useMutation, useStorage, useSelf, useOthers } from "@liveblocks/react"
+import { useRoom, useMutation, useStorage, useSelf, useOthers, useMyPresence } from "@liveblocks/react"
+// Added LiveBlocks Lexical imports for multiplayer text editing
+import { LiveblocksPlugin } from "@liveblocks/react-lexical"
+import { LexicalComposer } from "@lexical/react/LexicalComposer"
+import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin"
+import { ContentEditable } from "@lexical/react/LexicalContentEditable"
+import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin"
+import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin"
+import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary"
+import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import { $getRoot, $getSelection, EditorState } from "lexical"
+
+function LiveCursor({ user, position }: { user: any; position: { x: number; y: number } }) {
+  return (
+    <div
+      className="absolute pointer-events-none z-50"
+      style={{
+        left: position.x,
+        top: position.y,
+        transform: 'translate(-50%, -100%)',
+      }}
+    >
+      <div className="flex items-center gap-1">
+        <div
+          className="w-0.5 h-6 animate-pulse"
+          style={{ backgroundColor: user.color || '#3b82f6' }}
+        />
+        <div
+          className="px-2 py-1 rounded text-xs text-white whitespace-nowrap"
+          style={{ backgroundColor: user.color || '#3b82f6' }}
+        >
+          {user.name}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LiveSelection({ user, selection }: { user: any; selection: { start: number; end: number } }) {
+  return (
+    <div
+      className="absolute pointer-events-none z-40 rounded"
+      style={{
+        backgroundColor: `${user.color || '#3b82f6'}20`,
+        border: `1px solid ${user.color || '#3b82f6'}40`,
+      }}
+    >
+      <div
+        className="absolute -top-5 left-0 px-1 py-0.5 rounded text-xs text-white whitespace-nowrap"
+        style={{ backgroundColor: user.color || '#3b82f6' }}
+      >
+        {user.name}
+      </div>
+    </div>
+  )
+}
 
 interface CollaborativeTextEditorProps {
   sectionId: string
@@ -59,9 +115,11 @@ export function CollaborativeTextEditor({
   const [selectedText, setSelectedText] = useState("")
   const [selectionStart, setSelectionStart] = useState(0)
   const [selectionEnd, setSelectionEnd] = useState(0)
+  const [liveCursors, setLiveCursors] = useState<Array<{ user: any; position: { x: number; y: number } }>>([])
+  const [liveSelections, setLiveSelections] = useState<Array<{ user: any; selection: { start: number; end: number } }>>([])
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
 
   // Move updateSection definition before it's used
   const updateSection = useMutation
@@ -87,7 +145,6 @@ export function CollaborativeTextEditor({
       )
     : null
 
-  // Initialize LiveBlocks hooks safely
   let myPresence: any = null
   let updateMyPresence: any = () => {}
   let others: any[] = []
@@ -101,13 +158,12 @@ export function CollaborativeTextEditor({
       const room = useRoom()
       if (room) {
         const selfData = useSelf()
-        myPresence = selfData?.presence
-        updateMyPresence = (presence: any) => {
-          if (selfData) {
-            room.updatePresence(presence)
-          }
-        }
-        others = useOthers() || []
+        const [presence, setPresence] = useMyPresence()
+        const othersData = useOthers()
+        
+        myPresence = presence
+        updateMyPresence = setPresence
+        others = othersData || []
         storage = useStorage((root) => root) || {}
         broadcast = room.broadcastEvent
         comments = storage?.comments || {}
@@ -136,6 +192,43 @@ export function CollaborativeTextEditor({
           },
           [sectionId, useSelf]
         )
+
+        useEffect(() => {
+          const cursors: Array<{ user: any; position: { x: number; y: number } }> = []
+          const selections: Array<{ user: any; selection: { start: number; end: number } }> = []
+          
+          othersData.forEach((other) => {
+            if (other.presence?.selectedSection === sectionId) {
+              // Add cursor if user has a text cursor in this section
+              if (other.presence?.textCursor?.sectionId === sectionId) {
+                cursors.push({
+                  user: {
+                    name: other.info?.name || 'Anonymous',
+                    color: `hsl(${(other.connectionId || 0) * 137.508}deg, 70%, 50%)`, // Generate color from connection ID
+                  },
+                  position: { x: 100, y: 100 }, // This would be calculated from cursor position
+                })
+              }
+              
+              // Add selection if user has a text selection in this section
+              if (other.presence?.textSelection?.sectionId === sectionId) {
+                selections.push({
+                  user: {
+                    name: other.info?.name || 'Anonymous',
+                    color: `hsl(${(other.connectionId || 0) * 137.508}deg, 70%, 50%)`,
+                  },
+                  selection: {
+                    start: other.presence.textSelection.start,
+                    end: other.presence.textSelection.end,
+                  },
+                })
+              }
+            }
+          })
+          
+          setLiveCursors(cursors)
+          setLiveSelections(selections)
+        }, [othersData, sectionId])
       }
     }
   } catch (error) {
@@ -148,24 +241,11 @@ export function CollaborativeTextEditor({
 
   const unresolvedCommentsCount = sectionComments.filter((comment: any) => !comment?.resolved).length
 
+  // Updated handleTextSelection to work with Lexical editor and update presence
   const handleTextSelection = useCallback(() => {
-    if (!textareaRef.current) return
-
-    const textarea = textareaRef.current
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-
-    if (start !== end) {
-      const selectedText = localContent.substring(start, end)
-      setSelectedText(selectedText)
-      setSelectionStart(start)
-      setSelectionEnd(end)
-    } else {
-      setSelectedText("")
-      setSelectionStart(0)
-      setSelectionEnd(0)
-    }
-  }, [localContent])
+    // This will be handled by Lexical's selection system
+    // We'll implement this in the Lexical plugin
+  }, [])
 
   const handleAddComment = useCallback(() => {
     console.log('Add comment clicked', { selectedText, isCollaborative, addComment: !!addComment })
@@ -339,46 +419,105 @@ export function CollaborativeTextEditor({
     return () => window.removeEventListener('error', handleResizeObserverError)
   }, [])
 
+  // Updated handleContentChange to work with Lexical EditorState and update presence
   const handleContentChange = useCallback(
-    (content: string) => {
-      setLocalContent(content)
+    (editorState: EditorState) => {
+      editorState.read(() => {
+        const root = $getRoot()
+        const content = root.getTextContent()
+        
+        setLocalContent(content)
+        localStorage.setItem(`section-${planId}-${sectionId}`, content)
 
-      localStorage.setItem(`section-${planId}-${sectionId}`, content)
+        if (updateSection) {
+          updateSection(content)
+        }
 
-      if (updateSection) {
-        updateSection(content)
-      }
+        if (broadcast) {
+          broadcast({
+            type: "TEXT_CHANGE",
+            sectionId,
+            content,
+            user: currentUser.email,
+          })
+        }
 
-      if (broadcast) {
-        broadcast({
-          type: "TEXT_CHANGE",
-          sectionId,
-          content,
-          user: currentUser.email,
-        })
-      }
+        if (updateMyPresence) {
+          updateMyPresence({
+            selectedSection: sectionId,
+            isTyping: { sectionId, timestamp: Date.now() },
+            user: {
+              name: currentUser.name,
+              email: currentUser.email,
+              avatar: currentUser.avatar || '',
+            },
+          })
+        }
 
-      if (updateMyPresence) {
-        updateMyPresence({
-          section: sectionId,
-          activity: "editing",
-          lastActive: Date.now(),
-        })
-      }
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current)
+        }
+        saveTimeoutRef.current = setTimeout(() => {
+          saveToAirtable(content)
+        }, 2000)
 
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-      saveTimeoutRef.current = setTimeout(() => {
-        saveToAirtable(content)
-      }, 2000)
-
-      if (onContentChange) {
-        onContentChange(content)
-      }
+        if (onContentChange) {
+          onContentChange(content)
+        }
+      })
     },
-    [planId, sectionId, updateSection, broadcast, updateMyPresence, saveToAirtable, onContentChange],
+    [planId, sectionId, updateSection, broadcast, updateMyPresence, saveToAirtable, onContentChange, currentUser],
   )
+
+  function SelectionPlugin() {
+    const [editor] = useLexicalComposerContext()
+    
+    useEffect(() => {
+      return editor.registerUpdateListener(({ editorState }) => {
+        editorState.read(() => {
+          const selection = $getSelection()
+          if (selection) {
+            const selectedText = selection.getTextContent()
+            if (selectedText) {
+              setSelectedText(selectedText)
+              
+              if (updateMyPresence) {
+                updateMyPresence({
+                  selectedSection: sectionId,
+                  textSelection: {
+                    sectionId,
+                    start: 0, // Lexical selection would provide actual positions
+                    end: selectedText.length,
+                  },
+                  user: {
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    avatar: currentUser.avatar || '',
+                  },
+                })
+              }
+            } else {
+              setSelectedText("")
+              
+              if (updateMyPresence) {
+                updateMyPresence({
+                  selectedSection: sectionId,
+                  textSelection: null,
+                  user: {
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    avatar: currentUser.avatar || '',
+                  },
+                })
+              }
+            }
+          }
+        })
+      })
+    }, [editor])
+    
+    return null
+  }
 
   const handleMarkComplete = async () => {
     try {
@@ -596,10 +735,7 @@ export function CollaborativeTextEditor({
 
     document.execCommand(command, false);
     
-    if (textareaRef.current) {
-      const newContent = htmlToMarkdown(textareaRef.current.innerHTML);
-      setLocalContent(newContent);
-    }
+    // Removed textareaRef as we're using Lexical editor now
   }, [])
 
   const parseMarkdown = (text: string) => {
@@ -661,7 +797,7 @@ export function CollaborativeTextEditor({
         lastActive: Date.now(),
       })
     }
-  }, [sectionId, isCollaborative]) // Removed updateMyPresence from dependencies
+  }, [sectionId, isCollaborative, updateMyPresence])
 
   const usersTyping = isCollaborative && Array.isArray(others)
     ? others.filter(
@@ -703,9 +839,25 @@ export function CollaborativeTextEditor({
     )
   }
 
+  // Added Lexical editor configuration
+  const initialConfig = {
+    namespace: `section-${sectionId}`,
+    theme: {
+      paragraph: "mb-2",
+      text: {
+        bold: "font-bold",
+        italic: "italic",
+        underline: "underline",
+      },
+    },
+    onError: (error: Error) => {
+      console.error("Lexical error:", error)
+    },
+  }
+
   return (
-    <div className="relative">
-      <Card className={`${isFullScreen ? "fixed inset-4 z-50 flex flex-col" : ""} ${showCommentsPanel ? "mr-96" : ""}`}>
+    <TooltipProvider>
+      <Card className={isFullScreen ? "fixed inset-0 z-50 rounded-none flex flex-col" : ""}>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -724,6 +876,36 @@ export function CollaborativeTextEditor({
             </div>
 
             <div className="flex items-center gap-2">
+              {isCollaborative && others.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <div className="flex -space-x-1">
+                    {others
+                      .filter((other) => other.presence?.selectedSection === sectionId)
+                      .slice(0, 3)
+                      .map((other) => (
+                        <Tooltip key={other.connectionId}>
+                          <TooltipTrigger asChild>
+                            <Avatar className="w-6 h-6 border-2 border-background">
+                              <AvatarImage src={other.info?.avatar || "/placeholder.svg"} />
+                              <AvatarFallback className="text-xs">
+                                {other.info?.name?.charAt(0)?.toUpperCase() || "A"}
+                              </AvatarFallback>
+                            </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {other.info?.name || 'Anonymous'} is viewing this section
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                  </div>
+                  {others.filter((other) => other.presence?.selectedSection === sectionId).length > 3 && (
+                    <span className="text-xs text-muted-foreground">
+                      +{others.filter((other) => other.presence?.selectedSection === sectionId).length - 3} more
+                    </span>
+                  )}
+                </div>
+              )}
+
               {isCollaborative && (
                 <TooltipProvider>
                   <Tooltip>
@@ -754,39 +936,52 @@ export function CollaborativeTextEditor({
               )}
 
               <div className="flex items-center gap-1">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handlePreviousSection}
-                        disabled={getSectionIndex(sectionId) === 0}
-                        className="h-8 w-8 p-0"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Previous section</TooltipContent>
+                {isCollaborative && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                   </Tooltip>
                 </TooltipProvider>
+              )}
 
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleNextSection}
-                        disabled={getSectionIndex(sectionId) === businessPlanSections.length - 1}
-                        className="h-8 w-8 p-0"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Next section</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+              <div className="flex items-center gap-1">
+                {isCollaborative && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePreviousSection}
+                          disabled={getSectionIndex(sectionId) === 0}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Previous section</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                {isCollaborative && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleNextSection}
+                          disabled={getSectionIndex(sectionId) === businessPlanSections.length - 1}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Next section</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
 
               {onToggleFullScreen && (
@@ -824,53 +1019,59 @@ export function CollaborativeTextEditor({
 
           <div className="flex items-center gap-2 pt-2 border-t">
             <div className="flex items-center gap-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => applyFormatting('bold')}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Bold className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Bold</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {isCollaborative && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyFormatting('bold')}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Bold className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Bold</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => applyFormatting('italic')}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Italic className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Italic</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {isCollaborative && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyFormatting('italic')}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Italic className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Italic</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => applyFormatting('underline')}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Underline className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Underline</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {isCollaborative && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyFormatting('underline')}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Underline className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Underline</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
             
             <Separator orientation="vertical" className="h-6" />
@@ -914,8 +1115,62 @@ export function CollaborativeTextEditor({
           )}
         </CardHeader>
 
-        <CardContent className={isFullScreen ? "flex-1 flex flex-col" : ""}>
-          <div className={isFullScreen ? "flex-1 flex flex-col" : ""}>
+        <CardContent className={`space-y-4 ${isFullScreen ? "flex-1 flex flex-col" : ""}`}>
+          <div className="space-y-2">
+            {/* Replaced textarea with Lexical multiplayer editor */}
+            <div className={`border rounded-md relative ${isFullScreen ? "flex-1 flex flex-col" : ""}`} ref={editorRef}>
+              {liveCursors.map((cursor, index) => (
+                <LiveCursor key={index} user={cursor.user} position={cursor.position} />
+              ))}
+              {liveSelections.map((selection, index) => (
+                <LiveSelection key={index} user={selection.user} selection={selection.selection} />
+              ))}
+              
+              <LexicalComposer initialConfig={initialConfig}>
+                <div className={`relative ${isFullScreen ? "flex-1 flex flex-col" : ""}`}>
+                  <RichTextPlugin
+                    contentEditable={
+                      <ContentEditable
+                        className={`min-h-[400px] p-4 text-base leading-relaxed resize-none outline-none ${
+                          isFullScreen ? "flex-1" : ""
+                        }`}
+                        style={{ minHeight: isFullScreen ? "60vh" : "400px" }}
+                      />
+                    }
+                    placeholder={
+                      <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
+                        Write your {sectionTitle.toLowerCase()} here...
+                      </div>
+                    }
+                    ErrorBoundary={LexicalErrorBoundary}
+                  />
+                  <OnChangePlugin onChange={handleContentChange} />
+                  <HistoryPlugin />
+                  <AutoFocusPlugin />
+                  <SelectionPlugin />
+                  {/* Added LiveBlocks plugin for real-time collaboration */}
+                  <LiveblocksPlugin />
+                </div>
+              </LexicalComposer>
+            </div>
+            
+            {selectedText && (
+              <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                <span className="text-sm text-blue-700 dark:text-blue-300">
+                  Selected: "{selectedText.substring(0, 50)}{selectedText.length > 50 ? "..." : ""}"
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAddComment}
+                  className="h-6 px-2 text-xs"
+                >
+                  <MessageCircle className="w-3 h-3 mr-1" />
+                  Comment on selection
+                </Button>
+              </div>
+            )}
+
             {finalIsCompleted ? (
               <div 
                 className="min-h-[400px] p-4 text-base leading-relaxed overflow-auto"
@@ -923,38 +1178,7 @@ export function CollaborativeTextEditor({
               />
             ) : (
               <div className="relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={localContent}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  onSelect={handleTextSelection}
-                  onMouseUp={handleTextSelection}
-                  onKeyUp={handleTextSelection}
-                  placeholder={`Write your ${sectionTitle.toLowerCase()} here...`}
-                  className={`min-h-[400px] text-base leading-relaxed resize-none ${
-                    isFullScreen ? "flex-1" : ""
-                  }`}
-                  disabled={isLoading}
-                />
-                
-                {selectedText && (
-                  <div className="absolute top-2 right-2">
-                    <Button
-                      size="sm"
-                      onClick={handleAddComment}
-                      className="shadow-lg"
-                    >
-                      <MessageCircle className="w-4 h-4 mr-1" />
-                      Comment on selection
-                    </Button>
-                  </div>
-                )}
-
-                {isLoading && (
-                  <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                )}
+                {/* Lexical editor is used instead of textarea */}
               </div>
             )}
 
@@ -1039,6 +1263,6 @@ export function CollaborativeTextEditor({
           />
         </div>
       )}
-    </div>
+    </TooltipProvider>
   )
 }
