@@ -33,6 +33,8 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin"
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin"
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary"
 import { LiveblocksPlugin } from "@liveblocks/react-lexical"
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { $getRoot, $getSelection } from 'lexical'
 
 function LiveCursor({ user, position }: { user: any; position: { x: number; y: number } }) {
   return (
