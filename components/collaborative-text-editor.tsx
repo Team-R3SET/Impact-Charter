@@ -565,6 +565,7 @@ export function CollaborativeTextEditor({
   useEffect(() => {
     if (!room) return
 
+    // Removed updateMyPresence from dependency array to prevent infinite loop
     updateMyPresence({
       selectedSection: sectionId,
       user: {
@@ -577,7 +578,7 @@ export function CollaborativeTextEditor({
     return () => {
       updateMyPresence({ selectedSection: null })
     }
-  }, [sectionId, currentUser, room, updateMyPresence])
+  }, [sectionId, currentUser, room])
 
   const markSectionComplete = useMutation
     ? useMutation(
