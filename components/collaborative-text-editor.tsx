@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef, useContext } from "rea
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { ResizableHandle, ResizablePanel, ResizablePanel as Panel, ResizablePanelGroup } from "@/components/ui/resizable"
@@ -15,6 +14,19 @@ import { useToast } from "@/hooks/use-toast"
 import { businessPlanSections, getSectionIndex } from "@/lib/business-plan-sections"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+
+import { LexicalComposer } from '@lexical/react/LexicalComposer'
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
+import { ContentEditable } from '@lexical/react/LexicalContentEditable'
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
+import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
+import { $getRoot, $getSelection, $createParagraphNode, $createTextNode, EditorState } from 'lexical'
+import { HeadingNode, QuoteNode } from '@lexical/rich-text'
+import { ListItemNode, ListNode } from '@lexical/list'
+import { CodeHighlightNode, CodeNode } from '@lexical/code'
+import { AutoLinkNode, LinkNode } from '@lexical/link'
 
 let useRoom: any = null
 let useMutation: any = null
@@ -37,19 +49,69 @@ try {
   // LiveBlocks not available
 }
 
-// Simple markdown parser
-function parseMarkdown(text: string): string {
-  // Added null check to prevent error when text is undefined
-  if (!text) return '';
-  
-  return text
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*)\*/gim, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]$$([^)]+)$$/gim, '<a href="$2">$1</a>')
-    .replace(/\n/gim, '<br>')
+const editorConfig = {
+  namespace: 'CollaborativeEditor',
+  nodes: [
+    HeadingNode,
+    ListNode,
+    ListItemNode,
+    QuoteNode,
+    CodeNode,
+    CodeHighlightNode,
+    AutoLinkNode,
+    LinkNode,
+  ],
+  onError(error: Error) {
+    console.error('Lexical error:', error)
+  },
+  theme: {
+    root: 'min-h-[400px] p-4 focus:outline-none',
+    paragraph: 'mb-2',
+    heading: {
+      h1: 'text-2xl font-bold mb-4',
+      h2: 'text-xl font-semibold mb-3',
+      h3: 'text-lg font-medium mb-2',
+    },
+    list: {
+      nested: {
+        listitem: 'list-none',
+      },
+      ol: 'list-decimal ml-4',
+      ul: 'list-disc ml-4',
+    },
+    listitem: 'mb-1',
+    quote: 'border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4',
+    code: 'bg-gray-100 rounded px-2 py-1 font-mono text-sm',
+    codeblock: 'bg-gray-100 rounded p-4 font-mono text-sm my-4',
+  },
+}
+
+function SelectionPlugin({ onSelectionChange }: { onSelectionChange: (selection: { start: number; end: number; text: string }) => void }) {
+  const [editor] = useLexicalComposerContext()
+
+  useEffect(() => {
+    return editor.registerUpdateListener(({ editorState }) => {
+      try {
+        editorState.read(() => {
+          const selection = $getSelection()
+          if (selection) {
+            const textContent = selection.getTextContent()
+            if (textContent) {
+              onSelectionChange({
+                start: 0, // Lexical handles selection differently
+                end: textContent.length,
+                text: textContent
+              })
+            }
+          }
+        })
+      } catch (error) {
+        console.error('Selection error:', error)
+      }
+    })
+  }, [editor, onSelectionChange])
+
+  return null
 }
 
 interface CollaborativeTextEditorProps {
@@ -105,7 +167,6 @@ export function CollaborativeTextEditor({
   const [liveSelections, setLiveSelections] = useState<Array<{ user: any; selection: { start: number; end: number } }>>([])
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
-  const editorRef = useRef<HTMLTextAreaElement>(null)
 
   const updateSection = roomContext && useMutation
     ? useMutation(
@@ -144,54 +205,52 @@ export function CollaborativeTextEditor({
     }
   }
 
-  const handleContentChange = useCallback((content: string) => {
-    setLocalContent(content)
-    
-    if (updateSection) {
-      updateSection(content)
+  const handleContentChange = useCallback((editorState: EditorState) => {
+    try {
+      editorState.read(() => {
+        const root = $getRoot()
+        const textContent = root.getTextContent()
+        
+        setLocalContent(textContent)
+        
+        if (updateSection) {
+          updateSection(textContent)
+        }
+        
+        if (onContentChange) {
+          onContentChange(textContent)
+        }
+        
+        // Auto-save functionality
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current)
+        }
+        
+        saveTimeoutRef.current = setTimeout(() => {
+          setLastSaved(new Date())
+          setSaveError(null)
+        }, 1000)
+      })
+    } catch (error) {
+      console.error('Content change error:', error)
     }
-    
-    if (onContentChange) {
-      onContentChange(content)
-    }
-    
-    // Auto-save functionality
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      setLastSaved(new Date())
-      setSaveError(null)
-    }, 1000)
   }, [updateSection, onContentChange])
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    handleContentChange(e.target.value)
-  }
-
-  const handleTextSelection = () => {
-    if (editorRef.current) {
-      const start = editorRef.current.selectionStart
-      const end = editorRef.current.selectionEnd
-      // Added null check for localContent before calling substring
-      const selected = localContent?.substring(start, end) || ''
-      
-      setSelectedText(selected)
-      setSelectionStart(start)
-      setSelectionEnd(end)
-      
-      // Update presence with selection
-      if (updateMyPresence && selected) {
-        updateMyPresence({
-          user: { name: "Current User", avatar: "" },
-          section: sectionId,
-          activity: "selecting",
-          textSelection: { start, end, text: selected }
-        })
-      }
+  const handleSelectionChange = useCallback((selection: { start: number; end: number; text: string }) => {
+    setSelectedText(selection.text)
+    setSelectionStart(selection.start)
+    setSelectionEnd(selection.end)
+    
+    // Update presence with selection
+    if (updateMyPresence && selection.text) {
+      updateMyPresence({
+        user: { name: "Current User", avatar: "" },
+        section: sectionId,
+        activity: "selecting",
+        textSelection: { start: selection.start, end: selection.end, text: selection.text }
+      })
     }
-  }
+  }, [updateMyPresence, sectionId])
 
   const addComment = useCallback((position?: { start: number; end: number; text: string }) => {
     if (!isLiveblocksAvailable || !room) {
@@ -219,9 +278,12 @@ export function CollaborativeTextEditor({
       // Add comment to storage
       if (useMutation) {
         const addCommentMutation = useMutation(({ storage }) => {
-          const commentsMap = storage.get("comments") || new Map()
+          let commentsMap = storage.get("comments")
+          if (!commentsMap || typeof commentsMap.set !== 'function') {
+            commentsMap = new Map()
+            storage.set("comments", commentsMap)
+          }
           commentsMap.set(commentId, newComment)
-          storage.set("comments", commentsMap)
         }, [])
         
         addCommentMutation()
@@ -466,24 +528,42 @@ export function CollaborativeTextEditor({
             
             <CardContent className="p-6 pt-0">
               <div className="relative">
-                <Textarea
-                  ref={editorRef}
-                  value={localContent}
-                  onChange={handleTextareaChange}
-                  onSelect={handleTextSelection}
-                  placeholder={placeholder}
-                  className={cn(
-                    "min-h-[400px] resize-none border-0 shadow-none focus-visible:ring-0 text-base leading-relaxed",
-                    isFullscreen ? "min-h-[60vh]" : ""
-                  )}
-                />
+                <LexicalComposer initialConfig={editorConfig}>
+                  <div className="relative">
+                    <RichTextPlugin
+                      contentEditable={
+                        <ContentEditable
+                          className={cn(
+                            "min-h-[400px] resize-none border-0 shadow-none focus:outline-none text-base leading-relaxed p-4 rounded-md border border-input bg-background",
+                            isFullscreen ? "min-h-[60vh]" : ""
+                          )}
+                          placeholder={placeholder}
+                        />
+                      }
+                      placeholder={
+                        <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
+                          {placeholder}
+                        </div>
+                      }
+                      ErrorBoundary={LexicalErrorBoundary}
+                    />
+                    <OnChangePlugin onChange={handleContentChange} />
+                    <HistoryPlugin />
+                    <SelectionPlugin onSelectionChange={handleSelectionChange} />
+                  </div>
+                </LexicalComposer>
                 
                 {/* Live cursors and selections */}
                 {liveCursors.map((cursor, index) => (
-                  <LiveCursor key={index} user={cursor.user} position={cursor.position} />
-                ))}
-                {liveSelections.map((selection, index) => (
-                  <LiveSelection key={index} user={selection.user} selection={selection.selection} />
+                  <div key={index} className="absolute pointer-events-none">
+                    <div className="flex items-center gap-1 bg-blue-500 text-white px-2 py-1 rounded text-xs">
+                      <Avatar className="w-4 h-4">
+                        <AvatarImage src={cursor.user.avatar || "/placeholder.svg"} />
+                        <AvatarFallback className="text-xs">{cursor.user.name?.[0]}</AvatarFallback>
+                      </Avatar>
+                      {cursor.user.name}
+                    </div>
+                  </div>
                 ))}
               </div>
               
@@ -503,15 +583,6 @@ export function CollaborativeTextEditor({
                   </Button>
                 </div>
               )}
-              
-              {/* Preview section */}
-              <div className="mt-6 pt-6 border-t">
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">Preview</h4>
-                <div 
-                  className="prose prose-sm max-w-none text-sm text-muted-foreground"
-                  dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
-                />
-              </div>
             </CardContent>
             
             {showControls && (
@@ -545,10 +616,6 @@ export function CollaborativeTextEditor({
                       )}
                     </Button>
                   </div>
-                  
-                  <div className="text-sm text-muted-foreground">
-                    {(localContent || '').length} characters
-                  </div>
                 </div>
               </div>
             )}
@@ -562,36 +629,11 @@ export function CollaborativeTextEditor({
               <CommentsPanel
                 sectionId={sectionId}
                 onClose={() => setShowCommentsPanel(false)}
-                addComment={addComment}
               />
             </Panel>
           </>
         )}
       </ResizablePanelGroup>
-    </div>
-  )
-}
-
-function LiveCursor({ user, position }: { user: any; position: { x: number; y: number } }) {
-  return (
-    <div
-      className="absolute pointer-events-none z-10"
-      style={{ left: position.x, top: position.y }}
-    >
-      <div className="flex items-center gap-1">
-        <div className="w-0.5 h-4 bg-blue-500 animate-pulse" />
-        <div className="bg-blue-500 text-white text-xs px-1 py-0.5 rounded whitespace-nowrap">
-          {user?.name || "Anonymous"}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function LiveSelection({ user, selection }: { user: any; selection: { start: number; end: number } }) {
-  return (
-    <div className="absolute pointer-events-none bg-blue-200/30 dark:bg-blue-800/30 z-5">
-      {/* Selection highlight would be implemented based on text positions */}
     </div>
   )
 }
