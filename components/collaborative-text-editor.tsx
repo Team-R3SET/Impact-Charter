@@ -132,7 +132,7 @@ function SelectionPlugin({ onSelectionChange }: { onSelectionChange: (selection:
   return null
 }
 
-// Added toolbar component for rich text formatting
+// Enhanced toolbar with better styling and visual hierarchy
 function ToolbarPlugin() {
   const [editor] = useLexicalComposerContext()
   const [isBold, setIsBold] = useState(false)
@@ -178,112 +178,160 @@ function ToolbarPlugin() {
   }
 
   return (
-    <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/50 rounded-t-md">
+    <div className="flex items-center justify-between p-3 border-b border-border bg-background/50 backdrop-blur-sm">
       <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => formatText('bold')}
-          className={cn("h-8 w-8 p-0", isBold && "bg-accent")}
-        >
-          <Bold className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => formatText('italic')}
-          className={cn("h-8 w-8 p-0", isItalic && "bg-accent")}
-        >
-          <Italic className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => formatText('underline')}
-          className={cn("h-8 w-8 p-0", isUnderline && "bg-accent")}
-        >
-          <Underline className="h-4 w-4" />
-        </Button>
-      </div>
-      
-      <div className="w-px h-6 bg-border mx-1" />
-      
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => insertHeading('h1')}
-          className="h-8 w-8 p-0"
-        >
-          <Heading1 className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => insertHeading('h2')}
-          className="h-8 w-8 p-0"
-        >
-          <Heading2 className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => insertHeading('h3')}
-          className="h-8 w-8 p-0"
-        >
-          <Heading3 className="h-4 w-4" />
-        </Button>
-      </div>
-      
-      <div className="w-px h-6 bg-border mx-1" />
-      
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => insertList('bullet')}
-          className="h-8 w-8 p-0"
-        >
-          <List className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => insertList('number')}
-          className="h-8 w-8 p-0"
-        >
-          <ListOrdered className="h-4 w-4" />
-        </Button>
+        {/* Text formatting group */}
+        <div className="flex items-center gap-0.5 mr-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => formatText('bold')}
+            className={cn("h-8 w-8 p-0 hover:bg-accent/50", isBold && "bg-accent text-accent-foreground")}
+            title="Bold"
+          >
+            <Bold className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => formatText('italic')}
+            className={cn("h-8 w-8 p-0 hover:bg-accent/50", isItalic && "bg-accent text-accent-foreground")}
+            title="Italic"
+          >
+            <Italic className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => formatText('underline')}
+            className={cn("h-8 w-8 p-0 hover:bg-accent/50", isUnderline && "bg-accent text-accent-foreground")}
+            title="Underline"
+          >
+            <Underline className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="w-px h-6 bg-border mx-1" />
+
+        {/* Heading group */}
+        <div className="flex items-center gap-0.5 mr-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => insertHeading('h1')}
+            className="h-8 px-2 text-sm font-semibold hover:bg-accent/50"
+            title="Heading 1"
+          >
+            H1
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => insertHeading('h2')}
+            className="h-8 px-2 text-sm font-semibold hover:bg-accent/50"
+            title="Heading 2"
+          >
+            H2
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => insertHeading('h3')}
+            className="h-8 px-2 text-sm font-semibold hover:bg-accent/50"
+            title="Heading 3"
+          >
+            H3
+          </Button>
+        </div>
+
+        <div className="w-px h-6 bg-border mx-1" />
+
+        {/* List group */}
+        <div className="flex items-center gap-0.5 mr-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => insertList('bullet')}
+            className="h-8 w-8 p-0 hover:bg-accent/50"
+            title="Bullet List"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => insertList('number')}
+            className="h-8 w-8 p-0 hover:bg-accent/50"
+            title="Numbered List"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="w-px h-6 bg-border mx-1" />
+
+        {/* Quote button */}
         <Button
           variant="ghost"
           size="sm"
           onClick={insertQuote}
-          className="h-8 w-8 p-0"
+          className="h-8 w-8 p-0 hover:bg-accent/50 mr-3"
+          title="Quote"
         >
           <Quote className="h-4 w-4" />
         </Button>
+
+        <div className="w-px h-6 bg-border mx-1" />
+
+        {/* Undo/Redo group */}
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={undo}
+            className="h-8 w-8 p-0 hover:bg-accent/50"
+            title="Undo"
+          >
+            <Undo className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={redo}
+            className="h-8 w-8 p-0 hover:bg-accent/50"
+            title="Redo"
+          >
+            <Redo className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
-      
-      <div className="w-px h-6 bg-border mx-1" />
-      
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={undo}
-          className="h-8 w-8 p-0"
-        >
-          <Undo className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={redo}
-          className="h-8 w-8 p-0"
-        >
-          <Redo className="h-4 w-4" />
-        </Button>
-      </div>
+
+      {/* Live presence indicators integrated into toolbar */}
+      {isCollaborative && (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-sm text-muted-foreground">Live</span>
+            </div>
+            <div className="flex -space-x-2">
+              {othersData.slice(0, 3).map((other: any, index: number) => (
+                <Avatar key={index} className="w-6 h-6 border-2 border-background">
+                  <AvatarImage src={other.presence?.user?.avatar || "/placeholder.svg"} />
+                  <AvatarFallback className="text-xs bg-blue-500 text-white">
+                    {other.presence?.user?.name?.[0] || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {othersData.length > 3 && (
+                <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground">+{othersData.length - 3}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -545,7 +593,7 @@ export function CollaborativeTextEditor({
     ? Object.values(comments).filter((comment: any) => comment?.sectionId === sectionId)
     : []
 
-  const unresolvedCommentsCount = sectionComments?.filter((comment: any) => !comment?.resolved)?.length || 0
+  const unresolvedCommentCount = sectionComments?.filter((comment: any) => !comment?.resolved)?.length || 0
 
   useEffect(() => {
     const handleResizeObserverError = (e: ErrorEvent) => {
@@ -610,216 +658,158 @@ export function CollaborativeTextEditor({
   }
 
   return (
-    <div className={cn(
-      "w-full transition-all duration-300",
-      isFullscreen ? "fixed inset-0 z-50 bg-background" : ""
-    )}>
-      <ResizablePanelGroup direction="horizontal" className="h-full">
-        <Panel defaultSize={showCommentsPanel ? 70 : 100} minSize={50}>
-          <Card className={cn(
-            "h-full border-0 shadow-none",
-            isFullscreen ? "rounded-none" : ""
-          )}>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-lg font-semibold">
-                    {businessPlanSections.find(s => s.id === sectionId)?.title || "Section"}
-                  </CardTitle>
-                  {isCompleted && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                      <CheckCircle2 className="w-3 h-3 mr-1" />
-                      Complete
-                    </Badge>
-                  )}
-                  {isCollaborative && (
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
-                      <Users className="w-3 h-3 mr-1" />
-                      Live
-                    </Badge>
-                  )}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {showControls && onToggleFullscreen && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleFullscreen}
+              className="flex items-center gap-2"
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="h-4 w-4" />
+                  Exit Fullscreen
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-4 w-4" />
+                  Fullscreen
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-4">
+          {showControls && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCommentsPanel(!showCommentsPanel)}
+              className="flex items-center gap-2"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Comments
+              {unresolvedCommentCount > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {unresolvedCommentCount}
+                </Badge>
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className={cn("lg:col-span-2", isFullscreen && "lg:col-span-3")}>
+            <div className="border border-input rounded-lg overflow-hidden bg-background shadow-sm">
+              <LexicalComposer initialConfig={editorConfig}>
+                <div className="relative">
+                  {/* Toolbar now includes presence indicators */}
+                  <ToolbarPlugin />
+                  <RichTextPlugin
+                    contentEditable={
+                      <ContentEditable
+                        className={cn(
+                          "min-h-[400px] resize-none border-0 shadow-none focus:outline-none text-base leading-relaxed p-6",
+                          isFullscreen ? "min-h-[60vh]" : ""
+                        )}
+                      />
+                    }
+                    placeholder={
+                      <div className="absolute top-6 left-6 text-muted-foreground/60 pointer-events-none select-none">
+                        {placeholder}
+                      </div>
+                    }
+                    ErrorBoundary={LexicalErrorBoundary}
+                  />
+                  <OnChangePlugin onChange={handleContentChange} />
+                  <SelectionPlugin onSelectionChange={handleSelectionChange} />
+                  <HistoryPlugin />
+                  {/* ListPlugin and LinkPlugin should be imported and used here */}
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  {unresolvedCommentsCount > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-                      className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20"
-                    >
-                      <MessageSquare className="w-4 h-4 mr-1" />
-                      {unresolvedCommentsCount}
-                    </Button>
-                  )}
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-                    className={cn(
-                      "transition-colors",
-                      showCommentsPanel ? "bg-muted" : ""
-                    )}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </Button>
-                  
-                  {onToggleFullscreen && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onToggleFullscreen}
-                    >
-                      {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                    </Button>
-                  )}
-                </div>
-              </div>
+              </LexicalComposer>
               
-              {isCollaborative && <LivePresenceHeader />}
-              
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    isOnline ? "bg-green-500" : "bg-red-500"
-                  )} />
-                  {isOnline ? "Online" : "Offline"}
+              {/* Improved live cursors positioning */}
+              {liveCursors.map((cursor, index) => (
+                <div 
+                  key={index} 
+                  className="absolute pointer-events-none z-10"
+                  style={{
+                    top: cursor.position.y,
+                    left: cursor.position.x,
+                  }}
+                >
+                  <div className="flex items-center gap-1 bg-blue-500 text-white px-2 py-1 rounded-md text-xs shadow-lg">
+                    <Avatar className="w-4 h-4">
+                      <AvatarImage src={cursor.user.avatar || "/placeholder.svg"} />
+                      <AvatarFallback className="text-xs bg-blue-600">{cursor.user.name?.[0]}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{cursor.user.name}</span>
+                  </div>
                 </div>
-                
-                {isSaving && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                    Saving...
-                  </div>
-                )}
-                
-                {lastSaved && !isSaving && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    Saved {lastSaved.toLocaleTimeString()}
-                  </div>
-                )}
-                
-                {saveError && (
-                  <div className="text-red-500">
-                    Save failed: {saveError}
-                  </div>
-                )}
-              </div>
-            </CardHeader>
+              ))}
+            </div>
             
-            <CardContent className="p-6 pt-0">
-              <div className="relative">
-                <LexicalComposer initialConfig={editorConfig}>
-                  <div className="relative">
-                    {/* Added toolbar above the editor */}
-                    <ToolbarPlugin />
-                    <RichTextPlugin
-                      contentEditable={
-                        <ContentEditable
-                          className={cn(
-                            "min-h-[400px] resize-none border-0 shadow-none focus:outline-none text-base leading-relaxed p-4 rounded-b-md border border-input bg-background border-t-0",
-                            isFullscreen ? "min-h-[60vh]" : ""
-                          )}
-                          placeholder={placeholder}
-                        />
-                      }
-                      placeholder={
-                        <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
-                          {placeholder}
-                        </div>
-                      }
-                      ErrorBoundary={LexicalErrorBoundary}
-                    />
-                    <OnChangePlugin onChange={handleContentChange} />
-                    <HistoryPlugin />
-                    <SelectionPlugin onSelectionChange={handleSelectionChange} />
-                  </div>
-                </LexicalComposer>
-                
-                {/* Live cursors and selections */}
-                {liveCursors.map((cursor, index) => (
-                  <div key={index} className="absolute pointer-events-none">
-                    <div className="flex items-center gap-1 bg-blue-500 text-white px-2 py-1 rounded text-xs">
-                      <Avatar className="w-4 h-4">
-                        <AvatarImage src={cursor.user.avatar || "/placeholder.svg"} />
-                        <AvatarFallback className="text-xs">{cursor.user.name?.[0]}</AvatarFallback>
-                      </Avatar>
-                      {cursor.user.name}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {selectedText && showControls && (
-                <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md mt-4">
-                  <span className="text-sm text-blue-700 dark:text-blue-300">
+            {/* Improved selection UI */}
+            {selectedText && showControls && (
+              <div className="flex items-center justify-between gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mt-4 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
                     Selected: "{selectedText?.substring(0, 50)}{(selectedText?.length || 0) > 50 ? '...' : ''}"
                   </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleAddComment}
-                    className="ml-auto"
-                  >
-                    <MessageSquare className="w-3 h-3 mr-1" />
-                    Comment on selection
-                  </Button>
                 </div>
-              )}
-            </CardContent>
-            
-            {showControls && (
-              <div className="p-6 pt-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant={isCompleted ? "secondary" : "default"}
-                      onClick={handleComplete}
-                      disabled={isCompleting || !localContent || !localContent.trim()}
-                      className={cn(
-                        "transition-all",
-                        isCompleted && "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-100"
-                      )}
-                    >
-                      {isCompleting ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                          Completing...
-                        </>
-                      ) : isCompleted ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Completed
-                        </>
-                      ) : (
-                        <>
-                          <Circle className="w-4 h-4 mr-2" />
-                          Mark Complete
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddComment}
+                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500 hover:border-blue-600"
+                >
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  Comment on selection
+                </Button>
               </div>
             )}
-          </Card>
-        </Panel>
-        
-        {showCommentsPanel && (
-          <>
-            <ResizableHandle withHandle />
-            <Panel defaultSize={30} minSize={25} maxSize={50}>
+
+            {showControls && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full",
+                    isSaving ? "bg-blue-500" : "bg-green-500"
+                  )} />
+                  {isSaving ? "Saving..." : "Saved"}
+                </div>
+                
+                <Button
+                  onClick={handleComplete}
+                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Mark Complete
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {!isFullscreen && showCommentsPanel && (
+            <div className="lg:col-span-1">
               <CommentsPanel
                 sectionId={sectionId}
-                onClose={() => setShowCommentsPanel(false)}
+                comments={sectionComments}
+                onAddComment={addComment}
+                onResolveComment={resolveComment}
+                onReplyToComment={replyToComment}
               />
-            </Panel>
-          </>
-        )}
-      </ResizablePanelGroup>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
