@@ -633,6 +633,24 @@ export function CollaborativeTextEditor({
     }, 0)
   }, [localContent, handleContentChange])
 
+  // Adding markdown parsing utility function
+  const parseMarkdown = (text: string) => {
+    if (!text) return '';
+    
+    // Parse bold text (**text**)
+    let parsedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Parse italic text (*text*)
+    parsedText = parsedText.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    
+    // Underline tags are already HTML
+    
+    // Convert newlines to <br>
+    parsedText = parsedText.replace(/\n/g, '<br>');
+    
+    return parsedText;
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -791,105 +809,122 @@ export function CollaborativeTextEditor({
 
         <CardContent className={isFullScreen ? "flex-1 flex flex-col" : ""}>
           <div className={isFullScreen ? "flex-1 flex flex-col" : ""}>
-            <Textarea
-              ref={textareaRef}
-              placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
-              value={localContent}
-              onChange={(e) => handleContentChange(e.target.value)}
-              className={`min-h-[400px] resize-none border-0 shadow-none focus-visible:ring-0 text-base leading-relaxed ${
-                isFullScreen ? "flex-1 min-h-0" : ""
-              }`}
-              disabled={finalIsCompleted}
-            />
-          </div>
-
-          {!finalIsCompleted && (
-            <>
-              <Separator />
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-muted-foreground">
-                  Complete this section when you're ready to submit it for review.
-                </p>
-                <Button
-                  onClick={handleMarkComplete}
-                  disabled={isCompleting || !localContent.trim()}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {isCompleting ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2 animate-spin" />
-                      Marking Complete...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Mark as Complete
-                    </>
-                  )}
-                </Button>
+            {finalIsCompleted ? (
+              <div 
+                className="min-h-[400px] p-4 text-base leading-relaxed overflow-auto"
+                dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
+              />
+            ) : (
+              <Textarea
+                ref={textareaRef}
+                placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
+                value={localContent}
+                onChange={(e) => handleContentChange(e.target.value)}
+                className={`min-h-[400px] resize-none border-0 shadow-none focus-visible:ring-0 text-base leading-relaxed ${
+                  isFullScreen ? "flex-1" : ""
+                }`}
+              />
+            )}
+            
+            {/* Adding a preview section to show formatted text while editing */}
+            {!finalIsCompleted && localContent && (
+              <div className="mt-4 border-t pt-4">
+                <div className="text-sm font-medium text-muted-foreground mb-2">Preview:</div>
+                <div 
+                  className="p-4 bg-gray-50 dark:bg-gray-800 rounded-md"
+                  dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
+                />
               </div>
-            </>
-          )}
+            )}
 
-          {finalIsCompleted && (
-            <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-green-800 dark:text-green-200">
-                  ✅ This section was completed{currentSection?.lastModified ? ` on ${new Date(currentSection.lastModified).toLocaleDateString()}` : ''}
-                  {currentSection?.modifiedBy ? ` by ${currentSection.modifiedBy}` : ''}
-                </p>
-                <Button
-                  onClick={handleMarkIncomplete}
-                  disabled={isCompleting}
-                  variant="outline"
-                  size="sm"
-                  className="text-orange-600 border-orange-600 hover:bg-orange-50"
-                >
-                  {isCompleting ? (
-                    <>
-                      <XCircle className="w-4 h-4 mr-2 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Mark Incomplete
-                    </>
-                  )}
-                </Button>
+            {!finalIsCompleted && (
+              <>
+                <Separator />
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-muted-foreground">
+                    Complete this section when you're ready to submit it for review.
+                  </p>
+                  <Button
+                    onClick={handleMarkComplete}
+                    disabled={isCompleting || !localContent.trim()}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {isCompleting ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2 animate-spin" />
+                        Marking Complete...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Mark as Complete
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {finalIsCompleted && (
+              <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    ✅ This section was completed{currentSection?.lastModified ? ` on ${new Date(currentSection.lastModified).toLocaleDateString()}` : ''}
+                    {currentSection?.modifiedBy ? ` by ${currentSection.modifiedBy}` : ''}
+                  </p>
+                  <Button
+                    onClick={handleMarkIncomplete}
+                    disabled={isCompleting}
+                    variant="outline"
+                    size="sm"
+                    className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                  >
+                    {isCompleting ? (
+                      <>
+                        <XCircle className="w-4 h-4 mr-2 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Mark Incomplete
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
+            )}
+
+            {/* Section Navigation */}
+            <div className="flex items-center justify-between pt-4 border-t border-border/40">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!prevSection}
+                onClick={() => prevSection && onSectionSelect?.(prevSection.id)}
+                className="gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+                {prevSection && <span className="hidden sm:inline ml-1">({prevSection.title})</span>}
+              </Button>
+
+              <span className="text-xs text-muted-foreground">
+                Section {currentIndex + 1} of {businessPlanSections.length}
+              </span>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!nextSection}
+                onClick={() => nextSection && onSectionSelect?.(nextSection.id)}
+                className="gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                {nextSection && <span className="hidden sm:inline mr-1">({nextSection.title})</span>}
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          )}
-
-          {/* Section Navigation */}
-          <div className="flex items-center justify-between pt-4 border-t border-border/40">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!prevSection}
-              onClick={() => prevSection && onSectionSelect?.(prevSection.id)}
-              className="gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-              {prevSection && <span className="hidden sm:inline ml-1">({prevSection.title})</span>}
-            </Button>
-
-            <span className="text-xs text-muted-foreground">
-              Section {currentIndex + 1} of {businessPlanSections.length}
-            </span>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!nextSection}
-              onClick={() => nextSection && onSectionSelect?.(nextSection.id)}
-              className="gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
-            >
-              {nextSection && <span className="hidden sm:inline mr-1">({nextSection.title})</span>}
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
           </div>
         </CardContent>
       </Card>
