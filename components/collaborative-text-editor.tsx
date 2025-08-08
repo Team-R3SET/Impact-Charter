@@ -27,6 +27,7 @@ import { HeadingNode } from '@lexical/rich-text'
 import { ListItemNode, ListNode } from '@lexical/list'
 import { AutoLinkNode, LinkNode } from '@lexical/link'
 
+// Replaced dynamic require with proper ES6 imports and error handling
 let useRoom: any = null
 let useMutation: any = null
 let useStorage: any = null
@@ -36,25 +37,28 @@ let useMyPresence: any = null
 let RoomContext: any = null
 
 try {
-  const liveblocks = require("@liveblocks/react")
-  useRoom = liveblocks.useRoom
-  useMutation = liveblocks.useMutation
-  useStorage = liveblocks.useStorage
-  useSelf = liveblocks.useSelf
-  useOthers = liveblocks.useOthers
-  useMyPresence = liveblocks.useMyPresence
-  RoomContext = liveblocks.RoomContext
+  // Only import LiveBlocks if available
+  const liveblocks = await import("@liveblocks/react").catch(() => null)
+  if (liveblocks) {
+    useRoom = liveblocks.useRoom
+    useMutation = liveblocks.useMutation
+    useStorage = liveblocks.useStorage
+    useSelf = liveblocks.useSelf
+    useOthers = liveblocks.useOthers
+    useMyPresence = liveblocks.useMyPresence
+    RoomContext = liveblocks.RoomContext
+  }
 } catch (error) {
-  // LiveBlocks not available
+  console.log("LiveBlocks not available, using local mode")
 }
 
+// Simplified Lexical editor config to avoid version conflicts
 const editorConfig = {
   namespace: 'CollaborativeEditor',
   nodes: [
     HeadingNode,
     ListNode,
     ListItemNode,
-    // Removed CodeNode and CodeHighlightNode to fix Prism dependency
     AutoLinkNode,
     LinkNode,
   ],
@@ -78,21 +82,19 @@ const editorConfig = {
     },
     listitem: 'mb-1',
     quote: 'border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4',
-    // Removed code and codeblock theme styles since we removed code nodes
   },
 }
 
+// Added comprehensive error handling for SelectionPlugin
 function SelectionPlugin({ onSelectionChange }: { onSelectionChange: (selection: { start: number; end: number; text: string }) => void }) {
   const [editor] = useLexicalComposerContext()
 
   useEffect(() => {
-    // Added editor validation before registering listener
     if (!editor) {
-      console.warn('Editor is not available for SelectionPlugin')
       return
     }
 
-    return editor.registerUpdateListener(({ editorState }) => {
+    const unregister = editor.registerUpdateListener(({ editorState }) => {
       if (!editorState) {
         return
       }
@@ -101,25 +103,26 @@ function SelectionPlugin({ onSelectionChange }: { onSelectionChange: (selection:
         editorState.read(() => {
           try {
             const selection = $getSelection()
-            if (selection) {
-              const textContent = selection.getTextContent()
-              if (textContent) {
-                // Added fallback values for selection range
+            if (selection && selection.getTextContent) {
+              const text = selection.getTextContent()
+              if (text) {
                 onSelectionChange({
-                  start: 0,
-                  end: textContent.length,
-                  text: textContent
+                  start: 0, // Simplified for compatibility
+                  end: text.length,
+                  text: text
                 })
               }
             }
-          } catch (innerError) {
-            console.error('Error in selection read:', innerError)
+          } catch (error) {
+            console.warn('Selection read error:', error)
           }
         })
       } catch (error) {
-        console.error('Selection change error:', error)
+        console.warn('Selection update error:', error)
       }
     })
+
+    return unregister
   }, [editor, onSelectionChange])
 
   return null
@@ -146,6 +149,7 @@ export function CollaborativeTextEditor({
   isFullscreen = false,
   onToggleFullscreen
 }: CollaborativeTextEditorProps) {
+  // Simplified LiveBlocks context checking
   let roomContext = null
   let isLiveblocksAvailable = false
   
@@ -155,7 +159,6 @@ export function CollaborativeTextEditor({
       isLiveblocksAvailable = roomContext !== null
     }
   } catch (error) {
-    // LiveBlocks context not available
     isLiveblocksAvailable = false
   }
 
@@ -216,10 +219,9 @@ export function CollaborativeTextEditor({
     }
   }
 
+  // Simplified content change handler with better error handling
   const handleContentChange = useCallback((editorState: EditorState) => {
-    // Added editor state validation and better error handling
     if (!editorState) {
-      console.warn('Editor state is null or undefined')
       return
     }
 
@@ -227,42 +229,35 @@ export function CollaborativeTextEditor({
       editorState.read(() => {
         try {
           const root = $getRoot()
-          if (!root) {
-            console.warn('Root node is null')
-            return
+          if (root && root.getTextContent) {
+            const textContent = root.getTextContent()
+            
+            setLocalContent(textContent)
+            
+            if (updateSection) {
+              updateSection(textContent)
+            }
+            
+            if (onContentChange) {
+              onContentChange(textContent)
+            }
+            
+            // Auto-save functionality
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current)
+            }
+            
+            saveTimeoutRef.current = setTimeout(() => {
+              setLastSaved(new Date())
+              setSaveError(null)
+            }, 1000)
           }
-          
-          const textContent = root.getTextContent()
-          
-          setLocalContent(textContent)
-          
-          if (updateSection) {
-            updateSection(textContent)
-          }
-          
-          if (onContentChange) {
-            onContentChange(textContent)
-          }
-          
-          // Auto-save functionality
-          if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current)
-          }
-          
-          saveTimeoutRef.current = setTimeout(() => {
-            setLastSaved(new Date())
-            setSaveError(null)
-          }, 1000)
         } catch (innerError) {
-          console.error('Error reading editor state:', innerError)
+          console.warn('Error reading editor content:', innerError)
         }
       })
     } catch (error) {
-      console.error('Content change error:', error)
-      // Fallback to prevent complete failure
-      if (typeof editorState === 'string') {
-        setLocalContent(editorState)
-      }
+      console.warn('Editor state read error:', error)
     }
   }, [updateSection, onContentChange])
 
