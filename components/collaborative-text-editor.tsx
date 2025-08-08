@@ -667,58 +667,12 @@ export function CollaborativeTextEditor({
   const completedFromStorage = storage?.completedSections?.[sectionId] || currentSection?.isCompleted || false
   const finalIsCompleted = isCompleted || (isCollaborative ? completedFromStorage : false)
 
-  function NonCollaborativeLexicalEditor() {
-    const initialConfig = {
-      namespace: `section-${sectionId}`,
-      nodes: [HeadingNode, ListNode, ListItemNode],
-      editorState: null,
-      onChange: handleContentChange,
-      theme: {
-        paragraph: "mb-2",
-        text: {
-          bold: "font-bold",
-          italic: "italic",
-          underline: "underline",
-        },
-      },
-      onError: (error: Error) => {
-        console.error("Lexical error:", error)
-      },
-    }
-
-    return (
-      <LexicalComposer initialConfig={initialConfig}>
-        <div className={`relative ${isFullScreen ? "flex-1 flex flex-col" : ""}`}>
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                className={`min-h-[400px] p-4 text-base leading-relaxed resize-none outline-none ${
-                  isFullScreen ? "flex-1" : ""
-                }`}
-                style={{ minHeight: isFullScreen ? "60vh" : "400px" }}
-              />
-            }
-            placeholder={
-              <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
-                {placeholder}
-              </div>
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
-          <SelectionPlugin />
-          <HistoryPlugin />
-          <AutoFocusPlugin />
-        </div>
-      </LexicalComposer>
-    )
-  }
-
   function CollaborativeLexicalEditor() {
     const [LiveblocksPlugin, setLiveblocksPlugin] = useState<any>(null)
     
     useEffect(() => {
-      // Only load LiveblocksPlugin if we're actually in a LiveBlocks context
-      if (!isLiveblocksAvailable) {
+      // Only load LiveblocksPlugin if we're in a LiveBlocks context and room exists
+      if (!isLiveblocksAvailable || !room) {
         return
       }
       
@@ -773,8 +727,54 @@ export function CollaborativeTextEditor({
           <SelectionPlugin />
           <HistoryPlugin />
           <AutoFocusPlugin />
-          {/* Only render LiveblocksPlugin if it's loaded and we're in LiveBlocks context */}
-          {LiveblocksPlugin && isLiveblocksAvailable && <LiveblocksPlugin />}
+          {/* Only render LiveblocksPlugin if it's loaded, we're in LiveBlocks context, and room exists */}
+          {LiveblocksPlugin && isLiveblocksAvailable && room && <LiveblocksPlugin />}
+        </div>
+      </LexicalComposer>
+    )
+  }
+
+  function NonCollaborativeLexicalEditor() {
+    const initialConfig = {
+      namespace: `section-${sectionId}`,
+      nodes: [HeadingNode, ListNode, ListItemNode],
+      editorState: null,
+      onChange: handleContentChange,
+      theme: {
+        paragraph: "mb-2",
+        text: {
+          bold: "font-bold",
+          italic: "italic",
+          underline: "underline",
+        },
+      },
+      onError: (error: Error) => {
+        console.error("Lexical error:", error)
+      },
+    }
+
+    return (
+      <LexicalComposer initialConfig={initialConfig}>
+        <div className={`relative ${isFullScreen ? "flex-1 flex flex-col" : ""}`}>
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                className={`min-h-[400px] p-4 text-base leading-relaxed resize-none outline-none ${
+                  isFullScreen ? "flex-1" : ""
+                }`}
+                style={{ minHeight: isFullScreen ? "60vh" : "400px" }}
+              />
+            }
+            placeholder={
+              <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
+                {placeholder}
+              </div>
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          <SelectionPlugin />
+          <HistoryPlugin />
+          <AutoFocusPlugin />
         </div>
       </LexicalComposer>
     )
@@ -983,7 +983,7 @@ export function CollaborativeTextEditor({
                 <LiveSelection key={index} user={selection.user} selection={selection.selection} />
               ))}
               
-              {isLiveblocksAvailable ? <CollaborativeLexicalEditor /> : <NonCollaborativeLexicalEditor />}
+              {isLiveblocksAvailable && room ? <CollaborativeLexicalEditor /> : <NonCollaborativeLexicalEditor />}
             </div>
             
             {selectedText && showControls && (
