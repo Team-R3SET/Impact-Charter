@@ -115,11 +115,12 @@ export function CollaborativeTextEditor({
         // Properly create the addComment mutation function
         addComment = useMutation(
           ({ storage }, commentContent: string, position: any) => {
-            if (!storage.get("comments")) {
-              storage.set("comments", new Map())
+            let commentsMap = storage.get("comments")
+            if (!commentsMap || !(commentsMap instanceof Map)) {
+              commentsMap = new Map()
+              storage.set("comments", commentsMap)
             }
 
-            const commentsMap = storage.get("comments")
             const commentId = `${sectionId}-${Date.now()}`
             commentsMap.set(commentId, {
               id: commentId,
