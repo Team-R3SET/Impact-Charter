@@ -400,49 +400,57 @@ export function CollaborativeTextEditor({
   // Updated handleContentChange to work with Lexical EditorState and update presence
   const handleContentChange = useCallback(
     (editorState: any) => {
-      editorState.read(() => {
-        const root = $getRoot()
-        const content = root.getTextContent()
-        
-        setLocalContent(content)
-        localStorage.setItem(`section-${planId}-${sectionId}`, content)
+      try {
+        editorState.read(() => {
+          try {
+            const root = $getRoot()
+            const content = root.getTextContent()
+            
+            setLocalContent(content)
+            localStorage.setItem(`section-${planId}-${sectionId}`, content)
 
-        if (updateSection) {
-          updateSection(content)
-        }
+            if (updateSection) {
+              updateSection(content)
+            }
 
-        if (broadcast) {
-          broadcast({
-            type: "TEXT_CHANGE",
-            sectionId,
-            content,
-            user: currentUser.email,
-          })
-        }
+            if (broadcast) {
+              broadcast({
+                type: "TEXT_CHANGE",
+                sectionId,
+                content,
+                user: currentUser.email,
+              })
+            }
 
-        if (updateMyPresence) {
-          updateMyPresence({
-            selectedSection: sectionId,
-            isTyping: { sectionId, timestamp: Date.now() },
-            user: {
-              name: currentUser.name,
-              email: currentUser.email,
-              avatar: currentUser.avatar || '',
-            },
-          })
-        }
+            if (updateMyPresence) {
+              updateMyPresence({
+                selectedSection: sectionId,
+                isTyping: { sectionId, timestamp: Date.now() },
+                user: {
+                  name: currentUser.name,
+                  email: currentUser.email,
+                  avatar: currentUser.avatar || '',
+                },
+              })
+            }
 
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
-        }
-        saveTimeoutRef.current = setTimeout(() => {
-          saveToAirtable(content)
-        }, autoSaveInterval)
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current)
+            }
+            saveTimeoutRef.current = setTimeout(() => {
+              saveToAirtable(content)
+            }, autoSaveInterval)
 
-        if (onContentChange) {
-          onContentChange(content)
-        }
-      })
+            if (onContentChange) {
+              onContentChange(content)
+            }
+          } catch (error) {
+            console.error("Error in handleContentChange read:", error)
+          }
+        })
+      } catch (error) {
+        console.error("Error in handleContentChange:", error)
+      }
     },
     [planId, sectionId, updateSection, broadcast, updateMyPresence, saveToAirtable, onContentChange, currentUser, autoSaveInterval],
   )
@@ -451,49 +459,45 @@ export function CollaborativeTextEditor({
     const [editor] = useLexicalComposerContext()
     
     useEffect(() => {
+      if (!editor) return
+      
       return editor.registerUpdateListener(({ editorState }) => {
-        editorState.read(() => {
-          const selection = $getSelection()
-          if (selection) {
-            const selectedText = selection.getTextContent()
-            if (selectedText) {
-              setSelectedText(selectedText)
-              
-              if (updateMyPresence) {
-                updateMyPresence({
-                  selectedSection: sectionId,
-                  textSelection: {
-                    sectionId,
-                    start: 0, // Lexical selection would provide actual positions
-                    end: selectedText.length,
-                  },
-                  user: {
-                    name: currentUser.name,
-                    email: currentUser.email,
-                    avatar: currentUser.avatar || '',
-                  },
-                })
+        try {
+          editorState.read(() => {
+            try {
+              const selection = $getSelection()
+              if (selection) {
+                const selectedText = selection.getTextContent()
+                if (selectedText) {
+                  setSelectedText(selectedText)
+                  
+                  if (updateMyPresence) {
+                    updateMyPresence({
+                      selectedSection: sectionId,
+                      textSelection: {
+                        sectionId,
+                        start: 0, // Lexical selection would provide actual positions
+                        end: selectedText.length,
+                      },
+                      user: {
+                        name: currentUser.name,
+                        email: currentUser.email,
+                        avatar: currentUser.avatar || '',
+                      },
+                    })
+                  }
+                }
               }
-            } else {
-              setSelectedText("")
-              
-              if (updateMyPresence) {
-                updateMyPresence({
-                  selectedSection: sectionId,
-                  textSelection: null,
-                  user: {
-                    name: currentUser.name,
-                    email: currentUser.email,
-                    avatar: currentUser.avatar || '',
-                  },
-                })
-              }
+            } catch (error) {
+              console.error("Error in SelectionPlugin selection read:", error)
             }
-          }
-        })
+          })
+        } catch (error) {
+          console.error("Error in SelectionPlugin update listener:", error)
+        }
       })
-    }, [editor])
-    
+    }, [editor, updateMyPresence])
+
     return null
   }
 
