@@ -841,25 +841,25 @@ export function CollaborativeTextEditor({
                 dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
               />
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="relative">
                 <textarea
                   ref={textareaRef}
                   value={localContent}
                   onChange={(e) => handleContentChange(e.target.value)}
-                  className={`min-h-[300px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed resize-none ${
+                  className={`min-h-[400px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed resize-none w-full bg-transparent relative z-10 ${
                     isFullScreen ? "flex-1" : ""
                   }`}
                   placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
+                  style={{ 
+                    color: localContent ? 'transparent' : 'inherit',
+                    caretColor: 'black'
+                  }}
                 />
-                
                 {localContent && (
-                  <div className="border-t pt-4">
-                    <h4 className="text-sm font-medium text-gray-600 mb-2">Live Preview:</h4>
-                    <div
-                      className="p-4 bg-gray-50 rounded-md prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
-                    />
-                  </div>
+                  <div
+                    className="absolute top-0 left-0 min-h-[400px] p-4 text-base leading-relaxed pointer-events-none z-0 w-full prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
+                  />
                 )}
               </div>
             )}
