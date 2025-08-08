@@ -115,9 +115,6 @@ export function AppHeader() {
     { href: "/", label: "Home" },
     ...(currentUser ? [{ href: "/plans", label: "My Charters" }] : []),
     ...(currentUser ? [{ href: "/teams", label: "Teams" }] : []),
-    { href: "/pricing", label: "Pricing" },
-    ...(currentUser ? [{ href: "/setup/airtable", label: "Setup Guide" }] : []),
-    ...(currentUser ? [{ href: "/settings", label: "Settings" }] : []),
     ...(!currentUser ? [{ href: "/contact", label: "Contact" }] : []),
   ]
 
@@ -347,16 +344,17 @@ export function AppHeader() {
                     </DropdownMenuItem>
 
                     <DropdownMenuItem asChild>
-                      <Link href="/settings" className="cursor-pointer">
-                        <Settings className="mr-3 h-4 w-4" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem asChild>
                       <Link href="/setup/airtable" className="cursor-pointer">
                         <HelpCircle className="mr-3 h-4 w-4" />
                         Setup Guide
+                      </Link>
+                    </DropdownMenuItem>
+
+                    {/* Added Pricing to user dropdown */}
+                    <DropdownMenuItem asChild>
+                      <Link href="/pricing" className="cursor-pointer">
+                        <BarChart3 className="mr-3 h-4 w-4" />
+                        Pricing
                       </Link>
                     </DropdownMenuItem>
 
