@@ -73,7 +73,7 @@ export function CollaborativeTextEditor({
   const [isOnline, setIsOnline] = useState(true)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
-  const textareaRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [currentSectionData, setCurrentSectionData] = useState<{ title: string, description: string }>({ title: "", description: "" })
 
   const [myPresence, updateMyPresence] = useMyPresence ? useMyPresence() : [null, () => {}]
@@ -677,10 +677,9 @@ export function CollaborativeTextEditor({
     return markdownText;
   };
 
-  // Adding handler for contentEditable input
-  const handleContentEditableInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLDivElement;
-    const newContent = htmlToMarkdown(target.innerHTML);
+  // Adding handler for textarea input
+  const handleTextareaInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
     handleContentChange(newContent);
   }, [handleContentChange]);
 
@@ -849,17 +848,19 @@ export function CollaborativeTextEditor({
               />
             ) : (
               <div className="relative">
-                <div
+                <textarea
                   ref={textareaRef}
-                  contentEditable
-                  onInput={handleContentEditableInput}
-                  className={`min-h-[400px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed resize-none w-full prose prose-sm max-w-none ${
+                  value={localContent}
+                  onChange={handleTextareaInput}
+                  className={`min-h-[400px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed resize-none w-full ${
                     isFullScreen ? "flex-1" : ""
                   }`}
-                  dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
                   style={{ minHeight: '400px' }}
-                  suppressContentEditableWarning={true}
+                  placeholder="Enter your content here..."
                 />
+                <div className="mt-4 p-4 border rounded-md prose prose-sm max-w-none">
+                  <div dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }} />
+                </div>
               </div>
             )}
             
