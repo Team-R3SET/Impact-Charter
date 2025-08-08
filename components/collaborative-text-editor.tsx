@@ -657,16 +657,7 @@ export function CollaborativeTextEditor({
     const initialConfig = {
       namespace: `section-${sectionId}`,
       nodes: [HeadingNode, ListNode, ListItemNode],
-      editorState: () => {
-        const root = $getRoot()
-        if (root.getFirstChild() === null) {
-          const paragraph = $createParagraphNode()
-          if (localContent) {
-            paragraph.append($createTextNode(localContent))
-          }
-          root.append(paragraph)
-        }
-      },
+      editorState: null,
       onChange: handleContentChange,
       theme: {
         paragraph: "mb-2",
@@ -726,16 +717,7 @@ export function CollaborativeTextEditor({
     const initialConfig = {
       namespace: `section-${sectionId}`,
       nodes: [HeadingNode, ListNode, ListItemNode],
-      editorState: () => {
-        const root = $getRoot()
-        if (root.getFirstChild() === null) {
-          const paragraph = $createParagraphNode()
-          if (localContent) {
-            paragraph.append($createTextNode(localContent))
-          }
-          root.append(paragraph)
-        }
-      },
+      editorState: null,
       onChange: handleContentChange,
       theme: {
         paragraph: "mb-2",
