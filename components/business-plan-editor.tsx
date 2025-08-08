@@ -20,12 +20,19 @@ interface BusinessPlanEditorProps {
   planName: string
   userEmail: string
   showHeader?: boolean
+  forceCollaborative?: boolean
 }
 
-export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = true }: BusinessPlanEditorProps) {
+export function BusinessPlanEditor({ 
+  planId, 
+  planName, 
+  userEmail, 
+  showHeader = true,
+  forceCollaborative = false 
+}: BusinessPlanEditorProps) {
   const [selectedSection, setSelectedSection] = useState(businessPlanSections[0].id)
   const [completedSections, setCompletedSections] = useState<Set<string>>(new Set())
-  const [isCollaborative, setIsCollaborative] = useState(false)
+  const [isCollaborative, setIsCollaborative] = useState(forceCollaborative)
   const [showProgressOverview, setShowProgressOverview] = useState(true)
   const [isFullScreen, setIsFullScreen] = useState(false)
   // Added state for inline rename functionality
@@ -40,11 +47,15 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userEmail}`,
   }
 
-  // Check if we're in collaborative mode based on URL
+  // Check if we're in collaborative mode based on URL or forced mode
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    setIsCollaborative(urlParams.get("collab") === "true")
-  }, [])
+    if (forceCollaborative) {
+      setIsCollaborative(true)
+    } else {
+      const urlParams = new URLSearchParams(window.location.search)
+      setIsCollaborative(urlParams.get("collab") === "true")
+    }
+  }, [forceCollaborative])
 
   // Load completed sections from localStorage
   useEffect(() => {
@@ -295,31 +306,18 @@ export function BusinessPlanEditor({ planId, planName, userEmail, showHeader = t
 
           <div className={`space-y-6 ${isFullScreen ? "col-span-1" : "lg:col-span-3"}`}>
             {currentSectionData && (
-              isCollaborative ? (
-                <CollaborativeTextEditor
-                  key={selectedSection}
-                  sectionId={selectedSection}
-                  sectionTitle={currentSectionData.title}
-                  planId={planId}
-                  currentUser={currentUser}
-                  onSectionComplete={handleSectionComplete}
-                  onSectionSelect={setSelectedSection}
-                  isFullScreen={isFullScreen}
-                  onToggleFullScreen={handleToggleFullScreen}
-                />
-              ) : (
-                <TextEditor
-                  key={selectedSection}
-                  sectionId={selectedSection}
-                  sectionTitle={currentSectionData.title}
-                  planId={planId}
-                  currentUser={currentUser}
-                  onSectionComplete={handleSectionComplete}
-                  onSectionSelect={setSelectedSection}
-                  isFullScreen={isFullScreen}
-                  onToggleFullScreen={handleToggleFullScreen}
-                />
-              )
+              // Always use CollaborativeTextEditor when LiveBlocks context is available
+              <CollaborativeTextEditor
+                key={selectedSection}
+                sectionId={selectedSection}
+                sectionTitle={currentSectionData.title}
+                planId={planId}
+                currentUser={currentUser}
+                onSectionComplete={handleSectionComplete}
+                onSectionSelect={setSelectedSection}
+                isFullScreen={isFullScreen}
+                onToggleFullScreen={handleToggleFullScreen}
+              />
             )}
 
             {/* Hide progress overview in full-screen mode */}
