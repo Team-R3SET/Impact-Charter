@@ -371,6 +371,7 @@ export function CollaborativeTextEditor({
   }
 
   const room = roomContext && useRoom ? useRoom() : null
+  const [editor] = useLexicalComposerContext()
   
   const [localContent, setLocalContent] = useState(initialContent)
   const [isLoading, setIsLoading] = useState(true)
@@ -639,32 +640,53 @@ export function CollaborativeTextEditor({
   }, [isLiveblocksAvailable, room])
 
   const handleComplete = async () => {
-    if (!localContent || !localContent.trim()) {
-      toast({
-        title: "Section incomplete",
-        description: "Please add content before marking as complete.",
-        variant: "destructive"
-      })
-      return
-    }
-
-    setIsCompleting(true)
     try {
-      setIsCompleted(true)
-      if (onSectionComplete) {
-        onSectionComplete()
+      // Get the current editor content
+      let currentContent = ""
+      if (editor) {
+        editor.read(() => {
+          try {
+            const root = $getRoot()
+            currentContent = root.getTextContent()
+          } catch (error) {
+            console.error("Error reading editor content:", error)
+          }
+        })
       }
-      toast({
-        title: "Section completed",
-        description: "This section has been marked as complete."
-      })
+
+      // Fallback to localContent if editor read fails
+      const contentToCheck = currentContent || localContent || ""
+      
+      if (!contentToCheck.trim()) {
+        toast({
+          title: "Section incomplete",
+          description: "Please add content before marking as complete.",
+          variant: "destructive"
+        })
+        return
+      }
+
+      setIsCompleting(true)
+      try {
+        setIsCompleted(true)
+        if (onSectionComplete) {
+          onSectionComplete()
+        }
+        toast({
+          title: "Section completed",
+          description: "This section has been marked as complete."
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to complete section.",
+          variant: "destructive"
+        })
+      } finally {
+        setIsCompleting(false)
+      }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to complete section.",
-        variant: "destructive"
-      })
-    } finally {
+      console.error("Error in handleComplete:", error)
       setIsCompleting(false)
     }
   }
