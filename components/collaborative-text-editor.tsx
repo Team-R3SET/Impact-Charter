@@ -605,11 +605,10 @@ export function CollaborativeTextEditor({
   const applyFormatting = useCallback((format: 'bold' | 'italic' | 'underline') => {
     if (!textareaRef.current) return;
     
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    
-    const range = selection.getRangeAt(0);
-    const selectedText = range.toString();
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
     
     if (!selectedText) return;
     
@@ -627,9 +626,15 @@ export function CollaborativeTextEditor({
         break;
     }
     
-    document.execCommand('insertHTML', false, formattedText);
-    handleContentChange(textareaRef.current.innerHTML);
-  }, [handleContentChange])
+    const newContent = textarea.value.substring(0, start) + formattedText + textarea.value.substring(end);
+    setLocalContent(newContent);
+    
+    // Restore cursor position
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + formattedText.length, start + formattedText.length);
+    }, 0);
+  }, [])
 
   // Adding markdown parsing utility function
   const parseMarkdown = (text: string) => {
@@ -670,18 +675,6 @@ export function CollaborativeTextEditor({
     markdownText = markdownText.replace(/<[^>]*>/g, '');
     
     return markdownText;
-  };
-
-  // Adding reference for the editable div
-  const editableDivRef = useRef<HTMLDivElement>(null);
-
-  // Function to handle content changes from the editable div
-  const handleEditableContentChange = () => {
-    if (editableDivRef.current) {
-      const html = editableDivRef.current.innerHTML;
-      const markdown = htmlToMarkdown(html);
-      handleContentChange(markdown);
-    }
   };
 
   if (isLoading) {
@@ -848,47 +841,26 @@ export function CollaborativeTextEditor({
                 dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
               />
             ) : (
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2 mb-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => applyFormatting('bold')}
-                    className="w-8 h-8 p-0"
-                    type="button"
-                  >
-                    <span className="font-bold">B</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => applyFormatting('italic')}
-                    className="w-8 h-8 p-0"
-                    type="button"
-                  >
-                    <span className="italic">I</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => applyFormatting('underline')}
-                    className="w-8 h-8 p-0"
-                    type="button"
-                  >
-                    <span className="underline">U</span>
-                  </Button>
-                </div>
-                <div
-                  ref={editableDivRef}
-                  contentEditable
-                  onInput={handleEditableContentChange}
-                  onBlur={handleEditableContentChange}
-                  dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
-                  className={`min-h-[400px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed overflow-auto ${
+              <div className="flex flex-col gap-4">
+                <textarea
+                  ref={textareaRef}
+                  value={localContent}
+                  onChange={(e) => handleContentChange(e.target.value)}
+                  className={`min-h-[300px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed resize-none ${
                     isFullScreen ? "flex-1" : ""
                   }`}
                   placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
                 />
+                
+                {localContent && (
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-medium text-gray-600 mb-2">Live Preview:</h4>
+                    <div
+                      className="p-4 bg-gray-50 rounded-md prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
+                    />
+                  </div>
+                )}
               </div>
             )}
             
