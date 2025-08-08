@@ -271,10 +271,6 @@ export function CollaborativeTextEditor({
         })
       }
 
-      if (onContentChange) {
-        onContentChange(content)
-      }
-
       if (updateMyPresence) {
         updateMyPresence({
           section: sectionId,
@@ -290,7 +286,7 @@ export function CollaborativeTextEditor({
         saveToAirtable(content)
       }, 2000)
     },
-    [planId, sectionId, updateSection, broadcast, onContentChange, updateMyPresence, saveToAirtable],
+    [planId, sectionId, updateSection, broadcast, updateMyPresence, saveToAirtable],
   )
 
   const handleMarkComplete = async () => {
@@ -481,7 +477,7 @@ export function CollaborativeTextEditor({
       onSectionComplete?.(sectionId, completed)
     }
     setIsLoading(false)
-  }, [sectionId, planId, onSectionComplete])
+  }, [sectionId, planId])
 
   const currentSection = storage?.sections?.[sectionId]
   const completedFromStorage = storage?.completedSections?.[sectionId] || currentSection?.isCompleted || false
