@@ -603,35 +603,33 @@ export function CollaborativeTextEditor({
   const currentIndex = getSectionIndex(sectionId)
 
   const applyFormatting = useCallback((format: 'bold' | 'italic' | 'underline') => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const selectedText = localContent.substring(start, end)
+    if (!textareaRef.current) return;
     
-    let formattedText = ''
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString();
+    
+    if (!selectedText) return;
+    
+    let formattedText = '';
+    
     switch (format) {
       case 'bold':
-        formattedText = `**${selectedText}**`
-        break
+        formattedText = `**${selectedText}**`;
+        break;
       case 'italic':
-        formattedText = `*${selectedText}*`
-        break
+        formattedText = `*${selectedText}*`;
+        break;
       case 'underline':
-        formattedText = `<u>${selectedText}</u>`
-        break
+        formattedText = `<u>${selectedText}</u>`;
+        break;
     }
-
-    const newContent = localContent.substring(0, start) + formattedText + localContent.substring(end)
-    handleContentChange(newContent)
-
-    // Restore cursor position
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(start + formattedText.length, start + formattedText.length)
-    }, 0)
-  }, [localContent, handleContentChange])
+    
+    document.execCommand('insertHTML', false, formattedText);
+    handleContentChange(textareaRef.current.innerHTML);
+  }, [handleContentChange])
 
   // Adding markdown parsing utility function
   const parseMarkdown = (text: string) => {
@@ -643,12 +641,47 @@ export function CollaborativeTextEditor({
     // Parse italic text (*text*)
     parsedText = parsedText.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     
-    // Underline tags are already HTML
+    // Parse underline text (_text_)
+    parsedText = parsedText.replace(/_(.*?)_/g, '<u>$1</u>');
     
     // Convert newlines to <br>
     parsedText = parsedText.replace(/\n/g, '<br>');
     
     return parsedText;
+  };
+
+  // Adding function to convert HTML back to markdown
+  const htmlToMarkdown = (html: string) => {
+    if (!html) return '';
+    
+    // Replace <br> with newlines
+    let markdownText = html.replace(/<br\s*\/?>/g, '\n');
+    
+    // Replace <strong> with **
+    markdownText = markdownText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
+    
+    // Replace <em> with *
+    markdownText = markdownText.replace(/<em>(.*?)<\/em>/g, '*$1*');
+    
+    // Replace <u> with _
+    markdownText = markdownText.replace(/<u>(.*?)<\/u>/g, '_$1_');
+    
+    // Remove any other HTML tags
+    markdownText = markdownText.replace(/<[^>]*>/g, '');
+    
+    return markdownText;
+  };
+
+  // Adding reference for the editable div
+  const editableDivRef = useRef<HTMLDivElement>(null);
+
+  // Function to handle content changes from the editable div
+  const handleEditableContentChange = () => {
+    if (editableDivRef.current) {
+      const html = editableDivRef.current.innerHTML;
+      const markdown = htmlToMarkdown(html);
+      handleContentChange(markdown);
+    }
   };
 
   if (isLoading) {
@@ -815,28 +848,50 @@ export function CollaborativeTextEditor({
                 dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
               />
             ) : (
-              <Textarea
-                ref={textareaRef}
-                placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
-                value={localContent}
-                onChange={(e) => handleContentChange(e.target.value)}
-                className={`min-h-[400px] resize-none border-0 shadow-none focus-visible:ring-0 text-base leading-relaxed ${
-                  isFullScreen ? "flex-1" : ""
-                }`}
-              />
-            )}
-            
-            {/* Adding a preview section to show formatted text while editing */}
-            {!finalIsCompleted && localContent && (
-              <div className="mt-4 border-t pt-4">
-                <div className="text-sm font-medium text-muted-foreground mb-2">Preview:</div>
-                <div 
-                  className="p-4 bg-gray-50 dark:bg-gray-800 rounded-md"
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2 mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyFormatting('bold')}
+                    className="w-8 h-8 p-0"
+                    type="button"
+                  >
+                    <span className="font-bold">B</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyFormatting('italic')}
+                    className="w-8 h-8 p-0"
+                    type="button"
+                  >
+                    <span className="italic">I</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyFormatting('underline')}
+                    className="w-8 h-8 p-0"
+                    type="button"
+                  >
+                    <span className="underline">U</span>
+                  </Button>
+                </div>
+                <div
+                  ref={editableDivRef}
+                  contentEditable
+                  onInput={handleEditableContentChange}
+                  onBlur={handleEditableContentChange}
                   dangerouslySetInnerHTML={{ __html: parseMarkdown(localContent) }}
+                  className={`min-h-[400px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base leading-relaxed overflow-auto ${
+                    isFullScreen ? "flex-1" : ""
+                  }`}
+                  placeholder={`Enter your ${sectionTitle.toLowerCase()} here...`}
                 />
               </div>
             )}
-
+            
             {!finalIsCompleted && (
               <>
                 <Separator />
