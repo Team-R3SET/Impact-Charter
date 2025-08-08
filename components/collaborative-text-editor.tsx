@@ -314,6 +314,19 @@ export function CollaborativeTextEditor({
     [planId, sectionId, currentUser, toast, isOnline],
   )
 
+  useEffect(() => {
+    const handleResizeObserverError = (e: ErrorEvent) => {
+      if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+        e.preventDefault()
+        e.stopPropagation()
+        return false
+      }
+    }
+
+    window.addEventListener('error', handleResizeObserverError)
+    return () => window.removeEventListener('error', handleResizeObserverError)
+  }, [])
+
   const handleContentChange = useCallback(
     (content: string) => {
       setLocalContent(content)
@@ -347,8 +360,12 @@ export function CollaborativeTextEditor({
       saveTimeoutRef.current = setTimeout(() => {
         saveToAirtable(content)
       }, 2000)
+
+      if (onContentChange) {
+        onContentChange(content)
+      }
     },
-    [planId, sectionId, updateSection, broadcast, updateMyPresence, saveToAirtable],
+    [planId, sectionId, updateSection, broadcast, updateMyPresence, saveToAirtable, onContentChange],
   )
 
   const handleMarkComplete = async () => {
@@ -625,70 +642,14 @@ export function CollaborativeTextEditor({
   }, [room])
 
   useEffect(() => {
-    if (!room) return
-
-    // Removed updateMyPresence from dependency array to prevent infinite loop
-    updateMyPresence({
-      selectedSection: sectionId,
-      user: {
-        name: currentUser.name,
-        email: currentUser.email,
-        avatar: currentUser.avatar || "/placeholder.svg",
-      },
-    })
-
-    return () => {
-      updateMyPresence({ selectedSection: null })
+    if (updateMyPresence && isCollaborative) {
+      updateMyPresence({
+        section: sectionId,
+        activity: "viewing",
+        lastActive: Date.now(),
+      })
     }
-  }, [sectionId, currentUser, room])
-
-  const markSectionComplete = useMutation
-    ? useMutation(
-        ({ storage }) => {
-          if (!storage.get("completedSections")) {
-            storage.set("completedSections", new Map())
-          }
-
-          const completedMap = storage.get("completedSections")
-          completedMap.set(sectionId, true)
-
-          const sectionsMap = storage.get("sections")
-          if (sectionsMap && sectionsMap.get(sectionId)) {
-            const section = sectionsMap.get(sectionId)
-            sectionsMap.set(sectionId, {
-              ...section,
-              isCompleted: true,
-              lastModified: new Date().toISOString(),
-              modifiedBy: currentUser.email,
-            })
-          }
-        },
-        [sectionId, currentUser.email],
-      )
-    : null
-
-  const markSectionIncomplete = useMutation
-    ? useMutation(
-        ({ storage }) => {
-          const completedMap = storage.get("completedSections")
-          if (completedMap) {
-            completedMap.delete(sectionId)
-          }
-
-          const sectionsMap = storage.get("sections")
-          if (sectionsMap && sectionsMap.get(sectionId)) {
-            const section = sectionsMap.get(sectionId)
-            sectionsMap.set(sectionId, {
-              ...section,
-              isCompleted: false,
-              lastModified: new Date().toISOString(),
-              modifiedBy: currentUser.email,
-            })
-          }
-        },
-        [sectionId, currentUser.email],
-      )
-    : null
+  }, [sectionId, isCollaborative]) // Removed updateMyPresence from dependencies
 
   const usersTyping = isCollaborative && Array.isArray(others)
     ? others.filter(
