@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import { businessPlanSections, getSectionIndex } from "@/lib/business-plan-sections"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { X } from 'lucide-react'
 
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -28,7 +29,7 @@ import { $createHeadingNode, $createQuoteNode, HeadingNode, QuoteNode } from '@l
 import { $createListNode, $createListItemNode, ListItemNode, ListNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list'
 import { AutoLinkNode, LinkNode } from '@lexical/link'
 import { FORMAT_TEXT_COMMAND, UNDO_COMMAND, REDO_COMMAND } from 'lexical'
-import { Bold, Italic, Underline, List, ListOrdered, Quote, Heading1, Heading2, Heading3, Undo, Redo } from 'lucide-react'
+import { Bold, Italic, Underline, List, ListOrdered, Quote, Heading1, Heading2, Heading3, Undo, Redo, CheckCircle } from 'lucide-react'
 
 // Replaced dynamic require with proper ES6 imports and error handling
 let useRoom: any = null
@@ -342,53 +343,33 @@ interface CollaborativeTextEditorProps {
   placeholder?: string
   onContentChange?: (content: string) => void
   onSectionComplete?: () => void
-  showControls?: boolean
   isFullscreen?: boolean
-  onToggleFullscreen?: () => void
 }
 
-export function CollaborativeTextEditor({
-  sectionId,
-  initialContent,
-  placeholder = "Start writing...",
-  onContentChange,
-  onSectionComplete,
-  showControls = true,
-  isFullscreen = false,
-  onToggleFullscreen
-}: CollaborativeTextEditorProps) {
-  // Simplified LiveBlocks context checking
-  let roomContext = null
-  let isLiveblocksAvailable = false
-  
-  try {
-    if (RoomContext && useContext) {
-      roomContext = useContext(RoomContext)
-      isLiveblocksAvailable = roomContext !== null
-    }
-  } catch (error) {
-    isLiveblocksAvailable = false
-  }
-
-  const room = roomContext && useRoom ? useRoom() : null
+function EditorContent({ 
+  initialContent, 
+  placeholder, 
+  onContentChange, 
+  onSectionComplete, 
+  sectionId, 
+  isFullscreen,
+  isCollaborative,
+  othersData 
+}: {
+  initialContent: string
+  placeholder: string
+  onContentChange?: (content: string) => void
+  onSectionComplete?: () => void
+  sectionId: string
+  isFullscreen: boolean
+  isCollaborative: boolean
+  othersData: any[]
+}) {
   const [editor] = useLexicalComposerContext()
-  
   const [localContent, setLocalContent] = useState(initialContent)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [isCompleting, setIsCompleting] = useState(false)
-  const [isCompleted, setIsCompleted] = useState(false)
-  const [isCollaborative, setIsCollaborative] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [isOnline, setIsOnline] = useState(true)
-  const [showCommentsPanel, setShowCommentsPanel] = useState(false)
   const [selectedText, setSelectedText] = useState("")
   const [selectionStart, setSelectionStart] = useState(0)
   const [selectionEnd, setSelectionEnd] = useState(0)
-  const [liveCursors, setLiveCursors] = useState<Array<{ user: any; position: { x: number; y: number } }>>([])
-  const [liveSelections, setLiveSelections] = useState<Array<{ user: any; selection: { start: number; end: number } }>>([])
-  const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
 
   const addCommentMutation = useMutation(({ storage }, commentData: any) => {
@@ -397,59 +378,40 @@ export function CollaborativeTextEditor({
       commentsMap = new Map()
       storage.set("comments", commentsMap)
     }
-    commentsMap.set(commentData.id, commentData)
+    
+    const commentId = `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    commentsMap.set(commentId, {
+      id: commentId,
+      text: commentData.text,
+      author: commentData.author,
+      timestamp: commentData.timestamp,
+      position: commentData.position,
+      resolved: false,
+      replies: []
+    })
   }, [])
 
-  // Adding resolveComment mutation function
   const resolveCommentMutation = useMutation(({ storage }, commentId: string) => {
     const commentsMap = storage.get("comments")
     if (commentsMap && typeof commentsMap.get === 'function') {
       const comment = commentsMap.get(commentId)
       if (comment) {
-        comment.resolved = true
-        commentsMap.set(commentId, comment)
+        commentsMap.set(commentId, { ...comment, resolved: true })
       }
     }
   }, [])
 
-  const updateSection = roomContext && useMutation
-    ? useMutation(
-        ({ storage }, content: string) => {
-          if (!storage.get("sections")) {
-            storage.set("sections", new Map())
-          }
-          if (!storage.get("completedSections")) {
-            storage.set("completedSections", new Map())
-          }
-          const sections = storage.get("sections")
-          sections.set(sectionId, content)
-        },
-        [sectionId]
-      )
-    : null
-
-  let myPresence: any = null
-  let updateMyPresence: any = null
-  let othersData: any = []
-  let comments: any = {}
-
-  if (isLiveblocksAvailable && room) {
-    try {
-      if (useMyPresence) {
-        [myPresence, updateMyPresence] = useMyPresence()
+  const replyToCommentMutation = useMutation(({ storage }, { commentId, reply }: { commentId: string; reply: any }) => {
+    const commentsMap = storage.get("comments")
+    if (commentsMap && typeof commentsMap.get === 'function') {
+      const comment = commentsMap.get(commentId)
+      if (comment) {
+        const updatedReplies = [...(comment.replies || []), reply]
+        commentsMap.set(commentId, { ...comment, replies: updatedReplies })
       }
-      if (useOthers) {
-        othersData = useOthers()
-      }
-      if (useStorage) {
-        comments = useStorage((root) => root.comments) || {}
-      }
-    } catch (error) {
-      console.log("LiveBlocks hooks not available, using local mode")
     }
-  }
+  }, [])
 
-  // Simplified content change handler with better error handling
   const handleContentChange = useCallback((editorState: EditorState) => {
     if (!editorState) {
       return
@@ -464,386 +426,158 @@ export function CollaborativeTextEditor({
             
             setLocalContent(textContent)
             
-            if (updateSection) {
-              updateSection(textContent)
-            }
-            
             if (onContentChange) {
               onContentChange(textContent)
             }
-            
-            // Auto-save functionality
-            if (saveTimeoutRef.current) {
-              clearTimeout(saveTimeoutRef.current)
-            }
-            
-            saveTimeoutRef.current = setTimeout(() => {
-              setLastSaved(new Date())
-              setSaveError(null)
-            }, 1000)
           }
-        } catch (innerError) {
-          console.warn('Error reading editor content:', innerError)
+        } catch (error) {
+          console.error('Error reading editor content:', error)
         }
       })
     } catch (error) {
-      console.warn('Editor state read error:', error)
+      console.error('Content change error:', error)
     }
-  }, [updateSection, onContentChange])
+  }, [onContentChange])
 
   const handleSelectionChange = useCallback((selection: { start: number; end: number; text: string }) => {
     setSelectedText(selection.text)
     setSelectionStart(selection.start)
     setSelectionEnd(selection.end)
-    
-    // Update presence with selection
-    if (updateMyPresence && selection.text) {
-      updateMyPresence({
-        user: { name: "Current User", avatar: "" },
-        section: sectionId,
-        activity: "selecting",
-        textSelection: { start: selection.start, end: selection.end, text: selection.text }
-      })
-    }
-  }, [updateMyPresence, sectionId])
+  }, [])
 
-  const addComment = useCallback(async (content: string, position?: any) => {
-    if (!isLiveblocksAvailable || !room) {
+  const handleComplete = useCallback(() => {
+    if (!localContent || !localContent.trim()) {
       toast({
-        title: "Comments not available",
-        description: "Comments are only available in collaborative mode.",
-        variant: "destructive"
+        title: "Section Incomplete",
+        description: "Please add content to this section before marking it complete.",
+        variant: "destructive",
       })
       return
     }
 
-    try {
-      const commentId = `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      const newComment = {
-        id: commentId,
-        sectionId,
-        content,
-        author: myPresence?.user || { name: "Anonymous", avatar: "" },
-        createdAt: new Date().toISOString(),
-        resolved: false,
-        position: position || { start: selectionStart, end: selectionEnd, text: selectedText },
-        replies: []
-      }
-
-      if (addCommentMutation) {
-        addCommentMutation(newComment)
-      }
-
-      setShowCommentsPanel(true)
-      toast({
-        title: "Comment created",
-        description: "Your comment has been added successfully."
-      })
-    } catch (error) {
-      console.error("Failed to create comment:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create comment. Please try again.",
-        variant: "destructive"
-      })
+    if (onSectionComplete) {
+      onSectionComplete()
     }
-  }, [isLiveblocksAvailable, room, sectionId, myPresence, selectionStart, selectionEnd, selectedText, toast, addCommentMutation])
+  }, [localContent, onSectionComplete, toast])
 
-  // Adding resolveComment function
-  const resolveComment = useCallback(async (commentId: string) => {
-    try {
-      if (resolveCommentMutation) {
-        resolveCommentMutation(commentId)
-      }
+  return (
+    <>
+      <ToolbarPlugin isCollaborative={isCollaborative} othersData={othersData} />
+      <RichTextPlugin
+        contentEditable={
+          <ContentEditable
+            className={cn(
+              "min-h-[400px] resize-none border-0 shadow-none focus:outline-none text-base leading-relaxed p-6",
+              isFullscreen ? "min-h-[60vh]" : ""
+            )}
+          />
+        }
+        placeholder={
+          <div className="absolute top-6 left-6 text-muted-foreground/60 pointer-events-none select-none">
+            {placeholder}
+          </div>
+        }
+        ErrorBoundary={LexicalErrorBoundary}
+      />
+      <OnChangePlugin onChange={handleContentChange} />
+      <SelectionPlugin onSelectionChange={handleSelectionChange} />
+      <HistoryPlugin />
       
-      toast({
-        title: "Comment resolved",
-        description: "The comment has been marked as resolved."
-      })
-    } catch (error) {
-      console.error("Failed to resolve comment:", error)
-      toast({
-        title: "Error",
-        description: "Failed to resolve the comment. Please try again.",
-        variant: "destructive"
-      })
+      {/* Mark Complete Button */}
+      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+        <div className="flex items-center gap-2">
+          {selectedText && (
+            <div className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded">
+              Selected: "{selectedText.length > 20 ? selectedText.substring(0, 20) + '...' : selectedText}"
+            </div>
+          )}
+        </div>
+        <Button
+          onClick={handleComplete}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <CheckCircle className="h-4 w-4" />
+          Mark Complete
+        </Button>
+      </div>
+    </>
+  )
+}
+
+export function CollaborativeTextEditor({
+  initialContent = "",
+  placeholder = "Start writing...",
+  onContentChange,
+  onSectionComplete,
+  sectionId,
+  isFullscreen = false,
+}: CollaborativeTextEditorProps) {
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [isCompleted, setIsCompleted] = useState(false)
+  const [isCollaborative, setIsCollaborative] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(true)
+  const [showCommentsPanel, setShowCommentsPanel] = useState(false)
+  const [liveCursors, setLiveCursors] = useState<Array<{ user: any; position: { x: number; y: number } }>>([])
+  const [liveSelections, setLiveSelections] = useState<Array<{ user: any; selection: { start: number; end: number } }>>([])
+  const saveTimeoutRef = useRef<NodeJS.Timeout>()
+
+  let isLiveblocksAvailable = false
+  let room = null
+  let othersData: any[] = []
+
+  try {
+    const roomContext = useContext(RoomContext)
+    isLiveblocksAvailable = roomContext !== null
+    if (isLiveblocksAvailable) {
+      room = useRoom()
+      const others = useOthers()
+      othersData = others || []
+      setIsCollaborative(true)
     }
-  }, [resolveCommentMutation, toast])
-
-  const replyToComment = useCallback(async (commentId: string, content: string) => {
-    // Existing replyToComment logic here
-  }, [])
-
-  useEffect(() => {
-    if (updateMyPresence) {
-      updateMyPresence({
-        user: { name: "Current User", avatar: "" },
-        section: sectionId,
-        activity: "editing"
-      })
-    }
-  }, [sectionId, updateMyPresence])
-
-  useEffect(() => {
-    if (isLiveblocksAvailable && othersData) {
-      try {
-        const cursors: Array<{ user: any; position: { x: number; y: number } }> = []
-        const selections: Array<{ user: any; selection: { start: number; end: number } }> = []
-        
-        othersData.forEach((other: any) => {
-          if (other.presence?.section === sectionId) {
-            if (other.presence.cursor) {
-              cursors.push({
-                user: other.presence.user,
-                position: other.presence.cursor
-              })
-            }
-            if (other.presence.textSelection) {
-              selections.push({
-                user: other.presence.user,
-                selection: other.presence.textSelection
-              })
-            }
-          }
-        })
-        
-        setLiveCursors(cursors)
-        setLiveSelections(selections)
-      } catch (error) {
-        console.log("LiveBlocks hooks not available, using local mode")
-      }
-    }
-  }, [othersData, sectionId, isLiveblocksAvailable])
-
-  const sectionComments = comments && typeof comments === 'object' 
-    ? Object.values(comments).filter((comment: any) => comment?.sectionId === sectionId)
-    : []
-
-  const unresolvedCommentCount = sectionComments?.filter((comment: any) => !comment?.resolved)?.length || 0
-
-  useEffect(() => {
-    const handleResizeObserverError = (e: ErrorEvent) => {
-      if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
-        e.preventDefault()
-        e.stopPropagation()
-        return false
-      }
-    }
-
-    window.addEventListener('error', handleResizeObserverError)
-    return () => window.removeEventListener('error', handleResizeObserverError)
-  }, [])
+  } catch (error) {
+    console.log('LiveBlocks not available, using local mode')
+    isLiveblocksAvailable = false
+  }
 
   useEffect(() => {
     setIsLoading(false)
-    setIsCollaborative(isLiveblocksAvailable && !!room)
-  }, [isLiveblocksAvailable, room])
-
-  const handleComplete = async () => {
-    try {
-      // Use localContent state instead of accessing editor directly to avoid Lexical error #8
-      const contentToCheck = localContent || ""
-      
-      if (!contentToCheck.trim()) {
-        toast({
-          title: "Section incomplete",
-          description: "Please add content before marking as complete.",
-          variant: "destructive"
-        })
-        return
-      }
-
-      setIsCompleting(true)
-      try {
-        setIsCompleted(true)
-        if (onSectionComplete) {
-          onSectionComplete()
-        }
-        toast({
-          title: "Section completed",
-          description: "This section has been marked as complete."
-        })
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to complete section.",
-          variant: "destructive"
-        })
-      } finally {
-        setIsCompleting(false)
-      }
-    } catch (error) {
-      console.error("Error in handleComplete:", error)
-      setIsCompleting(false)
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <Card className="w-full">
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-muted rounded w-1/4"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
+  }, [])
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {showControls && onToggleFullscreen && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onToggleFullscreen}
-              className="flex items-center gap-2"
-            >
-              {isFullscreen ? (
-                <>
-                  <Minimize2 className="h-4 w-4" />
-                  Exit Fullscreen
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="h-4 w-4" />
-                  Fullscreen
-                </>
-              )}
-            </Button>
-          )}
+    <div className={cn("w-full", isFullscreen && "fixed inset-0 z-50 bg-background")}>
+      {isFullscreen && (
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold">Full Screen Editor</h2>
+          <Button variant="ghost" size="sm" onClick={() => {}}>
+            <X className="h-4 w-4" />
+          </Button>
         </div>
-        
-        <div className="flex items-center gap-4">
-          {showControls && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-              className="flex items-center gap-2"
-            >
-              <MessageSquare className="h-4 w-4" />
-              Comments
-              {unresolvedCommentCount > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {unresolvedCommentCount}
-                </Badge>
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
+      )}
 
-      <div className="relative">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className={cn("lg:col-span-2", isFullscreen && "lg:col-span-3")}>
-            <div className="border border-input rounded-lg overflow-hidden bg-background shadow-sm">
-              <LexicalComposer initialConfig={editorConfig}>
-                <div className="relative">
-                  {/* Toolbar now includes presence indicators */}
-                  <ToolbarPlugin isCollaborative={isCollaborative} othersData={othersData} />
-                  <RichTextPlugin
-                    contentEditable={
-                      <ContentEditable
-                        className={cn(
-                          "min-h-[400px] resize-none border-0 shadow-none focus:outline-none text-base leading-relaxed p-6",
-                          isFullscreen ? "min-h-[60vh]" : ""
-                        )}
-                      />
-                    }
-                    placeholder={
-                      <div className="absolute top-6 left-6 text-muted-foreground/60 pointer-events-none select-none">
-                        {placeholder}
-                      </div>
-                    }
-                    ErrorBoundary={LexicalErrorBoundary}
-                  />
-                  <OnChangePlugin onChange={handleContentChange} />
-                  <SelectionPlugin onSelectionChange={handleSelectionChange} />
-                  <HistoryPlugin />
-                  {/* ListPlugin and LinkPlugin should be imported and used here */}
-                </div>
-              </LexicalComposer>
-              
-              {/* Improved live cursors positioning */}
-              {liveCursors.map((cursor, index) => (
-                <div 
-                  key={index} 
-                  className="absolute pointer-events-none z-10"
-                  style={{
-                    top: cursor.position.y,
-                    left: cursor.position.x,
-                  }}
-                >
-                  <div className="flex items-center gap-1 bg-blue-500 text-white px-2 py-1 rounded-md text-xs shadow-lg">
-                    <Avatar className="w-4 h-4">
-                      <AvatarImage src={cursor.user.avatar || "/placeholder.svg"} />
-                      <AvatarFallback className="text-xs bg-blue-600">{cursor.user.name?.[0]}</AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium">{cursor.user.name}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {/* Improved selection UI */}
-            {selectedText && showControls && (
-              <div className="flex items-center justify-between gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mt-4 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                  <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                    Selected: "{selectedText?.substring(0, 50)}{(selectedText?.length || 0) > 50 ? '...' : ''}"
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addComment(selectedText)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500 hover:border-blue-600"
-                >
-                  <MessageSquare className="h-4 w-4 mr-1" />
-                  Comment on selection
-                </Button>
-              </div>
-            )}
-
-            {showControls && (
-              <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    isSaving ? "bg-blue-500" : "bg-green-500"
-                  )} />
-                  {isSaving ? "Saving..." : "Saved"}
-                </div>
-                
-                <Button
-                  onClick={handleComplete}
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Mark Complete
-                </Button>
-              </div>
-            )}
+      <div className="relative border rounded-lg bg-background">
+        <LexicalComposer initialConfig={editorConfig}>
+          <div className="relative">
+            <EditorContent
+              initialContent={initialContent}
+              placeholder={placeholder}
+              onContentChange={onContentChange}
+              onSectionComplete={onSectionComplete}
+              sectionId={sectionId}
+              isFullscreen={isFullscreen}
+              isCollaborative={isCollaborative}
+              othersData={othersData}
+            />
           </div>
-
-          {!isFullscreen && showCommentsPanel && (
-            <div className="lg:col-span-1">
-              <CommentsPanel
-                sectionId={sectionId}
-                comments={sectionComments}
-                onAddComment={addComment}
-                onResolveComment={resolveComment}
-                onReplyToComment={replyToComment}
-              />
-            </div>
-          )}
-        </div>
+        </LexicalComposer>
       </div>
+
+      {/* ... existing code for comments panel ... */}
     </div>
   )
 }
