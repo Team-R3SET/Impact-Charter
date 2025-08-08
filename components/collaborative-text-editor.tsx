@@ -751,11 +751,11 @@ export function CollaborativeTextEditor({
     }
   }, [sectionId, onSectionSelect])
 
-  const isLiveblocksAvailable = useContext(RoomContext) !== null
+  const isLiveblocksAvailable = roomContext !== null
 
   const ConditionalLiveblocksPlugin = () => {
     // Only render LiveblocksPlugin when room context is available
-    if (!roomContext || !room) {
+    if (!isLiveblocksAvailable || !room) {
       return null
     }
     
