@@ -399,7 +399,7 @@ export function CollaborativeTextEditor({
   const handleContentChange = useCallback(
     (editorState: any) => {
       editorState.read(() => {
-        const root = editorState.getRoot()
+        const root = $getRoot()
         const content = root.getTextContent()
         
         setLocalContent(content)
@@ -451,7 +451,7 @@ export function CollaborativeTextEditor({
     useEffect(() => {
       return editor.registerUpdateListener(({ editorState }) => {
         editorState.read(() => {
-          const selection = editorState.getSelection()
+          const selection = $getSelection()
           if (selection) {
             const selectedText = selection.getTextContent()
             if (selectedText) {
