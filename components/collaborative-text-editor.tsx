@@ -12,6 +12,7 @@ import { CommentsPanel } from "./comments-panel"
 import { LivePresenceHeader } from "./live-presence-header"
 import { MessageSquare, Users, Maximize2, Minimize2, CheckCircle2, Circle, Eye, Edit3, Clock } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
+import { businessPlanSections, getSectionIndex } from "@/lib/business-plan-sections"
 
 // LiveBlocks imports
 import { 
