@@ -174,7 +174,8 @@ export function CollaborativeTextEditor({
     if (editorRef.current) {
       const start = editorRef.current.selectionStart
       const end = editorRef.current.selectionEnd
-      const selected = localContent.substring(start, end)
+      // Added null check for localContent before calling substring
+      const selected = localContent?.substring(start, end) || ''
       
       setSelectedText(selected)
       setSelectionStart(start)
