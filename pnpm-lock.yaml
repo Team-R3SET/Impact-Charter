@@ -14,18 +14,6 @@ importers:
       '@lexical/react':
         specifier: latest
         version: 0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27)
-      '@lexical/rich-text':
-        specifier: latest
-        version: 0.34.0
-      '@lexical/selection':
-        specifier: latest
-        version: 0.34.0
-      '@lexical/utils':
-        specifier: latest
-        version: 0.34.0
-      '@lexical/yjs':
-        specifier: latest
-        version: 0.34.0(yjs@13.6.27)
       '@liveblocks/client':
         specifier: latest
         version: 3.2.1(@types/json-schema@7.0.15)
@@ -36,7 +24,7 @@ importers:
         specifier: latest
         version: 3.2.1(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(react@19.0.0)
       '@liveblocks/react-lexical':
-        specifier: latest
+        specifier: ^3.1.4
         version: 3.2.1(@lexical/react@0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27))(@lexical/rich-text@0.34.0)(@lexical/selection@0.34.0)(@lexical/utils@0.34.0)(@lexical/yjs@0.34.0(yjs@13.6.27))(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(lexical@0.34.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@radix-ui/react-accordion':
         specifier: latest
@@ -2495,7 +2483,7 @@ snapshots:
 
   '@liveblocks/react-lexical@3.2.1(@lexical/react@0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27))(@lexical/rich-text@0.34.0)(@lexical/selection@0.34.0)(@lexical/utils@0.34.0)(@lexical/yjs@0.34.0(yjs@13.6.27))(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(lexical@0.34.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@floating-ui/react-dom': 2.1.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@floating-ui/react-dom': 2.1.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@lexical/react': 0.34.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(yjs@13.6.27)
       '@lexical/rich-text': 0.34.0
       '@lexical/selection': 0.34.0
@@ -2520,7 +2508,7 @@ snapshots:
 
   '@liveblocks/react-ui@3.2.1(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@floating-ui/react-dom': 2.1.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@floating-ui/react-dom': 2.1.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@liveblocks/client': 3.2.1(@types/json-schema@7.0.15)
       '@liveblocks/core': 3.2.1(@types/json-schema@7.0.15)
       '@liveblocks/react': 3.2.1(@types/json-schema@7.0.15)(@types/react-dom@19.0.0)(@types/react@19.0.0)(react@19.0.0)

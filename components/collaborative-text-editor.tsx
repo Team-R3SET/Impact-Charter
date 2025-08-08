@@ -13,6 +13,8 @@ import { LivePresenceHeader } from "./live-presence-header"
 import { MessageSquare, Users, Maximize2, Minimize2, CheckCircle2, Circle, Eye, Edit3, Clock } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { businessPlanSections, getSectionIndex } from "@/lib/business-plan-sections"
+import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 // LiveBlocks imports
 import { 
@@ -32,7 +34,6 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable"
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin"
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin"
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary"
-import { LiveblocksPlugin } from "@liveblocks/react-lexical"
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { $getRoot, $getSelection } from 'lexical'
 
@@ -97,6 +98,12 @@ interface CollaborativeTextEditorProps {
   initialContent?: string
   onContentChange?: (content: string) => void
   placeholder?: string
+  readOnly?: boolean
+  showControls?: boolean
+  showComments?: boolean
+  showCompletionControls?: boolean
+  showCollaborationStatus?: boolean
+  autoSaveInterval?: number
 }
 
 export function CollaborativeTextEditor({
@@ -111,6 +118,12 @@ export function CollaborativeTextEditor({
   initialContent = "",
   onContentChange,
   placeholder = "Start writing your business plan...",
+  readOnly = false,
+  showControls = true,
+  showComments = true,
+  showCompletionControls = true,
+  showCollaborationStatus = true,
+  autoSaveInterval = 2000,
 }: CollaborativeTextEditorProps) {
   const roomContext = useContext(RoomContext)
   const room = roomContext ? useRoom() : null
@@ -422,14 +435,14 @@ export function CollaborativeTextEditor({
         }
         saveTimeoutRef.current = setTimeout(() => {
           saveToAirtable(content)
-        }, 2000)
+        }, autoSaveInterval)
 
         if (onContentChange) {
           onContentChange(content)
         }
       })
     },
-    [planId, sectionId, updateSection, broadcast, updateMyPresence, saveToAirtable, onContentChange, currentUser],
+    [planId, sectionId, updateSection, broadcast, updateMyPresence, saveToAirtable, onContentChange, currentUser, autoSaveInterval],
   )
 
   function SelectionPlugin() {
@@ -638,77 +651,97 @@ export function CollaborativeTextEditor({
   const completedFromStorage = storage?.completedSections?.[sectionId] || currentSection?.isCompleted || false
   const finalIsCompleted = isCompleted || (isCollaborative ? completedFromStorage : false)
 
-  const applyFormatting = useCallback((format: 'bold' | 'italic' | 'underline') => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-
-    const range = selection.getRangeAt(0);
-    if (range.collapsed) return;
-
-    let command = '';
-    switch (format) {
-      case 'bold':
-        command = 'bold';
-        break;
-      case 'italic':
-        command = 'italic';
-        break;
-      case 'underline':
-        command = 'underline';
-        break;
+  const RegularLexicalEditor = () => {
+    const initialConfig = {
+      namespace: `section-${sectionId}`,
+      theme: {
+        paragraph: "mb-2",
+        text: {
+          bold: "font-bold",
+          italic: "italic",
+          underline: "underline",
+        },
+      },
+      onError: (error: Error) => {
+        console.error("Lexical error:", error)
+      },
     }
 
-    document.execCommand(command, false);
-    
-    // Removed textareaRef as we're using Lexical editor now
-  }, [])
+    return (
+      <LexicalComposer initialConfig={initialConfig}>
+        <div className={`relative ${isFullScreen ? "flex-1 flex flex-col" : ""}`}>
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                className={`min-h-[400px] p-4 text-base leading-relaxed resize-none outline-none ${
+                  isFullScreen ? "flex-1" : ""
+                }`}
+                style={{ minHeight: isFullScreen ? "60vh" : "400px" }}
+              />
+            }
+            placeholder={
+              <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
+                {placeholder}
+              </div>
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          <SelectionPlugin />
+          <HistoryPlugin />
+          <AutoFocusPlugin />
+        </div>
+      </LexicalComposer>
+    )
+  }
 
-  const parseMarkdown = (text: string) => {
-    if (!text) return '';
+  const CollaborativeLexicalEditor = () => {
+    // Dynamically import LiveblocksPlugin only when needed
+    const { LiveblocksPlugin } = require("@liveblocks/react-lexical")
     
-    let parsedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
-    parsedText = parsedText.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    
-    parsedText = parsedText.replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
-    
-    parsedText = parsedText.replace(/\n/g, '<br>');
-    
-    return parsedText;
-  };
-
-  const htmlToMarkdown = (html: string) => {
-    if (!html) return '';
-    
-    let markdownText = html.replace(/<br\s*\/?>/g, '\n');
-    markdownText = markdownText.replace(/<div>/g, '\n');
-    markdownText = markdownText.replace(/<\/div>/g, '');
-    
-    markdownText = markdownText.replace(/<(strong|b)>(.*?)<\/(strong|b)>/g, '**$2**');
-    
-    markdownText = markdownText.replace(/<(em|i)>(.*?)<\/(em|i)>/g, '*$2*');
-    
-    markdownText = markdownText.replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
-    
-    markdownText = markdownText.replace(/<(?!u\b|\/u\b)[^>]*>/g, '');
-    
-    markdownText = markdownText.replace(/\n+/g, '\n').trim();
-    
-    return markdownText;
-  };
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-
-    window.addEventListener("online", handleOnline)
-    window.addEventListener("offline", handleOffline)
-
-    return () => {
-      window.removeEventListener("online", handleOnline)
-      window.removeEventListener("offline", handleOffline)
+    const initialConfig = {
+      namespace: `section-${sectionId}`,
+      theme: {
+        paragraph: "mb-2",
+        text: {
+          bold: "font-bold",
+          italic: "italic",
+          underline: "underline",
+        },
+      },
+      onError: (error: Error) => {
+        console.error("Lexical error:", error)
+      },
     }
-  }, [])
+
+    return (
+      <LexicalComposer initialConfig={initialConfig}>
+        <div className={`relative ${isFullScreen ? "flex-1 flex flex-col" : ""}`}>
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                className={`min-h-[400px] p-4 text-base leading-relaxed resize-none outline-none ${
+                  isFullScreen ? "flex-1" : ""
+                }`}
+                style={{ minHeight: isFullScreen ? "60vh" : "400px" }}
+              />
+            }
+            placeholder={
+              <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
+                {placeholder}
+              </div>
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          <SelectionPlugin />
+          <HistoryPlugin />
+          <AutoFocusPlugin />
+          <LiveblocksPlugin />
+        </div>
+      </LexicalComposer>
+    )
+  }
+
+  const isLiveblocksAvailable = roomContext !== null
 
   useEffect(() => {
     setIsCollaborative(!!room)
@@ -751,22 +784,6 @@ export function CollaborativeTextEditor({
     }
   }, [sectionId, onSectionSelect])
 
-  const isLiveblocksAvailable = roomContext !== null
-
-  const ConditionalLiveblocksPlugin = () => {
-    // Only render LiveblocksPlugin when room context is available
-    if (!isLiveblocksAvailable) {
-      return null
-    }
-    
-    try {
-      return <LiveblocksPlugin />
-    } catch (error) {
-      console.log("LiveblocksPlugin error:", error)
-      return null
-    }
-  }
-
   if (isLoading) {
     return (
       <Card>
@@ -780,24 +797,8 @@ export function CollaborativeTextEditor({
     )
   }
 
-  // Added Lexical editor configuration
-  const initialConfig = {
-    namespace: `section-${sectionId}`,
-    theme: {
-      paragraph: "mb-2",
-      text: {
-        bold: "font-bold",
-        italic: "italic",
-        underline: "underline",
-      },
-    },
-    onError: (error: Error) => {
-      console.error("Lexical error:", error)
-    },
-  }
-
   return (
-    <div className={isFullScreen ? "fixed inset-0 z-50 rounded-none flex flex-col" : ""}>
+    <div className={`border rounded-lg overflow-hidden bg-background ${isFullScreen ? "fixed inset-0 z-50 flex flex-col" : ""}`}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -816,7 +817,7 @@ export function CollaborativeTextEditor({
           </div>
 
           <div className="flex items-center gap-2">
-            {isCollaborative && others.length > 0 && (
+            {isCollaborative && showComments && others.length > 0 && (
               <div className="flex items-center gap-1">
                 <div className="flex -space-x-1">
                   {others
@@ -847,7 +848,7 @@ export function CollaborativeTextEditor({
               </div>
             )}
 
-            {isCollaborative && (
+            {isCollaborative && showControls && (
               <div className="flex items-center gap-1">
                 <div className="relative">
                   <button
@@ -871,8 +872,8 @@ export function CollaborativeTextEditor({
               </div>
             )}
 
-            <div className="flex items-center gap-1">
-              {isCollaborative && (
+            {isCollaborative && showControls && (
+              <div className="flex items-center gap-1">
                 <div className="flex items-center gap-1">
                   <button
                     className="bg-white text-black border border-black h-8 w-8 p-0"
@@ -885,9 +886,11 @@ export function CollaborativeTextEditor({
                     Previous section
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {isCollaborative && (
+            {isCollaborative && showControls && (
+              <div className="flex items-center gap-1">
                 <div className="flex items-center gap-1">
                   <button
                     className="bg-white text-black border border-black h-8 w-8 p-0"
@@ -900,10 +903,10 @@ export function CollaborativeTextEditor({
                     Next section
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {onToggleFullScreen && (
+            {onToggleFullScreen && showControls && (
               <div className="flex items-center gap-1">
                 <button
                   className="bg-white text-black border border-black h-8 w-8 p-0"
@@ -921,7 +924,7 @@ export function CollaborativeTextEditor({
               </div>
             )}
             
-            {isCollaborative && (
+            {isCollaborative && showCollaborationStatus && (
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                 <div className="text-xs text-green-800">
@@ -943,33 +946,10 @@ export function CollaborativeTextEditor({
                 <LiveSelection key={index} user={selection.user} selection={selection.selection} />
               ))}
               
-              <LexicalComposer initialConfig={initialConfig}>
-                <div className={`relative ${isFullScreen ? "flex-1 flex flex-col" : ""}`}>
-                  <RichTextPlugin
-                    contentEditable={
-                      <ContentEditable
-                        className={`min-h-[400px] p-4 text-base leading-relaxed resize-none outline-none ${
-                          isFullScreen ? "flex-1" : ""
-                        }`}
-                        style={{ minHeight: isFullScreen ? "60vh" : "400px" }}
-                      />
-                    }
-                    placeholder={
-                      <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
-                        {placeholder}
-                      </div>
-                    }
-                    ErrorBoundary={LexicalErrorBoundary}
-                  />
-                  <SelectionPlugin />
-                  <HistoryPlugin />
-                  <AutoFocusPlugin />
-                  <ConditionalLiveblocksPlugin />
-                </div>
-              </LexicalComposer>
+              {isLiveblocksAvailable ? <CollaborativeLexicalEditor /> : <RegularLexicalEditor />}
             </div>
             
-            {selectedText && (
+            {selectedText && showControls && (
               <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
                 <span className="text-sm text-blue-700 dark:text-blue-300">
                   Selected: "{selectedText.substring(0, 50)}{selectedText.length > 50 ? "..." : ""}"
@@ -995,7 +975,7 @@ export function CollaborativeTextEditor({
               </div>
             )}
 
-            {localContent && !finalIsCompleted && (
+            {localContent && !finalIsCompleted && showControls && (
               <div className="mt-6 border-t pt-6">
                 <h4 className="text-sm font-medium mb-3 text-muted-foreground">Preview</h4>
                 <div 
@@ -1006,7 +986,7 @@ export function CollaborativeTextEditor({
             )}
           </div>
 
-          {!finalIsCompleted && (
+          {!finalIsCompleted && showCompletionControls && (
             <>
               <Separator />
               <div className="flex justify-between items-center">
@@ -1034,7 +1014,7 @@ export function CollaborativeTextEditor({
             </>
           )}
 
-          {finalIsCompleted && (
+          {finalIsCompleted && showControls && (
             <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-green-800 dark:text-green-200">
