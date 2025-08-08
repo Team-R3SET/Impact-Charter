@@ -23,9 +23,8 @@ import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { $getRoot, $getSelection, $createParagraphNode, $createTextNode, EditorState } from 'lexical'
-import { HeadingNode, QuoteNode } from '@lexical/rich-text'
+import { HeadingNode } from '@lexical/rich-text'
 import { ListItemNode, ListNode } from '@lexical/list'
-import { CodeHighlightNode, CodeNode } from '@lexical/code'
 import { AutoLinkNode, LinkNode } from '@lexical/link'
 
 let useRoom: any = null
@@ -55,9 +54,7 @@ const editorConfig = {
     HeadingNode,
     ListNode,
     ListItemNode,
-    QuoteNode,
-    CodeNode,
-    CodeHighlightNode,
+    // Removed CodeNode and CodeHighlightNode to fix Prism dependency
     AutoLinkNode,
     LinkNode,
   ],
@@ -81,8 +78,7 @@ const editorConfig = {
     },
     listitem: 'mb-1',
     quote: 'border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4',
-    code: 'bg-gray-100 rounded px-2 py-1 font-mono text-sm',
-    codeblock: 'bg-gray-100 rounded p-4 font-mono text-sm my-4',
+    // Removed code and codeblock theme styles since we removed code nodes
   },
 }
 

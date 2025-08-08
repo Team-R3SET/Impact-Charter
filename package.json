@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
-    "@lexical/code": "latest",
     "@lexical/link": "latest",
     "@lexical/list": "latest",
     "@lexical/react": "latest",

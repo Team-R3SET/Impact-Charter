@@ -11,9 +11,6 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.9.1(react-hook-form@7.62.0(react@19.0.0))
-      '@lexical/code':
-        specifier: latest
-        version: 0.34.0
       '@lexical/link':
         specifier: latest
         version: 0.34.0
