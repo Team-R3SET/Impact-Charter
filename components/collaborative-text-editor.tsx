@@ -96,6 +96,7 @@ interface CollaborativeTextEditorProps {
   onToggleFullScreen?: () => void
   initialContent?: string
   onContentChange?: (content: string) => void
+  placeholder?: string
 }
 
 export function CollaborativeTextEditor({
@@ -109,8 +110,11 @@ export function CollaborativeTextEditor({
   onToggleFullScreen,
   initialContent = "",
   onContentChange,
+  placeholder = "Start writing your business plan...",
 }: CollaborativeTextEditorProps) {
-  const room = useRoom()
+  const roomContext = useContext(RoomContext)
+  const room = roomContext ? useRoom() : null
+  
   const [localContent, setLocalContent] = useState(initialContent)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -130,8 +134,8 @@ export function CollaborativeTextEditor({
   const { toast } = useToast()
   const editorRef = useRef<HTMLDivElement>(null)
 
-  // Move updateSection definition before it's used
-  const updateSection = useMutation
+  // Conditionally create LiveBlocks mutations only when context is available
+  const updateSection = roomContext && useMutation
     ? useMutation(
         ({ storage }, content: string) => {
           if (!storage.get("sections")) {
@@ -140,108 +144,87 @@ export function CollaborativeTextEditor({
           if (!storage.get("completedSections")) {
             storage.set("completedSections", new Map())
           }
-
-          const sectionsMap = storage.get("sections")
-          sectionsMap.set(sectionId, {
-            title: sectionTitle,
-            content,
-            lastModified: new Date().toISOString(),
-            modifiedBy: currentUser.email,
-            isCompleted: false,
-          })
+          const sections = storage.get("sections")
+          sections.set(sectionId, content)
         },
-        [sectionId, sectionTitle, currentUser.email],
+        [sectionId]
       )
     : null
 
+  // Safely initialize LiveBlocks data with conditional hooks
   let myPresence: any = null
-  let updateMyPresence: any = () => {}
+  let updateMyPresence: any = null
   let others: any[] = []
   let storage: any = null
   let broadcast: any = null
   let comments: any = {}
   let addComment: any = null
 
-  try {
-    if (typeof useRoom !== 'undefined') {
-      const room = useRoom()
-      if (room) {
-        const selfData = useSelf()
-        const [presence, setPresence] = useMyPresence()
-        const othersData = useOthers()
-        
-        myPresence = presence
-        updateMyPresence = setPresence
-        others = othersData || []
-        storage = useStorage((root) => root) || {}
-        broadcast = room.broadcastEvent
-        comments = storage?.comments || {}
-        
-        // Properly create the addComment mutation function
-        addComment = useMutation(
-          ({ storage }, commentContent: string, position: any) => {
-            let commentsMap = storage.get("comments")
-            if (!commentsMap || !(commentsMap instanceof Map)) {
-              commentsMap = new Map()
-              storage.set("comments", commentsMap)
-            }
+  if (roomContext) {
+    try {
+      const selfData = useSelf()
+      const [presence, setPresence] = useMyPresence()
+      const othersData = useOthers()
+      
+      myPresence = presence
+      updateMyPresence = setPresence
+      others = othersData || []
+      storage = useStorage((root) => root) || {}
+      broadcast = room?.broadcastEvent
+      comments = storage?.comments || {}
+      
+      // Properly create the addComment mutation function
+      addComment = useMutation(
+        ({ storage }, commentContent: string, position: any) => {
+          let commentsMap = storage.get("comments")
+          if (!commentsMap || !(commentsMap instanceof Map)) {
+            commentsMap = new Map()
+            storage.set("comments", commentsMap)
+          }
 
-            const commentId = `${sectionId}-${Date.now()}`
-            commentsMap.set(commentId, {
-              id: commentId,
-              content: commentContent,
-              position,
-              sectionId,
-              author: selfData?.info?.name || 'Anonymous',
-              authorId: selfData?.connectionId || 'unknown',
-              timestamp: Date.now(),
-              resolved: false,
-              replies: []
-            })
-          },
-          [sectionId, useSelf]
-        )
-
-        useEffect(() => {
-          const cursors: Array<{ user: any; position: { x: number; y: number } }> = []
-          const selections: Array<{ user: any; selection: { start: number; end: number } }> = []
-          
-          othersData.forEach((other) => {
-            if (other.presence?.selectedSection === sectionId) {
-              // Add cursor if user has a text cursor in this section
-              if (other.presence?.textCursor?.sectionId === sectionId) {
-                cursors.push({
-                  user: {
-                    name: other.info?.name || 'Anonymous',
-                    color: `hsl(${(other.connectionId || 0) * 137.508}deg, 70%, 50%)`, // Generate color from connection ID
-                  },
-                  position: { x: 100, y: 100 }, // This would be calculated from cursor position
-                })
-              }
-              
-              // Add selection if user has a text selection in this section
-              if (other.presence?.textSelection?.sectionId === sectionId) {
-                selections.push({
-                  user: {
-                    name: other.info?.name || 'Anonymous',
-                    color: `hsl(${(other.connectionId || 0) * 137.508}deg, 70%, 50%)`,
-                  },
-                  selection: {
-                    start: other.presence.textSelection.start,
-                    end: other.presence.textSelection.end,
-                  },
-                })
-              }
-            }
+          const commentId = `${sectionId}-${Date.now()}`
+          commentsMap.set(commentId, {
+            id: commentId,
+            content: commentContent,
+            position,
+            sectionId,
+            author: selfData?.info?.name || 'Anonymous',
+            authorId: selfData?.connectionId || 'unknown',
+            timestamp: Date.now(),
+            resolved: false,
+            replies: []
           })
-          
-          setLiveCursors(cursors)
-          setLiveSelections(selections)
-        }, [othersData, sectionId])
-      }
+        },
+        [sectionId, selfData]
+      )
+
+      useEffect(() => {
+        const cursors: Array<{ user: any; position: { x: number; y: number } }> = []
+        const selections: Array<{ user: any; selection: { start: number; end: number } }> = []
+        
+        othersData.forEach((other) => {
+          if (other.presence?.selectedSection === sectionId) {
+            if (other.presence?.textCursor) {
+              cursors.push({
+                user: other.presence.user,
+                position: other.presence.textCursor
+              })
+            }
+            if (other.presence?.textSelection) {
+              selections.push({
+                user: other.presence.user,
+                selection: other.presence.textSelection
+              })
+            }
+          }
+        })
+        
+        setLiveCursors(cursors)
+        setLiveSelections(selections)
+      }, [othersData, sectionId])
+    } catch (error) {
+      console.log("LiveBlocks hooks not available, using local mode")
     }
-  } catch (error) {
-    console.log("LiveBlocks not available, using local mode")
   }
 
   const sectionComments = comments && typeof comments === 'object' 
@@ -771,7 +754,8 @@ export function CollaborativeTextEditor({
   const isLiveblocksAvailable = useContext(RoomContext) !== null
 
   const ConditionalLiveblocksPlugin = () => {
-    if (!isCollaborative || !room) {
+    // Only render LiveblocksPlugin when room context is available
+    if (!roomContext || !room) {
       return null
     }
     
@@ -972,7 +956,7 @@ export function CollaborativeTextEditor({
                     }
                     placeholder={
                       <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
-                        Write your {sectionTitle.toLowerCase()} here...
+                        {placeholder}
                       </div>
                     }
                     ErrorBoundary={LexicalErrorBoundary}
