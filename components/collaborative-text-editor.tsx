@@ -641,17 +641,20 @@ export function CollaborativeTextEditor({
 
   const handleComplete = async () => {
     try {
-      // Get the current editor content
+      // Use getLatestEditorState() to safely access current editor state
       let currentContent = ""
       if (editor) {
-        editor.read(() => {
-          try {
-            const root = $getRoot()
-            currentContent = root.getTextContent()
-          } catch (error) {
-            console.error("Error reading editor content:", error)
-          }
-        })
+        const editorState = editor.getLatestEditorState()
+        if (editorState) {
+          editorState.read(() => {
+            try {
+              const root = $getRoot()
+              currentContent = root.getTextContent()
+            } catch (error) {
+              console.error("Error reading editor content:", error)
+            }
+          })
+        }
       }
 
       // Fallback to localContent if editor read fails
