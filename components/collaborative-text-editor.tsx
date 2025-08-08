@@ -771,7 +771,7 @@ export function CollaborativeTextEditor({
   const isLiveblocksAvailable = useContext(RoomContext) !== null
 
   const ConditionalLiveblocksPlugin = () => {
-    if (!isLiveblocksAvailable) {
+    if (!isCollaborative || !room) {
       return null
     }
     
@@ -1092,4 +1092,20 @@ export function CollaborativeTextEditor({
       )}
     </div>
   )
+}
+
+function getPreviousSection(sectionId: string) {
+  const currentIndex = businessPlanSections.findIndex(section => section.id === sectionId);
+  if (currentIndex > 0) {
+    return businessPlanSections[currentIndex - 1];
+  }
+  return null;
+}
+
+function getNextSection(sectionId: string) {
+  const currentIndex = businessPlanSections.findIndex(section => section.id === sectionId);
+  if (currentIndex < businessPlanSections.length - 1) {
+    return businessPlanSections[currentIndex + 1];
+  }
+  return null;
 }
