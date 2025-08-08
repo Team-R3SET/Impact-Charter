@@ -127,7 +127,17 @@ export function CollaborativeTextEditor({
   showCollaborationStatus = true,
   autoSaveInterval = 2000,
 }: CollaborativeTextEditorProps) {
-  const roomContext = useContext(RoomContext)
+  let roomContext = null
+  let isLiveblocksAvailable = false
+  
+  try {
+    roomContext = useContext(RoomContext)
+    isLiveblocksAvailable = roomContext !== null
+  } catch (error) {
+    // LiveBlocks context not available
+    isLiveblocksAvailable = false
+  }
+
   const room = roomContext ? useRoom() : null
   
   const [localContent, setLocalContent] = useState(initialContent)
@@ -707,6 +717,11 @@ export function CollaborativeTextEditor({
     const [LiveblocksPlugin, setLiveblocksPlugin] = useState<any>(null)
     
     useEffect(() => {
+      // Only load LiveblocksPlugin if we're actually in a LiveBlocks context
+      if (!isLiveblocksAvailable) {
+        return
+      }
+      
       const loadLiveblocksPlugin = async () => {
         try {
           const module = await import("@liveblocks/react-lexical")
@@ -717,7 +732,7 @@ export function CollaborativeTextEditor({
       }
       loadLiveblocksPlugin()
     }, [])
-    
+
     const initialConfig = {
       namespace: `section-${sectionId}`,
       nodes: [HeadingNode, ListNode, ListItemNode],
@@ -758,13 +773,12 @@ export function CollaborativeTextEditor({
           <SelectionPlugin />
           <HistoryPlugin />
           <AutoFocusPlugin />
-          {LiveblocksPlugin && <LiveblocksPlugin />}
+          {/* Only render LiveblocksPlugin if it's loaded and we're in LiveBlocks context */}
+          {LiveblocksPlugin && isLiveblocksAvailable && <LiveblocksPlugin />}
         </div>
       </LexicalComposer>
     )
   }
-
-  const isLiveblocksAvailable = roomContext !== null
 
   useEffect(() => {
     setIsCollaborative(!!room)
