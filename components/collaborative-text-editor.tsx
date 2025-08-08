@@ -168,12 +168,18 @@ export function CollaborativeTextEditor({
   }, [localContent])
 
   const handleAddComment = useCallback(() => {
-    if (!selectedText || !isCollaborative) {
-      setShowCommentsPanel(true)
+    console.log('Add comment clicked', { selectedText, isCollaborative, addComment: !!addComment })
+    
+    // Always show comments panel first, then create comment if conditions are met
+    setShowCommentsPanel(true)
+    
+    // If no selected text, just open the panel
+    if (!selectedText) {
+      console.log('No selected text, just opening comments panel')
       return
     }
 
-    // Create comment with selected text and proper error handling
+    // Create comment regardless of isCollaborative flag for testing
     if (addComment) {
       try {
         const position = {
@@ -184,6 +190,8 @@ export function CollaborativeTextEditor({
         
         // Create a comment with the selected text as context
         const commentContent = `Comment on: "${selectedText}"`
+        console.log('Creating comment with:', { commentContent, position })
+        
         addComment(commentContent, position)
         
         // Clear selection after creating comment
@@ -196,10 +204,13 @@ export function CollaborativeTextEditor({
         console.error('Failed to create comment:', error)
       }
     } else {
-      console.warn('addComment function not available')
+      console.warn('addComment function not available, isCollaborative:', isCollaborative)
+      // For non-collaborative mode, create a simple local comment
+      if (!isCollaborative) {
+        console.log('Creating local comment for non-collaborative mode')
+        // This would be handled by the comments panel in non-collaborative mode
+      }
     }
-    
-    setShowCommentsPanel(true)
   }, [selectedText, isCollaborative, addComment, selectionStart, selectionEnd])
 
   const saveToAirtable = useCallback(
@@ -926,7 +937,7 @@ export function CollaborativeTextEditor({
                   disabled={isLoading}
                 />
                 
-                {selectedText && isCollaborative && (
+                {selectedText && (
                   <div className="absolute top-2 right-2">
                     <Button
                       size="sm"
