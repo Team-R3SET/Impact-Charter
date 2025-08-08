@@ -298,7 +298,7 @@ export function CollaborativeTextEditor({
     ? Object.values(comments).filter((comment: any) => comment?.sectionId === sectionId)
     : []
 
-  const unresolvedCommentsCount = sectionComments.filter((comment: any) => !comment?.resolved).length
+  const unresolvedCommentsCount = sectionComments?.filter((comment: any) => !comment?.resolved)?.length || 0
 
   useEffect(() => {
     const handleResizeObserverError = (e: ErrorEvent) => {
@@ -489,7 +489,7 @@ export function CollaborativeTextEditor({
               {selectedText && showControls && (
                 <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md mt-4">
                   <span className="text-sm text-blue-700 dark:text-blue-300">
-                    Selected: "{selectedText.substring(0, 50)}{selectedText.length > 50 ? '...' : ''}"
+                    Selected: "{selectedText?.substring(0, 50)}{(selectedText?.length || 0) > 50 ? '...' : ''}"
                   </span>
                   <Button
                     size="sm"
@@ -546,7 +546,7 @@ export function CollaborativeTextEditor({
                   </div>
                   
                   <div className="text-sm text-muted-foreground">
-                    {localContent.length} characters
+                    {(localContent || '').length} characters
                   </div>
                 </div>
               </div>
