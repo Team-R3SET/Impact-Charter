@@ -651,9 +651,10 @@ export function CollaborativeTextEditor({
   const completedFromStorage = storage?.completedSections?.[sectionId] || currentSection?.isCompleted || false
   const finalIsCompleted = isCompleted || (isCollaborative ? completedFromStorage : false)
 
-  const RegularLexicalEditor = () => {
+  function NonCollaborativeLexicalEditor() {
     const initialConfig = {
       namespace: `section-${sectionId}`,
+      onChange: handleContentChange,
       theme: {
         paragraph: "mb-2",
         text: {
@@ -694,7 +695,7 @@ export function CollaborativeTextEditor({
     )
   }
 
-  const CollaborativeLexicalEditor = () => {
+  function CollaborativeLexicalEditor() {
     const [LiveblocksPlugin, setLiveblocksPlugin] = useState<any>(null)
     
     useEffect(() => {
@@ -711,6 +712,7 @@ export function CollaborativeTextEditor({
     
     const initialConfig = {
       namespace: `section-${sectionId}`,
+      onChange: handleContentChange,
       theme: {
         paragraph: "mb-2",
         text: {
@@ -957,7 +959,7 @@ export function CollaborativeTextEditor({
                 <LiveSelection key={index} user={selection.user} selection={selection.selection} />
               ))}
               
-              {isLiveblocksAvailable ? <CollaborativeLexicalEditor /> : <RegularLexicalEditor />}
+              {isLiveblocksAvailable ? <CollaborativeLexicalEditor /> : <NonCollaborativeLexicalEditor />}
             </div>
             
             {selectedText && showControls && (
