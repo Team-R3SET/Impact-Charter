@@ -29,6 +29,8 @@ interface CollaborativeTextEditorProps {
   onSectionSelect?: (sectionId: string) => void
   isFullScreen?: boolean
   onToggleFullScreen?: () => void
+  initialContent?: string
+  onContentChange?: (content: string) => void
 }
 
 export function CollaborativeTextEditor({
@@ -40,9 +42,11 @@ export function CollaborativeTextEditor({
   onSectionSelect,
   isFullScreen = false,
   onToggleFullScreen,
+  initialContent = "",
+  onContentChange,
 }: CollaborativeTextEditorProps) {
   const room = useRoom()
-  const [localContent, setLocalContent] = useState("")
+  const [localContent, setLocalContent] = useState(initialContent)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -51,40 +55,63 @@ export function CollaborativeTextEditor({
   const [isCollaborative, setIsCollaborative] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState(true)
-  const [showComments, setShowComments] = useState(false)
-  const [selectedText, setSelectedText] = useState<{start: number, end: number, text: string} | null>(null)
+  const [showCommentsPanel, setShowCommentsPanel] = useState(false)
+  const [selectedText, setSelectedText] = useState("")
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [currentSectionData, setCurrentSectionData] = useState<{ title: string, description: string }>({ title: "", description: "" })
 
-  let myPresence = null
-  let updateMyPresence = () => {}
+  // Move updateSection definition before it's used
+  const updateSection = useMutation
+    ? useMutation(
+        ({ storage }, content: string) => {
+          if (!storage.get("sections")) {
+            storage.set("sections", new Map())
+          }
+          if (!storage.get("completedSections")) {
+            storage.set("completedSections", new Map())
+          }
+
+          const sectionsMap = storage.get("sections")
+          sectionsMap.set(sectionId, {
+            title: sectionTitle,
+            content,
+            lastModified: new Date().toISOString(),
+            modifiedBy: currentUser.email,
+            isCompleted: false,
+          })
+        },
+        [sectionId, sectionTitle, currentUser.email],
+      )
+    : null
+
+  // Initialize LiveBlocks hooks safely
+  let myPresence: any = null
+  let updateMyPresence: any = () => {}
   let others: any[] = []
-  let sections = null
-  let completedSections = null
+  let storage: any = null
+  let broadcast: any = null
   let comments: any = {}
-  let broadcast = () => {}
 
   try {
-    if (useSelf) {
-      const selfResult = useSelf()
-      myPresence = selfResult?.[0] || null
-      updateMyPresence = selfResult?.[1] || (() => {})
-    }
-    if (useOthers) {
-      others = useOthers() || []
-    }
-    if (useStorage) {
-      sections = useStorage((root) => root?.sections) || null
-      completedSections = useStorage((root) => root?.completedSections) || null
-      comments = useStorage((root) => root?.comments || {}) || {}
-    }
-    if (useRoom) {
-      broadcast = useRoom().broadcast || (() => {})
+    if (typeof useRoom !== 'undefined') {
+      const room = useRoom()
+      if (room) {
+        const selfData = useSelf()
+        myPresence = selfData?.presence
+        updateMyPresence = (presence: any) => {
+          if (selfData) {
+            room.updatePresence(presence)
+          }
+        }
+        others = useOthers() || []
+        storage = useStorage((root) => root) || {}
+        broadcast = room.broadcastEvent
+        comments = storage?.comments || {}
+      }
     }
   } catch (error) {
-    console.warn('LiveBlocks hooks not available:', error)
+    console.log("LiveBlocks not available, using local mode")
   }
 
   const sectionComments = comments && typeof comments === 'object' 
@@ -102,14 +129,14 @@ export function CollaborativeTextEditor({
 
     if (start !== end) {
       const selectedText = localContent.substring(start, end)
-      setSelectedText({ start, end, text: selectedText })
+      setSelectedText(selectedText)
     } else {
-      setSelectedText(null)
+      setSelectedText("")
     }
   }, [localContent])
 
   const handleAddComment = useCallback(() => {
-    setShowComments(true)
+    setShowCommentsPanel(true)
   }, [])
 
   const saveToAirtable = useCallback(
@@ -240,13 +267,19 @@ export function CollaborativeTextEditor({
           type: "TEXT_CHANGE",
           sectionId,
           content,
-          userId: currentUser.email,
+          user: currentUser.email,
         })
       }
 
-      if (room) {
+      if (onContentChange) {
+        onContentChange(content)
+      }
+
+      if (updateMyPresence) {
         updateMyPresence({
-          isTyping: { sectionId, timestamp: Date.now() },
+          section: sectionId,
+          activity: "editing",
+          lastActive: Date.now(),
         })
       }
 
@@ -257,7 +290,7 @@ export function CollaborativeTextEditor({
         saveToAirtable(content)
       }, 2000)
     },
-    [planId, sectionId, updateSection, broadcast, room, updateMyPresence, saveToAirtable],
+    [planId, sectionId, updateSection, broadcast, onContentChange, updateMyPresence, saveToAirtable],
   )
 
   const handleMarkComplete = async () => {
@@ -278,10 +311,6 @@ export function CollaborativeTextEditor({
 
       onSectionComplete?.(sectionId, true)
 
-      if (markSectionComplete) {
-        markSectionComplete()
-      }
-
       const response = await fetch(`/api/business-plans/${planId}/sections/${sectionId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -295,7 +324,7 @@ export function CollaborativeTextEditor({
           broadcast({
             type: "SECTION_COMPLETED",
             sectionId,
-            userId: currentUser.email,
+            user: currentUser.email,
           })
         }
 
@@ -396,10 +425,6 @@ export function CollaborativeTextEditor({
 
       onSectionComplete?.(sectionId, false)
 
-      if (markSectionIncomplete) {
-        markSectionIncomplete()
-      }
-
       const response = await fetch(`/api/business-plans/${planId}/sections/${sectionId}/incomplete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -413,7 +438,7 @@ export function CollaborativeTextEditor({
           broadcast({
             type: "SECTION_MARKED_INCOMPLETE",
             sectionId,
-            userId: currentUser.email,
+            user: currentUser.email,
           })
         }
 
@@ -444,27 +469,22 @@ export function CollaborativeTextEditor({
   }
 
   useEffect(() => {
-    if (sections && sections[sectionId]) {
-      setLocalContent(sections[sectionId].content || "")
-      setIsCompleted(sections[sectionId].isCompleted || false)
-    } else {
-      const savedContent = localStorage.getItem(`section-${planId}-${sectionId}`)
-      const savedCompletion = localStorage.getItem(`section-${planId}-${sectionId}-completed`)
+    const savedContent = localStorage.getItem(`section-${planId}-${sectionId}`)
+    const savedCompletion = localStorage.getItem(`section-${planId}-${sectionId}-completed`)
 
-      if (savedContent) {
-        setLocalContent(savedContent)
-      }
-      if (savedCompletion) {
-        const completed = JSON.parse(savedCompletion)
-        setIsCompleted(completed)
-        onSectionComplete?.(sectionId, completed)
-      }
+    if (savedContent) {
+      setLocalContent(savedContent)
+    }
+    if (savedCompletion) {
+      const completed = JSON.parse(savedCompletion)
+      setIsCompleted(completed)
+      onSectionComplete?.(sectionId, completed)
     }
     setIsLoading(false)
-  }, [sections, sectionId, planId, onSectionComplete])
+  }, [sectionId, planId, onSectionComplete])
 
-  const currentSection = sections?.[sectionId]
-  const completedFromStorage = completedSections?.[sectionId] || currentSection?.isCompleted || false
+  const currentSection = storage?.sections?.[sectionId]
+  const completedFromStorage = storage?.completedSections?.[sectionId] || currentSection?.isCompleted || false
   const finalIsCompleted = isCompleted || (isCollaborative ? completedFromStorage : false)
 
   const applyFormatting = useCallback((format: 'bold' | 'italic' | 'underline') => {
@@ -563,29 +583,6 @@ export function CollaborativeTextEditor({
     }
   }, [sectionId, currentUser, room, updateMyPresence])
 
-  const updateSection = useMutation
-    ? useMutation(
-        ({ storage }, content: string) => {
-          if (!storage.get("sections")) {
-            storage.set("sections", new Map())
-          }
-          if (!storage.get("completedSections")) {
-            storage.set("completedSections", new Map())
-          }
-
-          const sectionsMap = storage.get("sections")
-          sectionsMap.set(sectionId, {
-            title: sectionTitle,
-            content,
-            lastModified: new Date().toISOString(),
-            modifiedBy: currentUser.email,
-            isCompleted: false,
-          })
-        },
-        [sectionId, sectionTitle, currentUser.email],
-      )
-    : null
-
   const markSectionComplete = useMutation
     ? useMutation(
         ({ storage }) => {
@@ -637,8 +634,9 @@ export function CollaborativeTextEditor({
   const usersTyping = isCollaborative && Array.isArray(others)
     ? others.filter(
         (user: any) =>
-          user?.presence?.isTyping?.sectionId === sectionId && 
-          Date.now() - (user?.presence?.isTyping?.timestamp || 0) < 3000,
+          user?.presence?.section === sectionId && 
+          user?.presence?.activity === "editing" && 
+          Date.now() - (user?.presence?.lastActive || 0) < 3000,
       )
     : []
 
@@ -675,14 +673,14 @@ export function CollaborativeTextEditor({
 
   return (
     <div className="relative">
-      <Card className={`${isFullScreen ? "fixed inset-4 z-50 flex flex-col" : ""} ${showComments ? "mr-96" : ""}`}>
+      <Card className={`${isFullScreen ? "fixed inset-4 z-50 flex flex-col" : ""} ${showCommentsPanel ? "mr-96" : ""}`}>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div>
-                <CardTitle className="text-xl">{currentSectionData.title || sectionTitle}</CardTitle>
+                <CardTitle className="text-xl">{sectionTitle}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {currentSectionData.description || "Complete this section of your business plan"}
+                  Complete this section of your business plan
                 </p>
               </div>
               {finalIsCompleted && (
@@ -699,9 +697,9 @@ export function CollaborativeTextEditor({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        variant={showComments ? "default" : "outline"}
+                        variant={showCommentsPanel ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setShowComments(!showComments)}
+                        onClick={() => setShowCommentsPanel(!showCommentsPanel)}
                         className="relative"
                       >
                         <MessageCircle className="w-4 h-4" />
@@ -716,7 +714,7 @@ export function CollaborativeTextEditor({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {showComments ? "Hide comments" : "Show comments"}
+                      {showCommentsPanel ? "Hide comments" : "Show comments"}
                       {unresolvedCommentsCount > 0 && ` (${unresolvedCommentsCount} unresolved)`}
                     </TooltipContent>
                   </Tooltip>
@@ -999,12 +997,16 @@ export function CollaborativeTextEditor({
         </CardContent>
       </Card>
 
-      <CommentsPanel
-        sectionId={sectionId}
-        currentUser={currentUser}
-        isOpen={showComments}
-        onClose={() => setShowComments(false)}
-      />
+      {showCommentsPanel && (
+        <div className="fixed inset-0 bg-background/50 flex items-center justify-center">
+          <CommentsPanel
+            sectionId={sectionId}
+            currentUser={currentUser}
+            isOpen={showCommentsPanel}
+            onClose={() => setShowCommentsPanel(false)}
+          />
+        </div>
+      )}
     </div>
   )
 }
