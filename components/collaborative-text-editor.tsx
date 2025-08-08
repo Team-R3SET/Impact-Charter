@@ -35,7 +35,9 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin"
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin"
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary"
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { $getRoot, $getSelection } from 'lexical'
+import { $getRoot, $getSelection, $createParagraphNode, $createTextNode } from 'lexical'
+import { HeadingNode } from '@lexical/rich-text'
+import { ListNode, ListItemNode } from '@lexical/list'
 
 function LiveCursor({ user, position }: { user: any; position: { x: number; y: number } }) {
   return (
@@ -654,6 +656,17 @@ export function CollaborativeTextEditor({
   function NonCollaborativeLexicalEditor() {
     const initialConfig = {
       namespace: `section-${sectionId}`,
+      nodes: [HeadingNode, ListNode, ListItemNode],
+      editorState: () => {
+        const root = $getRoot()
+        if (root.getFirstChild() === null) {
+          const paragraph = $createParagraphNode()
+          if (localContent) {
+            paragraph.append($createTextNode(localContent))
+          }
+          root.append(paragraph)
+        }
+      },
       onChange: handleContentChange,
       theme: {
         paragraph: "mb-2",
@@ -712,6 +725,17 @@ export function CollaborativeTextEditor({
     
     const initialConfig = {
       namespace: `section-${sectionId}`,
+      nodes: [HeadingNode, ListNode, ListItemNode],
+      editorState: () => {
+        const root = $getRoot()
+        if (root.getFirstChild() === null) {
+          const paragraph = $createParagraphNode()
+          if (localContent) {
+            paragraph.append($createTextNode(localContent))
+          }
+          root.append(paragraph)
+        }
+      },
       onChange: handleContentChange,
       theme: {
         paragraph: "mb-2",
