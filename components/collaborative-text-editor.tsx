@@ -22,10 +22,13 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
-import { $getRoot, $getSelection, $createParagraphNode, $createTextNode, EditorState } from 'lexical'
-import { HeadingNode } from '@lexical/rich-text'
-import { ListItemNode, ListNode } from '@lexical/list'
+// Added imports for rich text formatting commands
+import { $getSelection, $isRangeSelection, $createParagraphNode, $createTextNode, EditorState } from 'lexical'
+import { $createHeadingNode, $createQuoteNode, HeadingNode, QuoteNode } from '@lexical/rich-text'
+import { $createListNode, $createListItemNode, ListItemNode, ListNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list'
 import { AutoLinkNode, LinkNode } from '@lexical/link'
+import { FORMAT_TEXT_COMMAND, UNDO_COMMAND, REDO_COMMAND } from 'lexical'
+import { Bold, Italic, Underline, List, ListOrdered, Quote, Heading1, Heading2, Heading3, Undo, Redo } from 'lucide-react'
 
 // Replaced dynamic require with proper ES6 imports and error handling
 let useRoom: any = null
@@ -57,6 +60,7 @@ const editorConfig = {
   namespace: 'CollaborativeEditor',
   nodes: [
     HeadingNode,
+    QuoteNode, // Added QuoteNode for quote formatting
     ListNode,
     ListItemNode,
     AutoLinkNode,
@@ -126,6 +130,162 @@ function SelectionPlugin({ onSelectionChange }: { onSelectionChange: (selection:
   }, [editor, onSelectionChange])
 
   return null
+}
+
+// Added toolbar component for rich text formatting
+function ToolbarPlugin() {
+  const [editor] = useLexicalComposerContext()
+  const [isBold, setIsBold] = useState(false)
+  const [isItalic, setIsItalic] = useState(false)
+  const [isUnderline, setIsUnderline] = useState(false)
+
+  const formatText = (format: 'bold' | 'italic' | 'underline') => {
+    editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)
+  }
+
+  const insertHeading = (headingSize: 'h1' | 'h2' | 'h3') => {
+    editor.update(() => {
+      const selection = $getSelection()
+      if ($isRangeSelection(selection)) {
+        selection.insertNodes([$createHeadingNode(headingSize)])
+      }
+    })
+  }
+
+  const insertList = (listType: 'bullet' | 'number') => {
+    if (listType === 'bullet') {
+      editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)
+    } else {
+      editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)
+    }
+  }
+
+  const insertQuote = () => {
+    editor.update(() => {
+      const selection = $getSelection()
+      if ($isRangeSelection(selection)) {
+        selection.insertNodes([$createQuoteNode()])
+      }
+    })
+  }
+
+  const undo = () => {
+    editor.dispatchCommand(UNDO_COMMAND, undefined)
+  }
+
+  const redo = () => {
+    editor.dispatchCommand(REDO_COMMAND, undefined)
+  }
+
+  return (
+    <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/50 rounded-t-md">
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText('bold')}
+          className={cn("h-8 w-8 p-0", isBold && "bg-accent")}
+        >
+          <Bold className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText('italic')}
+          className={cn("h-8 w-8 p-0", isItalic && "bg-accent")}
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText('underline')}
+          className={cn("h-8 w-8 p-0", isUnderline && "bg-accent")}
+        >
+          <Underline className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <div className="w-px h-6 bg-border mx-1" />
+      
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => insertHeading('h1')}
+          className="h-8 w-8 p-0"
+        >
+          <Heading1 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => insertHeading('h2')}
+          className="h-8 w-8 p-0"
+        >
+          <Heading2 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => insertHeading('h3')}
+          className="h-8 w-8 p-0"
+        >
+          <Heading3 className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <div className="w-px h-6 bg-border mx-1" />
+      
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => insertList('bullet')}
+          className="h-8 w-8 p-0"
+        >
+          <List className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => insertList('number')}
+          className="h-8 w-8 p-0"
+        >
+          <ListOrdered className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={insertQuote}
+          className="h-8 w-8 p-0"
+        >
+          <Quote className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <div className="w-px h-6 bg-border mx-1" />
+      
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={undo}
+          className="h-8 w-8 p-0"
+        >
+          <Undo className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={redo}
+          className="h-8 w-8 p-0"
+        >
+          <Redo className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 interface CollaborativeTextEditorProps {
@@ -555,11 +715,13 @@ export function CollaborativeTextEditor({
               <div className="relative">
                 <LexicalComposer initialConfig={editorConfig}>
                   <div className="relative">
+                    {/* Added toolbar above the editor */}
+                    <ToolbarPlugin />
                     <RichTextPlugin
                       contentEditable={
                         <ContentEditable
                           className={cn(
-                            "min-h-[400px] resize-none border-0 shadow-none focus:outline-none text-base leading-relaxed p-4 rounded-md border border-input bg-background",
+                            "min-h-[400px] resize-none border-0 shadow-none focus:outline-none text-base leading-relaxed p-4 rounded-b-md border border-input bg-background border-t-0",
                             isFullscreen ? "min-h-[60vh]" : ""
                           )}
                           placeholder={placeholder}
