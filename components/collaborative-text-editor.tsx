@@ -342,6 +342,15 @@ export function CollaborativeTextEditor({
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const { toast } = useToast()
 
+  const addCommentMutation = useMutation(({ storage }, commentData: any) => {
+    let commentsMap = storage.get("comments")
+    if (!commentsMap || typeof commentsMap.set !== 'function') {
+      commentsMap = new Map()
+      storage.set("comments", commentsMap)
+    }
+    commentsMap.set(commentData.id, commentData)
+  }, [])
+
   const updateSection = roomContext && useMutation
     ? useMutation(
         ({ storage }, content: string) => {
@@ -460,18 +469,8 @@ export function CollaborativeTextEditor({
         replies: []
       }
 
-      // Add comment to storage
-      if (useMutation) {
-        const addCommentMutation = useMutation(({ storage }) => {
-          let commentsMap = storage.get("comments")
-          if (!commentsMap || typeof commentsMap.set !== 'function') {
-            commentsMap = new Map()
-            storage.set("comments", commentsMap)
-          }
-          commentsMap.set(commentId, newComment)
-        }, [])
-        
-        addCommentMutation()
+      if (addCommentMutation) {
+        addCommentMutation(newComment)
       }
 
       setShowCommentsPanel(true)
@@ -482,12 +481,12 @@ export function CollaborativeTextEditor({
     } catch (error) {
       console.error("Failed to create comment:", error)
       toast({
-        title: "Failed to create comment",
-        description: "There was an error creating your comment.",
+        title: "Error",
+        description: "Failed to create comment. Please try again.",
         variant: "destructive"
       })
     }
-  }, [isLiveblocksAvailable, room, sectionId, myPresence, selectionStart, selectionEnd, selectedText, toast])
+  }, [isLiveblocksAvailable, room, sectionId, myPresence, selectionStart, selectionEnd, selectedText, toast, addCommentMutation])
 
   const handleAddComment = () => {
     if (selectedText) {
