@@ -65,10 +65,10 @@ export function CollaborativeTextEditor({
   const comments = useStorage ? useStorage((root) => root?.comments || {}) : {}
   const broadcast = useRoom ? useRoom().broadcast : () => {}
 
-  const sectionComments = Object.values(comments || {}).filter(
-    (comment: any) => comment.sectionId === sectionId
-  )
-  const unresolvedCommentsCount = sectionComments.filter((comment: any) => !comment.resolved).length
+  const sectionComments = comments && typeof comments === 'object' 
+    ? Object.values(comments).filter((comment: any) => comment?.sectionId === sectionId)
+    : []
+  const unresolvedCommentsCount = sectionComments.filter((comment: any) => !comment?.resolved).length
 
   const handleTextSelection = useCallback(() => {
     if (!textareaRef.current) return
@@ -611,15 +611,16 @@ export function CollaborativeTextEditor({
       )
     : null
 
-  const usersTyping = isCollaborative
+  const usersTyping = isCollaborative && Array.isArray(others)
     ? others.filter(
         (user: any) =>
-          user.presence?.isTyping?.sectionId === sectionId && Date.now() - user.presence.isTyping.timestamp < 3000,
-      ) || []
+          user?.presence?.isTyping?.sectionId === sectionId && 
+          Date.now() - (user?.presence?.isTyping?.timestamp || 0) < 3000,
+      )
     : []
 
-  const usersInSection = isCollaborative
-    ? others.filter((user: any) => user.presence?.selectedSection === sectionId) || []
+  const usersInSection = isCollaborative && Array.isArray(others)
+    ? others.filter((user: any) => user?.presence?.selectedSection === sectionId)
     : []
 
   const handlePreviousSection = useCallback(() => {
@@ -840,20 +841,20 @@ export function CollaborativeTextEditor({
             </div>
           </div>
 
-          {isCollaborative && usersTyping.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {usersTyping.length > 0 && Array.isArray(usersTyping) && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <div className="flex -space-x-1">
                 {usersTyping.map((user: any) => (
                   <Avatar key={user.id} className="w-4 h-4">
-                    <AvatarImage src={user.presence?.user?.avatar || "/placeholder.svg"} />
+                    <AvatarImage src={user?.presence?.user?.avatar || "/placeholder.svg"} />
                     <AvatarFallback className="text-xs">
-                      {user.presence?.user?.name?.charAt(0).toUpperCase() || "A"}
+                      {user?.presence?.user?.name?.charAt(0)?.toUpperCase() || "A"}
                     </AvatarFallback>
                   </Avatar>
                 ))}
               </div>
               <span>
-                {usersTyping.map((u: any) => u.presence?.user?.name || "Someone").join(", ")}
+                {usersTyping.map((u: any) => u?.presence?.user?.name || "Someone").join(", ")}
                 {usersTyping.length === 1 ? " is" : " are"} typing...
               </span>
             </div>
