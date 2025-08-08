@@ -826,6 +826,16 @@ export function CollaborativeTextEditor({
     }
   }, [sectionId, onSectionSelect])
 
+  const ConditionalLiveblocksPlugin = () => {
+    try {
+      const room = useRoom()
+      return room ? <LiveblocksPlugin /> : null
+    } catch (error) {
+      // LiveBlocks context not available, skip the plugin
+      return null
+    }
+  }
+
   if (isLoading) {
     return (
       <Card>
@@ -931,15 +941,6 @@ export function CollaborativeTextEditor({
                       {showCommentsPanel ? "Hide comments" : "Show comments"}
                       {unresolvedCommentsCount > 0 && ` (${unresolvedCommentsCount} unresolved)`}
                     </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-
-              <div className="flex items-center gap-1">
-                {isCollaborative && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
                   </Tooltip>
                 </TooltipProvider>
               )}
@@ -1148,8 +1149,7 @@ export function CollaborativeTextEditor({
                   <HistoryPlugin />
                   <AutoFocusPlugin />
                   <SelectionPlugin />
-                  {/* Added LiveBlocks plugin for real-time collaboration */}
-                  <LiveblocksPlugin />
+                  <ConditionalLiveblocksPlugin />
                 </div>
               </LexicalComposer>
             </div>
